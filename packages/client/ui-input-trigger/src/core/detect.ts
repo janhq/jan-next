@@ -4,8 +4,8 @@
  * word-boundary rules. Zero React / DOM / cordis.
  */
 import { activeAtToken } from '@janhq/jan-file-reference/grammar'
-import type { TriggerChar } from '../types.ts'
-import type { DetectTrigger } from './contract.ts'
+import type { TriggerChar, TriggerGuard } from '../types.ts'
+import type { DetectTrigger, TriggerHit } from './contract.ts'
 
 const WORD_CHAR = /[\p{L}\p{N}_]/u
 const WHITESPACE = /\s/u
@@ -73,4 +73,20 @@ export const detectTrigger: DetectTrigger = (draft, caret, guard) => {
     }
   }
   return null
+}
+
+/**
+ * Detect a leading slash line with a horizontal argument separator. The source still has to claim the name.
+ * @param draft - full composer text.
+ * @param caret - caret offset into `draft`.
+ * @param guard - current availability tier.
+ * @returns the argument hit, or null outside a complete, single-line slash draft.
+ */
+export function detectCommandArguments(draft: string, caret: number, guard: TriggerGuard): TriggerHit | null {
+  if (guard.tier !== 'plain') return null
+  const start = draft.search(/\S/u)
+  if (start < 0 || start >= caret || draft[start] !== '/' || draft.slice(caret).trim() !== '') return null
+  const query = draft.slice(start + 1, caret)
+  if (!/^[^\s]+[ \t][^\r\n]*$/u.test(query)) return null
+  return { trigger: '/', query, quoted: false, position: 'leading', arguments: true, span: { start, end: caret, draftRev: 0 } }
 }

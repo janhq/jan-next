@@ -1,7 +1,5 @@
 /**
- * Models-page extension slots — the two seats through which a plugin
- * distributed outside this repository adds UI to the Models settings section
- * without editing it.
+ * Settings-page and first-run slots through which plugins contribute model setup UI.
  *
  * `settings.models.provider-card` is keyed by the row's owning settings
  * namespace (`ProviderDirectoryEntry.settingsNs`): an adapter family's
@@ -44,6 +42,10 @@ declare module '@janhq/jan-client-ui-slots' {
      * Without a registrant the area renders nothing.
      */
     'settings.models.footer': { kind: 'list'; scope: 'root'; owner: ModelsFooterOwnerProps }
+    /** Local model management displayed when the user chooses local setup. */
+    'settings.models.setup-local': { kind: 'single'; scope: 'root'; owner: ModelsFooterOwnerProps }
+    /** Subscription setup displayed under the contribution's localized label. */
+    'settings.models.setup-subscription': { kind: 'single'; scope: 'root'; owner: ModelsFooterOwnerProps }
   }
 }
 

@@ -4,7 +4,7 @@ type Recommendation = { id: string; copy: string }
 type Bundle = { name: string; enabled: boolean; availability: string }
 type Catalog = { presets: string[]; bundles: Bundle[] }
 type Selection = { modes: Recommendation[]; plugins: Recommendation[] }
-type Profile = { name: string; roles: string[]; goals: string[] }
+type Profile = { name: string; roles: string[]; goals: string[]; mode?: string }
 type Operations = {
   enable(name: string): Promise<string>
   setDefault(id: string): Promise<void>
@@ -17,6 +17,7 @@ type Setup = {
   recommendModel(roles: string[], goals: string[], localAvailable: boolean): { route: string; reason: string }
   applySetup(operations: Operations, profile: Profile, options: Selection,
     checked: { plugins: string[]; modes: string[]; defaultMode: string }): Promise<void>
+  applyAssistant(operations: Operations & { enablePlugin(name: string): Promise<string>; layout(kind: string): void }, profile: Profile): Promise<string>
 }
 let setup: Setup
 
@@ -41,18 +42,21 @@ const voice = '@janhq/jan-experimental-voice-input-bundle'
 const bundle = (name: string, enabled = false) => ({ name, enabled, availability: 'installation' })
 const catalog = { presets: ['chat', 'standard'], bundles: [worktrees, search, titles, voice].map(name => bundle(name)) }
 
+const bots = '@janhq/jan-always-on'
+
 function actualSettings(bundles = catalog.bundles) {
   const installed = new Map(bundles.map(row => [row.name, { ...row }]))
-  const data = { mode: 'chat', profile: undefined as object | undefined }
+  const data = { mode: 'chat', profile: undefined as object | undefined, layout: undefined as string | undefined }
   const enable = async (name: string) => {
     const row = installed.get(name)
     if (row === undefined) throw new Error('unknown plugin')
     row.enabled = true
     return 'applied'
   }
-  return { installed, data, enable,
+  return { installed, data, enable, enablePlugin: enable,
     setDefault: async (id: string) => { data.mode = id },
     saveProfile: async (profile: object) => { data.profile = profile },
+    layout: (kind: string) => { data.layout = kind },
   }
 }
 
@@ -85,7 +89,7 @@ describe('onboarding setup', () => {
     expect([...settings.installed.values()].map(row => [row.name, row.enabled])).toEqual([
       [worktrees, true], [search, false], [titles, true], [voice, false],
     ])
-    expect(settings.data).toEqual({ mode: 'standard', profile: { ...profile, name: 'Ada' } })
+    expect(settings.data).toEqual({ mode: 'standard', profile: { ...profile, name: 'Ada', mode: 'workspace' }, layout: undefined })
   })
 
   it('leaves the default unchanged when every mode is unchecked', async () => {
@@ -93,14 +97,33 @@ describe('onboarding setup', () => {
     await setup.applySetup(settings, { name: '', roles: ['developer'], goals: [] }, setup.recommend(['developer'], catalog),
       { plugins: [], modes: [], defaultMode: 'standard' })
     expect(settings.data.mode).toBe('chat')
-    expect(settings.data.profile).toEqual({ name: '', roles: ['developer'], goals: [] })
+    expect(settings.data.profile).toEqual({ name: '', roles: ['developer'], goals: [], mode: 'workspace' })
   })
 
   it('does not report completion or change the default when an enablement is refused', async () => {
     const settings = actualSettings()
     await expect(setup.applySetup({ ...settings, enable: async () => 'overridden' }, { name: '', roles: ['developer'], goals: [] },
       setup.recommend(['developer'], catalog), { plugins: [worktrees], modes: ['standard'], defaultMode: 'standard' })).rejects.toThrow()
-    expect(settings.data).toEqual({ mode: 'chat', profile: undefined })
+    expect(settings.data).toEqual({ mode: 'chat', profile: undefined, layout: undefined })
+  })
+
+  it('Assistant mode turns on Bots, keeps the short sidebar, and saves the answer', async () => {
+    const settings = actualSettings([...catalog.bundles, bundle(bots)])
+    const profile = { name: ' Ada ', roles: ['office'], goals: [] }
+    await expect(setup.applyAssistant(settings, profile)).resolves.toBe('applied')
+    expect(settings.installed.get(bots)?.enabled).toBe(true)
+    expect([...settings.installed.values()].filter(row => row.enabled).map(row => row.name)).toEqual([bots])
+    expect(settings.data).toEqual({ mode: 'chat', profile: { ...profile, name: 'Ada', mode: 'assistant' }, layout: 'assistant' })
+  })
+
+  it('Assistant mode reports a pending restart and changes nothing when Bots is refused', async () => {
+    const pending = actualSettings()
+    await expect(setup.applyAssistant({ ...pending, enablePlugin: async () => 'restart-required' }, { name: '', roles: [], goals: [] }))
+      .resolves.toBe('restart-required')
+    expect(pending.data.layout).toBe('assistant')
+    const refused = actualSettings()
+    await expect(setup.applyAssistant({ ...refused, enablePlugin: async () => 'failed' }, { name: '', roles: [], goals: [] })).rejects.toThrow()
+    expect(refused.data).toEqual({ mode: 'chat', profile: undefined, layout: undefined })
   })
 
   it('suggests a hosted model for demanding work and the local model only for light work it can run', () => {

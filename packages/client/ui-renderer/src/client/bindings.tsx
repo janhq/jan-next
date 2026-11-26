@@ -24,6 +24,35 @@ export function useHost(): SlotRendererHost {
   return host
 }
 
+/** Parts (`root`, or a scope name) each host has rendered once; a later gap is a plugin reload, not a boot-order failure. */
+const assembled = new WeakMap<SlotRendererHost, Set<string>>()
+
+/**
+ * Record that a host rendered one part. Idempotent, so a render may call it.
+ * @param host - the renderer host.
+ * @param part - `root`, or the scope name.
+ */
+export function markAssembled(host: SlotRendererHost, part: string): void {
+  let parts = assembled.get(host)
+  if (parts === undefined) {
+    parts = new Set()
+    assembled.set(host, parts)
+  }
+  parts.add(part)
+}
+
+/**
+ * Whether a host rendered one part before. A part missing after that is a plugin reload in
+ * flight - the old registration disposed, the new code not yet applied - and renders nothing until
+ * it returns; a part missing before it ever rendered is the boot-order failure that throws.
+ * @param host - the renderer host.
+ * @param part - `root`, or the scope name.
+ * @returns whether the part rendered before.
+ */
+export function assembledBefore(host: SlotRendererHost, part: string): boolean {
+  return assembled.get(host)?.has(part) === true
+}
+
 const RootBindingContext = createContext<StandardSourceBinding | null>(null)
 const ScopeBindingContext = createContext<StandardSourceBinding | null>(null)
 
@@ -195,7 +224,13 @@ export function ScopeProvider({
   const host = useHost()
   observableHook(host.scopeRevision)(value => value)
   const adapter = host.scope(scope)
-  if (adapter === undefined) throw new SlotAssemblyError(`scope '${scope}' rendered without an installed adapter`)
-  const binding = observableHook(adapter.current)(value => value)
+  // The binding hook runs on every render, so a missing adapter keeps the hook order.
+  const binding = observableHook<StandardSourceBinding | undefined>(adapter?.current ?? absentSource)(value => value)
+  if (adapter === undefined || binding === undefined) {
+    // A plugin reload disposes the adapter before its new code installs it again: wait for it.
+    if (assembledBefore(host, scope)) return null
+    throw new SlotAssemblyError(`scope '${scope}' rendered without an installed adapter`)
+  }
+  markAssembled(host, scope)
   return <ScopeBindingContext.Provider value={binding}>{children}</ScopeBindingContext.Provider>
 }

@@ -15,7 +15,7 @@
   border-radius: var(--dsw-radius-lg);
   background: var(--card-fill);
   color: var(--dsw-alias-label-primary);
-  transition: background-color 120ms ease;
+  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 :global(body[data-ds-dark-theme]) .card {

@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy": Read the attached file with
-  - text: Standard mode
+  - text: Code mode
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

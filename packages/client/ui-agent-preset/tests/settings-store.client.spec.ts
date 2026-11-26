@@ -117,6 +117,7 @@ describe('the agent-preset roster store', () => {
   it('carries the display metadata a preset published', async () => {
     const controller = derivedController(fakeApi([
       { id: 'standard', isDefault: true, name: '标准模式', description: '完整的编码 agent。' },
+      { id: 'reviewer', isDefault: false, order: 3, showInModePicker: false },
     ] as never))
 
     await controller.load()
@@ -125,6 +126,7 @@ describe('the agent-preset roster store', () => {
     // what a preset does.
     expect(controller.store.getSnapshot().options).toEqual([
       { id: 'standard', name: '标准模式', description: '完整的编码 agent。' },
+      { id: 'reviewer', order: 3, showInModePicker: false },
     ])
   })
 
@@ -402,7 +404,7 @@ describe('the new-session chip controller', () => {
     expect(writes).toEqual([])
   })
 
-  it('drops a staged preset when the session already runs it', async () => {
+  it('drops a non-explicit stage when the session already runs it', async () => {
     const writes: Recorded[] = []
     const controller = chip(ROSTER, {
       id: 's1' as SessionId,
@@ -412,12 +414,12 @@ describe('the new-session chip controller', () => {
     await controller.load()
 
     controller.stage('minimal')
-    await controller.apply()
+    await expect(controller.apply()).resolves.toEqual({ kind: 'unchanged' })
 
     expect(writes).toEqual([])
   })
 
-  it('pins a direct pick on the Host even when the session already runs it', async () => {
+  it('pins the current preset when the user picks it explicitly', async () => {
     const writes: Recorded[] = []
     const controller = chip(ROSTER, {
       id: 's1' as SessionId,
@@ -426,8 +428,7 @@ describe('the new-session chip controller', () => {
     }, { writes })
     await controller.load()
 
-    await controller.select('minimal')
-
+    await expect(controller.select('minimal')).resolves.toEqual({ kind: 'applied' })
     expect(writes).toEqual([{ ns: 'select', ops: 'minimal' }])
   })
 

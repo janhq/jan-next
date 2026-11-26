@@ -55,7 +55,7 @@ export function registerContextMenus(
         failureLabel: t('path.revealError'),
         ...manager === undefined ? {} : { run: async () => {
           const outcome = await directories.launch(manager, path)
-          report(outcome.kind === 'failed' ? { kind: 'failed', failure: 'revealError' } : outcome)
+          report(outcome.kind === 'failed' ? { ...outcome, failure: 'revealError' } : outcome)
         } } }]
     },
   }), 'open-in-app: Workspace context menu')

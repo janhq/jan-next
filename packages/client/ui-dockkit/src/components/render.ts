@@ -23,7 +23,9 @@ export interface PaneCallbacks {
   readonly onDividerPressed: (splitId: SplitId, index: number, event: ReactPointerEvent<HTMLElement>) => void
   readonly tabStrips?: boolean
   readonly dividerLabel?: string | undefined
-  readonly onDividerNudge?: (splitId: SplitId, index: number, delta: number) => void
+  readonly activeDivider?: string | undefined
+  /** A missing delta balances the pair at this divider. */
+  readonly onDividerNudge?: (splitId: SplitId, index: number, delta: number | undefined, element: HTMLElement) => void
   /** Why a pane cannot split right now, or `undefined` while it can. */
   readonly splitBlock: (paneId: PaneId) => SplitBlock | undefined
   /** Hide blocked split controls instead of rendering them disabled. */

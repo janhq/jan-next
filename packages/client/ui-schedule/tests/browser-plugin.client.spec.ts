@@ -353,8 +353,9 @@ describe('ui-schedule browser half', () => {
         // entry reads, in the order the deletions settled.
         await expect(face.onDelete(id)).resolves.toBe('deleted')
         expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'deleted', seq: 1 })
-        await expect(face.onDelete(id)).resolves.toBe('failed')
-        expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'deleteFailed', seq: 2 })
+        const outcome = await face.onDelete(id)
+        expect(outcome).toHaveProperty('failure')
+        expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'deleteFailed', seq: 2, ...typeof outcome === 'object' ? outcome : {} })
         await expect(face.onDelete(id)).resolves.toBe('deleted')
         expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'deleted', seq: 3 })
         toast.dismiss()

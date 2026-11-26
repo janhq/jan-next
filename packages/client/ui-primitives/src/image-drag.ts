@@ -1,8 +1,9 @@
 /** Image gestures delegate file preparation and transport to the owning feature. */
 import { useCallback, useEffect, useMemo, useRef, type DragEvent, type MouseEvent, type PointerEvent, type ImgHTMLAttributes } from 'react'
 import type { FileDragActions, FileDragSource, PreparedFileDrag } from './file-drag-actions.ts'
+import { captureFailure, type FailureDetails } from './failure-details.ts'
 
-interface Preparation { abort: AbortController; prepared?: PreparedFileDrag; failed: boolean }
+interface Preparation { abort: AbortController; prepared?: PreparedFileDrag; failure?: FailureDetails }
 type ImageGestures = Required<Pick<ImgHTMLAttributes<HTMLImageElement>,
   'onPointerEnter' | 'onPointerDown' | 'onPointerLeave' | 'onDragStart' | 'onDragEnd' | 'onClickCapture'>>
 
@@ -33,7 +34,7 @@ export function useImageDrag(
   useEffect(() => release, [release, source, actions])
   const prepare = useCallback((image: HTMLImageElement): void => {
     if (src === '' || state.current !== undefined) return
-    const current: Preparation = { abort: new AbortController(), failed: false }
+    const current: Preparation = { abort: new AbortController() }
     state.current = current
     window.addEventListener('pointerup', (event) => {
       if (event.target !== image) release()
@@ -42,9 +43,9 @@ export function useImageDrag(
     void actions.prepare(source, current.abort.signal).then((prepared) => {
       if (current.abort.signal.aborted) prepared.release()
       else current.prepared = prepared
-    }, (_error: unknown) => {
+    }, (error: unknown) => {
       // Speculation stays quiet; only a later failed gesture presents retry feedback.
-      current.failed = true
+      if (!current.abort.signal.aborted) current.failure = captureFailure('fileDrag.prepare', error)
     })
   }, [src, actions, source, release])
   const intent = useCallback((event: PointerEvent<HTMLImageElement>): void => {
@@ -62,7 +63,7 @@ export function useImageDrag(
     const url = new URL(src, location.href)
     if (original === undefined && (url.protocol === 'https:' || url.protocol === 'http:') && url.origin !== location.origin) return
     event.preventDefault()
-    if (current?.failed === true) { actions.reportFailure(); release() }
+    if (current?.failure !== undefined) { actions.reportFailure(current.failure); release() }
     prepare(event.currentTarget)
   }, [src, original, actions, prepare, release])
   const onPointerDown = useCallback((event: PointerEvent<HTMLImageElement>): void => {

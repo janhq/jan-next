@@ -123,7 +123,7 @@ describe('assembled shortcut command owners', () => {
     expect(reference.getSnapshot()).toMatchObject({ open: false, query: '' })
     expect(settings.getSnapshot()).toBe(selected)
     press('Comma')
-    expect(settings.getSnapshot()).toEqual({ open: false, activeId: undefined })
+    expect(settings.getSnapshot()).toMatchObject({ open: false, activeId: undefined })
     press('Slash')
     expect(reference.getSnapshot().open).toBe(true)
     press('Comma')

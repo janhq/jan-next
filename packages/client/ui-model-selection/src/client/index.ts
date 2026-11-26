@@ -14,10 +14,10 @@
 import { createElement } from 'react'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type { ModelSelection } from '@janhq/jan-api-session-controller/types'
-import type { } from '@janhq/jan-api-session-controller/client'
+import type { ModelCatalogModel, ModelSelection } from '@janhq/jan-api-session-controller/types'
+import type { ISessions } from '@janhq/jan-api-session-controller/client'
 import type { Context as ClientContext } from '@janhq/cordis'
-import type { CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
+import type { CommandArgumentOption, CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the input.model seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -28,9 +28,10 @@ import type { } from '@janhq/jan-client-ui-settings-general/client'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import { IconDataOutlineRegular } from '@janhq/jan-client-ui-primitives'
-import type { ModelDirectoryState } from './directory.ts'
+import type { ModelDirectory, ModelDirectoryState } from './directory.ts'
 import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
+import { displayNames, favoriteStore, modelKey, rankModels, RECENT_ROWS, recentStore, toggleFavorite } from './model-rank.ts'
 import { ModelSelect } from './ModelSelect.tsx'
 import { ImageNotice, type ImageNoticeInjected } from './ImageNotice.tsx'
 import { ToolNotice, type ToolNoticeInjected } from './ToolNotice.tsx'
@@ -110,7 +111,8 @@ function modelInjection(
 ): (sessionId: SessionId) => ModelSelectInjected {
   return (sessionId) => {
     const directory = ctx.modelDirectories.directoryFor(sessionId)
-    const available = ctx.sessions.subagentAddress(sessionId) === undefined
+    const sessions = ctx.get('sessions') as ISessions
+    const available = sessions.subagentAddress(sessionId) === undefined
     return {
       available, directory: directory.store,
       load: () => { if (available) void directory.load().catch(() => { /* surfaced on the store */ }) },
@@ -156,6 +158,102 @@ function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): Sel
     })
   }
   return rows
+}
+
+/**
+ * Inline `/model` suggestions in the picker's order (Favorites, Recent, then
+ * providers) and with its matching. A value is the catalog model id unless
+ * its provider is needed to identify the route.
+ * @param state - the session's directory snapshot.
+ * @param query - typed argument text.
+ * @param t - model namespace translator for the Favorites and Recent headings.
+ * @returns ordered, filtered options.
+ */
+function argumentOptionsOf(state: ModelDirectoryState, query: string, t: TranslateNS<'model'>): CommandArgumentOption[] {
+  const ids = new Set<string>()
+  const duplicates = new Set<string>()
+  const routes = new Set<string>()
+  for (const group of state.groups) {
+    for (const model of group.models) {
+      if (ids.has(model.id)) duplicates.add(model.id)
+      ids.add(model.id)
+      routes.add(rowId(group.id, model.id))
+    }
+  }
+  const groups = state.groups.map((group) => {
+    const names = displayNames(group.models)
+    return { ...group, label: (model: ModelCatalogModel): string => names.get(model.id) ?? model.name }
+  })
+  const favorites = favoriteStore.getSnapshot()
+  const sections = rankModels(groups, { favorites, recents: recentStore.getSnapshot(), query, recentLimit: RECENT_ROWS })
+  return sections.flatMap((section) => {
+    const heading = section.kind === 'provider'
+      ? section.name
+      : t(section.kind === 'favorites' ? 'menu.favorites' : 'menu.recent')
+    return section.rows.map(({ group, model }) => ({
+      value: duplicates.has(model.id) || routes.has(model.id) ? rowId(group.id, model.id) : model.id,
+      label: group.label(model),
+      group: heading,
+      starred: favorites.includes(modelKey(group.id, model.id)),
+    }))
+  })
+}
+
+/**
+ * Resolve a typed or picked `/model` argument: a `provider/model` route, or a
+ * model id that only one provider lists.
+ * @param state - the session's directory snapshot.
+ * @param argument - argument text.
+ * @returns the selection, or undefined when nothing or several routes match.
+ */
+function argumentSelectionOf(state: ModelDirectoryState, argument: string): ModelSelection | undefined {
+  const route = selectionOf(state, argument)
+  if (route !== undefined) return route
+  const groups = state.groups.filter(group => group.models.some(model => model.id === argument))
+  return groups.length === 1 && groups[0] !== undefined ? selectionOf(state, rowId(groups[0].id, argument)) : undefined
+}
+
+/** The current model's catalog entry, or undefined when it is unselected or not loaded. */
+function currentModelOf(state: ModelDirectoryState): ModelCatalogModel | undefined {
+  const current = state.current
+  if (current === null) return undefined
+  return state.groups.find(group => group.id === current.provider)?.models.find(model => model.id === current.model)
+}
+
+/**
+ * Inline `/effort` suggestions: the current model's levels in catalog order,
+ * the active one marked, filtered by id or name prefix.
+ * @param state - the session's directory snapshot.
+ * @param query - typed argument text.
+ * @param t - model namespace translator.
+ * @returns level options; empty when the model has no adjustable effort.
+ */
+function effortOptionsOf(state: ModelDirectoryState, query: string, t: TranslateNS<'model'>): CommandArgumentOption[] {
+  const reasoning = currentModelOf(state)?.reasoning
+  if (reasoning === undefined) return []
+  const active = state.current?.reasoningEffort ?? reasoning.defaultEffort
+  const needle = query.toLowerCase()
+  return reasoning.efforts
+    .filter(level => level.id.toLowerCase().startsWith(needle) || level.name.toLowerCase().startsWith(needle))
+    .map(level => ({ value: level.id, label: level.name, ...level.id === active ? { description: t('effortCommand.label') } : {} }))
+}
+
+/**
+ * Resolve a typed `/effort` argument to the current model with that level.
+ * @param state - the session's directory snapshot.
+ * @param argument - level id or display name, case-insensitive.
+ * @param t - model namespace translator for the failure text.
+ * @returns the selection to submit.
+ * @throws when the model has no adjustable effort or the level is unknown.
+ */
+function effortSelectionOf(state: ModelDirectoryState, argument: string, t: TranslateNS<'model'>): ModelSelection {
+  const current = state.current
+  const reasoning = currentModelOf(state)?.reasoning
+  if (current === null || reasoning === undefined || reasoning.efforts.length === 0) throw new Error(t('effortCommand.unsupported'))
+  const needle = argument.trim().toLowerCase()
+  const level = reasoning.efforts.find(item => item.id.toLowerCase() === needle || item.name.toLowerCase() === needle)
+  if (level === undefined) throw new Error(t('effortCommand.unknown', { effort: argument.trim() }))
+  return { provider: current.provider, model: current.model, reasoningEffort: level.id }
 }
 
 /**
@@ -208,7 +306,8 @@ export function apply(ctx: ClientContext): void {
   // Warn before a plain message the selected model cannot hold.
   ctx.inject(['conversation', 'modelDirectories'], (scope: ClientContext) => {
     scope.effect(() => scope.conversation.input.addSendCheck((sessionId, text) => {
-      const pressure = scope.sessions.binding(sessionId)?.session.projections.faceOf('contextPressure')
+      const sessions = scope.get('sessions') as ISessions
+      const pressure = sessions.binding(sessionId)?.session.projections.faceOf('contextPressure')
         .getSnapshot() as ContextPressureProjection | undefined
       const overflow = overflowOf(text, { directory: scope.modelDirectories.directoryFor(sessionId).store.getSnapshot(), pressure })
       if (overflow === undefined) return undefined
@@ -219,7 +318,8 @@ export function apply(ctx: ClientContext): void {
     // The context meter reads the selected model's window until the first request reports one.
     scope.effect(() => scope.conversation.input.setContextWindowSource((sessionId) => {
       // A Session without a retained scope (an addressed subagent, a closing tab) has no directory.
-      if (scope.sessions.scope(sessionId) === undefined || scope.sessions.binding(sessionId) === undefined) return NO_WINDOW
+      const sessions = scope.get('sessions') as ISessions
+      if (sessions.scope(sessionId) === undefined || sessions.binding(sessionId) === undefined) return NO_WINDOW
       const directory = scope.modelDirectories.directoryFor(sessionId)
       const windowOf = (state: ModelDirectoryState): number | undefined => {
         const current = state.current
@@ -239,7 +339,8 @@ export function apply(ctx: ClientContext): void {
     scope.slots.inject('conversation.input.dock', () => scope.slots.register({
       name: 'conversation.input.dock', id: 'model-image', order: 30, locale: NS,
       inject: (sessionId: SessionId): ImageNoticeInjected => {
-        const actx = scope.sessions.scope(sessionId)
+        const sessions = scope.get('sessions') as ISessions
+        const actx = sessions.scope(sessionId)
         if (actx === undefined) throw new Error(`ui-model-selection: session "${String(sessionId)}" resolved no scope`)
         const input = scope.conversation.input.for(actx).state
         const directory = scope.modelDirectories.directoryFor(sessionId)
@@ -278,13 +379,40 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['commandUi', 'modelDirectories'], (scope: ClientContext) => {
     const command = scope.get('commandUi') as CommandUiContract
     const models = scope.modelDirectories
-    const sessions = scope.sessions
+    const sessions = scope.get('sessions') as ISessions
+    const directoryFor = (sessionId: SessionId) => {
+      if (sessions.subagentAddress(sessionId) !== undefined) {
+        throw new Error('model selection is unavailable for addressed subagent sessions')
+      }
+      return models.directoryFor(sessionId)
+    }
+    const select = async (directory: ModelDirectory, selection: ModelSelection) => {
+      const result = await directory.select(selection)
+      if (!result.ok) {
+        if (result.error.code === 'session/writer-held') throw new Error(t('error.sessionInUse'))
+        throw result.error
+      }
+    }
     scope.effect(() => command.register({
       name: 'model',
       label: () => t('command.label'),
       description: () => t('command.description'),
       icon: IconDataOutlineRegular,
       available: session => sessions.subagentAddress(session.sessionId) === undefined,
+      arguments: {
+        complete: async (query, session) => argumentOptionsOf(await directoryFor(session.sessionId).load(), query, t),
+        ordered: true,
+        run: async (argument, session) => {
+          const directory = directoryFor(session.sessionId)
+          const selection = argumentSelectionOf(await directory.load(), argument)
+          if (selection === undefined) throw new Error(t('search.empty'))
+          return select(directory, selection)
+        },
+        star: async (value, session) => {
+          const selection = argumentSelectionOf(await directoryFor(session.sessionId).load(), value)
+          if (selection !== undefined) toggleFavorite(modelKey(selection.provider, selection.model))
+        },
+      },
       ui: {
         kind: 'popupSelect',
         searchLabels: () => ({
@@ -292,29 +420,46 @@ export function apply(ctx: ClientContext): void {
           empty: t('empty.models'),
           noResults: t('search.empty'),
         }),
-        options: async (session) => {
-          if (sessions.subagentAddress(session.sessionId) !== undefined) {
-            throw new Error('model selection is unavailable for addressed subagent sessions')
-          }
-          return optionsOf(await models.directoryFor(session.sessionId).load(), t)
-        },
+        options: async session => optionsOf(await directoryFor(session.sessionId).load(), t),
         onSelect: async (option, session) => {
-          if (sessions.subagentAddress(session.sessionId) !== undefined) {
-            throw new Error('model selection is unavailable for addressed subagent sessions')
-          }
-          const directory = models.directoryFor(session.sessionId)
+          const directory = directoryFor(session.sessionId)
           const selection = selectionOf(directory.store.getSnapshot(), option.id)
           if (selection === undefined) {
             throw new Error('this provider\'s catalog failed to load — pick a model from a loaded group')
           }
-          const result = await directory.select(selection)
-          if (!result.ok) {
-            if (result.error.code === 'session/writer-held') throw new Error(t('error.sessionInUse'))
-            throw result.error
-          }
+          await select(directory, selection)
         },
       },
     }), 'ui-model-selection: /model contribution')
+    // `/effort high` changes only the thinking level of the chat's current model.
+    scope.effect(() => command.register({
+      name: 'effort',
+      label: () => t('effortCommand.label'),
+      description: () => t('effortCommand.description'),
+      icon: IconDataOutlineRegular,
+      available: session => sessions.subagentAddress(session.sessionId) === undefined,
+      arguments: {
+        complete: async (query, session) => effortOptionsOf(await directoryFor(session.sessionId).load(), query, t),
+        ordered: true,
+        run: async (argument, session) => {
+          const directory = directoryFor(session.sessionId)
+          return select(directory, effortSelectionOf(await directory.load(), argument, t))
+        },
+      },
+      ui: {
+        kind: 'popupSelect',
+        searchLabels: () => ({ placeholder: t('effortCommand.description'), empty: t('effortCommand.unsupported'), noResults: t('search.empty') }),
+        options: async (session) => {
+          const state = await directoryFor(session.sessionId).load()
+          const active = state.current?.reasoningEffort ?? currentModelOf(state)?.reasoning?.defaultEffort
+          return effortOptionsOf(state, '', t).map(option => ({ id: option.value, label: option.label, ...option.value === active ? { active: true } : {} }))
+        },
+        onSelect: async (option, session) => {
+          const directory = directoryFor(session.sessionId)
+          await select(directory, effortSelectionOf(directory.store.getSnapshot(), option.id, t))
+        },
+      },
+    }), 'ui-model-selection: /effort contribution')
   })
 
   ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {

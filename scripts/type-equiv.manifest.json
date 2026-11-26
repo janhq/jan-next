@@ -1114,7 +1114,7 @@
     {
       "doc": "docs/subsystems/jobs.md",
       "symbol": "JobToolCall",
-      "source": "packages/jobs/jobs/src/types.ts"
+      "source": "packages/jobs/jobs/src/view.ts"
     },
     {
       "doc": "docs/subsystems/jobs.md",
@@ -2474,6 +2474,41 @@
     },
     {
       "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestPreview",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestArtifact",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestAssets",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestFailureSelection",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestFailureLog",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestBlockingReview",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
+      "symbol": "ChangeRequestFailureContext",
+      "source": "packages/experimental/forge/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/forge.md",
       "symbol": "ChangeRequestUpdate",
       "source": "packages/experimental/forge/src/types.ts"
     },
@@ -2510,6 +2545,16 @@
     {
       "doc": "docs/subsystems/boot.md",
       "symbol": "PendingModule",
+      "source": "packages/boot/hmr/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/boot.md",
+      "symbol": "ReloadGate",
+      "source": "packages/boot/hmr/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/boot.md",
+      "symbol": "HeldReload",
       "source": "packages/boot/hmr/src/index.ts"
     },
     {

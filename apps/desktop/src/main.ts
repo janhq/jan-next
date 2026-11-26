@@ -11,7 +11,8 @@ import { applicationIconPath } from './application-icon.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   app,
   BrowserWindow,
@@ -36,6 +37,7 @@ import { resolveJanHome } from '@janhq/jan-home-paths'
 import { parseFactoryResetRequest, performFactoryReset, type FactoryResetCategory } from './factory-reset.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
+import { DesktopDownloads, nativeDownloadBytes } from './native-downloads.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
 import { installDesktopFileDrag } from './file-drag.ts'
 import { installDesktopDirectoryPicker } from './directory-picker.ts'
@@ -93,6 +95,8 @@ let shuttingDown = false
  * development restart command. The installer handoff has its own before-quit branch.
  */
 let skipQuitConfirmation = false
+/** Exit code that asks the development launcher to start Electron again; unset for an ordinary quit. */
+let exitCodeAfterQuit: number | undefined
 let windowsLanguage: string | undefined = readDesktopLocaleCache(app.getPath('userData'))
 /**
  * Whether the backend has reached ready: false until the first ready, back to
@@ -580,6 +584,7 @@ async function main(): Promise<void> {
     () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US',
     process.platform === 'win32' || process.platform === 'darwin' ? process.platform : null,
     owner => isMandatory() || updateOverlays.input(owner).blocked)
+  const nativeDownloads = new DesktopDownloads()
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.jan, activeProject,
@@ -592,7 +597,7 @@ async function main(): Promise<void> {
           segmentBytes: 256 * 1024, recordBytes: 4096, queuedBytes: 64 * 1024,
         })
         operationJournal.enqueue(JSON.stringify(record))
-      })
+      }, nativeDownloads)
     return {
       start: async () => {
         const ready = await host.start()
@@ -758,7 +763,7 @@ async function main(): Promise<void> {
     ...(initialChannel.kind === 'error' ? { error: configurationFailure(initialChannel.error) } : {}),
   }
   const updateChannel = initialChannel.kind === 'ready' ? initialChannel.channel : packagedChannel
-  const updates = new DesktopUpdateCoordinator(
+  const updates: DesktopUpdateCoordinator = new DesktopUpdateCoordinator(
     publishUpdate,
     async () => {
       await commandManager.idle()
@@ -816,6 +821,30 @@ async function main(): Promise<void> {
     undefined, undefined, undefined,
     (success, reason) => { void track('desktop_upgrade_download_result', { is_success: success, ...reason === undefined ? {} : { error_reason: reason } }) },
     updateChannel,
+    undefined,
+    (version, revision) => {
+      const transfer = nativeDownloads.start({ id: `desktop-update:${revision}:${version}`, kind: 'update',
+        name: `${locale.messages.updateTitle} ${version}` })
+      transfer.update({ state: 'downloading' })
+      const open = (expected: 'done' | 'failed'): void => {
+        const state = updates.state
+        const ready = state.phase === 'ready' || (state.phase === 'error' && state.failedOperation === 'install')
+        const retryable = state.phase === 'available' || (state.phase === 'error' && state.failedOperation === 'download')
+        if (quitting || updates.revision !== revision || state.version !== version || !(expected === 'done' ? ready : retryable)) {
+          throw new Error('Desktop update action is no longer available')
+        }
+        void openUpdatePrompt().catch((error: unknown) => { console.error(error) })
+      }
+      return {
+        progress: (received, total) => { transfer.update({ state: 'downloading', ...nativeDownloadBytes(received, total) }) },
+        finish: (outcome, failure) => {
+          if (outcome === 'done') transfer.finish('done', undefined, { open: () => { open('done') } })
+          else if (outcome === 'failed' && failure !== undefined) {
+            transfer.finish('failed', desktopUpdateErrorSummary(failure, locale.messages), { retry: () => { open('failed') } })
+          } else transfer.finish(outcome)
+        },
+      }
+    },
   )
 
   if (initialChannel.kind === 'error') updates.suspendConfiguration(initialChannel.error.path)
@@ -920,7 +949,7 @@ async function main(): Promise<void> {
     if (owner === undefined || !event.senderFrame?.url.startsWith('jan-app://app/')) throw new Error('Rejected Platform command')
     return owner
   }
-  installFileActions(assertMainApplication, () => hostUrl)
+  installFileActions(assertMainApplication, () => hostUrl, nativeDownloads)
   ipcMain.on(PLATFORM_IPC.bootstrap, (event) => {
     try { event.returnValue = platformView.bootstrap(event) }
     catch { event.returnValue = null }
@@ -941,8 +970,9 @@ async function main(): Promise<void> {
     if (source === 'light' || source === 'dark' || source === 'system') nativeTheme.themeSource = source
   })
   ipcMain.handle(DESKTOP_IPC.localeBootstrap, async (event) => {
-    if (event.sender !== mainWindow?.webContents || event.senderFrame !== mainWindow.webContents.mainFrame
-      || new URL(event.senderFrame.url).origin !== new URL(applicationUrl).origin) {
+    // Every product window boots the same page, so restored conversation windows read the locale too.
+    const owner = ownedProductWindow(event)
+    if (owner === undefined || new URL(event.senderFrame?.url ?? '').origin !== new URL(applicationUrl).origin) {
       throw new Error('desktop welcome: rejected locale request from an unowned frame')
     }
     if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
@@ -1000,6 +1030,16 @@ async function main(): Promise<void> {
     assertProductSender(event)
     return readDeviceInfo()
   })
+  ipcMain.handle(DESKTOP_IPC.restartApplication, (event) => {
+    assertProductSender(event)
+    if (quitting) return
+    // `dev --watch` keeps its rebuild watchers only while it owns Electron, so it starts Electron again itself.
+    const launcherCode = app.isPackaged ? undefined : Number(process.env.JAN_DESKTOP_RESTART_EXIT_CODE)
+    const launcherRestarts = launcherCode !== undefined && Number.isInteger(launcherCode) && launcherCode > 0 && launcherCode < 256
+    if (launcherRestarts) exitCodeAfterQuit = launcherCode
+    else app.relaunch()
+    quitWithoutConfirmation()
+  })
   ipcMain.handle(DESKTOP_IPC.factoryReset, async (event, value: unknown) => {
     assertProductSender(event)
     const categories = parseFactoryResetRequest(value)
@@ -1017,7 +1057,16 @@ async function main(): Promise<void> {
           message: messages.factoryResetNotStarted, buttons: [messages.restartApplication] })
         return
       }
-      const { completed, incomplete } = await performFactoryReset(categories, roots, () => session.defaultSession.clearStorageData())
+      const { completed, incomplete } = await performFactoryReset(categories, roots,
+        () => session.defaultSession.clearStorageData(), async () => {
+          // Resolve from the same immutable runtime as the Host, only for a credential reset.
+          const entry = createRequire(join(resources.jan, 'package.json')).resolve('@janhq/jan-credentials-local')
+          const { resetCredentialDocument, CREDENTIALS_FILENAME } = await import(pathToFileURL(entry).href) as {
+            readonly resetCredentialDocument: (filename: string) => Promise<void>
+            CREDENTIALS_FILENAME: string
+          }
+          await resetCredentialDocument(join(roots.janHome, CREDENTIALS_FILENAME))
+        })
       if (incomplete.size === 0) {
         console.info('desktop factory reset: removed', completed)
       } else {
@@ -1821,7 +1870,7 @@ async function main(): Promise<void> {
       platformView.dispose(),
       disposeFileDrag(),
     ].map(cleanup => cleanup.catch((error: unknown) => { console.error(error) })))
-      .then(() => { app.quit() })
+      .then(() => { if (exitCodeAfterQuit === undefined) app.quit(); else app.exit(exitCodeAfterQuit) })
   }
   app.on('before-quit', (event) => {
     if (shellInstallerOwnsQuit) {

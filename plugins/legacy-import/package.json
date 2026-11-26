@@ -14,6 +14,7 @@
     "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-token-meter": "workspace:*",
     "@janhq/schemastery": "workspace:~",
     "smol-toml": "^1.9.0"
   },
@@ -26,7 +27,7 @@
       "inject": [
         "@janhq/jan-client-ui-layout",
         "@janhq/jan-client-ui-primitives",
-        "@janhq/jan-client-ui-settings-plugins",
+        "@janhq/jan-client-ui-settings-general",
         "@janhq/jan-client-ui-workspace"
       ]
     }

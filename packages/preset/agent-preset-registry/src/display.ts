@@ -55,6 +55,15 @@ export function isBuiltInPreset(preset: PresetDisplaySource): boolean {
 }
 
 /**
+ * Whether a shipped preset requires the Coding Tools preference, so every mode picker hides it without that preference.
+ * @param preset - roster row; named custom overrides keep their own behavior.
+ * @returns true only for the built-in PTC and Minimal presets.
+ */
+export function requiresCodingTools(preset: PresetDisplaySource | undefined): boolean {
+  return preset !== undefined && isBuiltInPreset(preset) && (preset.id === 'ptc' || preset.id === 'minimal')
+}
+
+/**
  * Resolve preset display copy without making user-authored metadata translatable.
  * @param preset - roster row whose copy is being rendered.
  * @param t - active locale lookup covering {@link BuiltInPresetCopyKey}.

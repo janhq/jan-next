@@ -100,6 +100,12 @@
       "path": "../../preset/agent-preset-registry"
     },
     {
+      "path": "../../preset/agent-profiles/tsconfig.host.json"
+    },
+    {
+      "path": "../../settings/scoped-settings/tsconfig.host.json"
+    },
+    {
       "path": "../../session/session-persistence"
     },
     {
@@ -116,6 +122,9 @@
     },
     {
       "path": "../../skill/skill"
+    },
+    {
+      "path": "../../mcp/mcp-client"
     },
     {
       "path": "../../mcp/mcp-manager"

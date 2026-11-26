@@ -145,7 +145,7 @@ export type Config = PresetDefinition
 
 - `inject`: `loader` · `sessionProjections` · `agents`
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/preset/agent-preset-registry/src/preset.ts:15`](../packages/preset/agent-preset-registry/src/preset.ts)
+- `source`: [`packages/preset/agent-preset-registry/src/preset.ts:17`](../packages/preset/agent-preset-registry/src/preset.ts)
 
 ```ts config-catalog
 /** Registry selection policy. */
@@ -156,6 +156,29 @@ export interface Config {
   routeDefaults: Record<string, string>
   /** User-selected default; edited through Settings. */
   selectedDefault: Volatile<string | undefined>
+}
+```
+
+<a id="janhqjan-agent-profiles"></a>
+
+## `@janhq/jan-agent-profiles`
+
+- `inject`: `workspaceRegistry` · `sessionProjections` · `agents` · `systemPrompt`
+- `source`: [`packages/preset/agent-profiles/src/index.ts:36`](../packages/preset/agent-profiles/src/index.ts)
+
+```ts config-catalog
+/** Where the agent folders are and how they are read. */
+export interface Config {
+  /** Jan home; its `agents` folder holds global Jan profiles. Defaults to the resolved Jan home. */
+  janHome?: string
+  /** Shared agents home; its `agents` folder is read. Defaults to the resolved agents home. */
+  agentsHome?: string
+  /** User home holding `.claude`, `.config/opencode` and `.codex`. Defaults to the OS home. */
+  userHome?: string
+  /** Quiet period after the last file event before profiles are re-read. */
+  debounceMs: number
+  /** Files larger than this are listed as problems and not read. */
+  maxFileBytes: number
 }
 ```
 
@@ -663,13 +686,15 @@ export interface Config {
 ## `@janhq/jan-client-ui-theme`
 
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/client/ui-theme/src/index.ts:20`](../packages/client/ui-theme/src/index.ts)
+- `source`: [`packages/client/ui-theme/src/index.ts:21`](../packages/client/ui-theme/src/index.ts)
 
 ```ts config-catalog
 /** Runtime preferences projected to the browser. */
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
+  /** Syntax theme for code blocks and diffs. */
+  codeTheme: Volatile<CodeTheme>
   /** Browser font size in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
@@ -686,6 +711,9 @@ export interface Config {
 
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
+
+/** Syntax theme for code blocks and diffs. */
+export type CodeTheme = typeof CODE_THEMES[number]
 ```
 
 <a id="janhqjan-client-ui-trajectory"></a>
@@ -828,7 +856,7 @@ export interface Config {
 
 ## `@janhq/jan-credentials-local`
 
-- `source`: [`packages/credentials/credentials-local/src/index.ts:64`](../packages/credentials/credentials-local/src/index.ts)
+- `source`: [`packages/credentials/credentials-local/src/index.ts:67`](../packages/credentials/credentials-local/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config: file location and hot-reload behavior. */
@@ -841,6 +869,8 @@ export interface Config {
   watch?: boolean
   /** Watcher write-settle window in milliseconds; defaults to 100. */
   debounceMs?: number
+  /** Store new values in the OS keychain; defaults to false. Existing keychain entries remain readable. */
+  keychain?: boolean
 }
 ```
 
@@ -1011,6 +1041,8 @@ export interface Config {
   maxUntrackedFiles?: number
   /** Most UTF-8 bytes of change request diffs kept in memory for later reads at the same head commit and base branch. */
   maxCachedDiffBytes?: number
+  /** Whether chat rows in the sidebar show their change request status; volatile, so a change applies without a restart. */
+  sidebarStatus?: boolean
 }
 ```
 
@@ -1070,7 +1102,7 @@ export type SourceSigning = 'ad-hoc' | {
 
 ## `@janhq/jan-experimental-forge`
 
-- `source`: [`packages/experimental/forge/src/types.ts:232`](../packages/experimental/forge/src/types.ts)
+- `source`: [`packages/experimental/forge/src/types.ts:290`](../packages/experimental/forge/src/types.ts)
 
 ```ts config-catalog
 /** Poll cadence and fetch deadline for watched change requests. */
@@ -1530,7 +1562,7 @@ export interface Config {
 ## `@janhq/jan-hmr`
 
 - `refs`: `ChokidarOptions` (`chokidar`)
-- `source`: [`packages/boot/hmr/src/index.ts:56`](../packages/boot/hmr/src/index.ts)
+- `source`: [`packages/boot/hmr/src/index.ts:86`](../packages/boot/hmr/src/index.ts)
 
 ```ts config-catalog
 /** Module roots and watcher timing, with Chokidar deployment options. */
@@ -2478,7 +2510,7 @@ export interface LspLocalServerConfig {
 ## `@janhq/jan-mcp-client`
 
 - `inject`: `tools`
-- `source`: [`packages/mcp/mcp-client/src/index.ts:138`](../packages/mcp/mcp-client/src/index.ts)
+- `source`: [`packages/mcp/mcp-client/src/index.ts:140`](../packages/mcp/mcp-client/src/index.ts)
 
 ```ts config-catalog
 /** Configuration for one stdio or Streamable HTTP MCP server. */
@@ -2532,6 +2564,8 @@ export interface StreamableHttpConfig {
   url: string
   /** Additional headers attached to MCP requests. */
   headers: Record<string, string>
+  /** Follow HTTP redirects (default true). Set false to keep credentials on the configured origin. */
+  followRedirects?: boolean
   /** Timeout per tool call or resource request in milliseconds. */
   toolCallTimeoutMs: number
   /** Optional budget for one connection attempt plus its initial tool sync, in milliseconds. */
@@ -2770,7 +2804,7 @@ export interface PlanModeConfig {
 
 - `inject`: `loader` · `profileContext`
 - `refs`: [`NpmFileSource`](subsystems/boot.md)
-- `source`: [`packages/boot/plugin-manager/src/index.ts:55`](../packages/boot/plugin-manager/src/index.ts)
+- `source`: [`packages/boot/plugin-manager/src/index.ts:56`](../packages/boot/plugin-manager/src/index.ts)
 
 ```ts config-catalog
 /** The pnpm executable, registries, and limits for diagnostics, lookups and connection checks. */
@@ -3083,6 +3117,21 @@ export interface Config {
 }
 ```
 
+<a id="janhqjan-scoped-settings"></a>
+
+## `@janhq/jan-scoped-settings`
+
+- `inject`: `agents` · `workspaceRegistry` · `tools`
+- `source`: [`packages/settings/scoped-settings/src/index.ts:26`](../packages/settings/scoped-settings/src/index.ts)
+
+```ts config-catalog
+/** Where the document lives. */
+export interface Config {
+  /** Absolute path of the scoped-settings document. */
+  file: string
+}
+```
+
 <a id="janhqjan-sdk-app"></a>
 
 ## `@janhq/jan-sdk-app`
@@ -3359,7 +3408,7 @@ export interface Config extends SessionTitleLlmConfig {
 
 ## `@janhq/jan-shell-env`
 
-- `source`: [`packages/shell/shell-env/src/index.ts:30`](../packages/shell/shell-env/src/index.ts)
+- `source`: [`packages/shell/shell-env/src/index.ts:31`](../packages/shell/shell-env/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config (all optional — the built-in facts resolve without defaults). */
@@ -3373,7 +3422,7 @@ export interface Config {
 
 ## `@janhq/jan-skill`
 
-- `source`: [`packages/skill/skill/src/index.ts:278`](../packages/skill/skill/src/index.ts)
+- `source`: [`packages/skill/skill/src/index.ts:297`](../packages/skill/skill/src/index.ts)
 
 ```ts config-catalog
 /** Skill registry configuration. */
@@ -3388,7 +3437,7 @@ export interface Config {
 ## `@janhq/jan-skill-filesystem`
 
 - `inject`: `skills`
-- `source`: [`packages/skill/skill-filesystem/src/index.ts:48`](../packages/skill/skill-filesystem/src/index.ts)
+- `source`: [`packages/skill/skill-filesystem/src/index.ts:56`](../packages/skill/skill-filesystem/src/index.ts)
 
 ```ts config-catalog
 /** Local filesystem skill provider configuration. */
@@ -3403,6 +3452,8 @@ export interface Config {
   agentsHome?: string
   /** Additional skill roots scanned after project roots and before user roots. */
   customSkillDirs?: string[]
+  /** Custom skill roots scanned only for a lookup whose cwd is one of `within` or below it. */
+  scopedSkillDirs?: ScopedSkillDir[]
   /** Whether host-local skill roots are watched for catalog changes. */
   watch?: boolean
   /** Whether Chokidar uses polling instead of native filesystem events. */
@@ -3418,6 +3469,14 @@ export interface Config {
   /** Bundled skill root; defaults to `$JAN_BUNDLED_SKILL_DIR` when default roots are included, otherwise mounts none. */
   bundledSkillDir?: string
 }
+
+/** A custom skill root limited to lookups made from inside chosen directories. */
+export interface ScopedSkillDir {
+  /** Skill root, scanned at the `custom` rank. */
+  path: string
+  /** Directories whose own lookups, and their descendants', include this root. */
+  within: string[]
+}
 ```
 
 <a id="janhqjan-skill-office"></a>
@@ -3425,7 +3484,7 @@ export interface Config {
 ## `@janhq/jan-skill-office`
 
 - `inject`: `skills`
-- `source`: [`packages/skill/skill-office/src/index.ts:16`](../packages/skill/skill-office/src/index.ts)
+- `source`: [`packages/skill/skill-office/src/index.ts:19`](../packages/skill/skill-office/src/index.ts)
 
 ```ts config-catalog
 /** Office skill resource location. */
@@ -3436,7 +3495,12 @@ export interface Config {
   node?: string
   /** Absolute LibreOffice Kit CLI entry; false explicitly disables CLI access. */
   cli?: string | false
+  /** Skills to register, in any order; defaults to all seven. */
+  skills?: OfficeSkillName[]
 }
+
+/** One bundled Office skill. */
+export type OfficeSkillName = typeof SKILL_NAMES[number]
 ```
 
 <a id="janhqjan-spill-local"></a>
@@ -4156,14 +4220,17 @@ export interface Config {
 ## `@janhq/jan-tool-jobs`
 
 - `inject`: `tools` · `jobs` · `systemPrompt`
-- `source`: [`packages/jobs/tool-jobs/src/index.ts:52`](../packages/jobs/tool-jobs/src/index.ts)
+- `source`: [`packages/jobs/tool-jobs/src/index.ts:59`](../packages/jobs/tool-jobs/src/index.ts)
 
 ```ts config-catalog
 /** Configures bounded `job_output` waits and background-notice delivery. */
 export interface Config {
   /** Wait duration applied when `job_output` sets `wait` without `timeout_ms` (default 30s). */
   waitTimeoutMs?: number
-  /** Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it (default 10min). */
+  /**
+   * Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it
+   * (default 270s, inside the five-minute prompt-cache window).
+   */
   maxWaitTimeoutMs?: number
   /** Whether a background notice opens a turn on an idle owner (default `wakeup`). */
   completionDelivery?: CompletionDelivery
@@ -4319,13 +4386,28 @@ export interface Config {
 ## `@janhq/jan-tool-skill`
 
 - `inject`: `agents` · `tools` · `skills` · `workingDirectory`
-- `source`: [`packages/skill/tool-skill/src/index.ts:66`](../packages/skill/tool-skill/src/index.ts)
+- `source`: [`packages/skill/tool-skill/src/index.ts:97`](../packages/skill/tool-skill/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
 export interface Config {
   /** Maximum normalized description length rendered in the session catalog; minimum 3. */
   catalogDescriptionMaxLength?: number
+  /**
+   * `search` lists `pinnedSkills` with their capped description and the other
+   * skills with a shortened one, and registers `skill_search` for finding a
+   * skill by its longer description. `full` lists every model-invocable skill
+   * with its capped description.
+   */
+  catalogMode?: 'full' | 'search'
+  /** Skills `search` mode lists with their capped description; unknown names are ignored. */
+  pinnedSkills?: string[]
+  /** Whether `search` mode lists unpinned skills at all. */
+  listSkillNames?: boolean
+  /** Description length for an unpinned skill listed in `search` mode; 0 lists its name alone, otherwise minimum 3. */
+  listedDescriptionMaxLength?: number
+  /** Most results one `skill_search` call returns; minimum 1. */
+  searchResultLimit?: number
 }
 ```
 
@@ -4352,7 +4434,7 @@ export interface Config {
 
 - `inject`: `tools` · `subagents` · `systemPrompt` · `sessionProjections`
 - `refs`: [`AgentOptions`](subsystems/core.md)
-- `source`: [`packages/subagent/tool-subagent/src/index.ts:45`](../packages/subagent/tool-subagent/src/index.ts)
+- `source`: [`packages/subagent/tool-subagent/src/index.ts:48`](../packages/subagent/tool-subagent/src/index.ts)
 
 ```ts config-catalog
 /** Config: which registered provider this tool delegates to, plus child defaults. */
@@ -4446,7 +4528,7 @@ export interface Config {
 ## `@janhq/jan-tool-todo`
 
 - `inject`: `tools` · `sessionProjections`
-- `source`: [`packages/todo/tool-todo/src/index.ts:29`](../packages/todo/tool-todo/src/index.ts)
+- `source`: [`packages/todo/tool-todo/src/index.ts:44`](../packages/todo/tool-todo/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing todo tool configuration. */
@@ -4459,6 +4541,13 @@ export interface Config {
    * rejected.
    */
   allowParallelInProgress: boolean
+  /**
+   * How many times one turn may be steered back when the agent stops with unfinished todos
+   * (default 0: never). Each reminder lists the open todos and asks the agent to finish them or
+   * update the list; a user message resets the count, and a tool that ends the turn on purpose
+   * (a question to the user, a plan awaiting approval) is never overridden.
+   */
+  stopReminders?: number
 }
 ```
 
@@ -4848,6 +4937,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |
 | `@janhq/jan-authorization` | `credentials` | [`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts) |
 | `@janhq/jan-browser-use` | — | [`packages/browser-use/browser-use/src/index.ts`](../packages/browser-use/browser-use/src/index.ts) |
+| `@janhq/jan-btw` | `llm` · `systemPrompt` · `tools` | [`packages/session/btw/src/index.ts`](../packages/session/btw/src/index.ts) |
 | `@janhq/jan-client-file-upload` | `agents` · `attachments` · `commands` · `connection` | [`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts) |
 | `@janhq/jan-client-locale` | — | [`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts) |
 | `@janhq/jan-client-modules` | `loader` | [`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts) |
@@ -4917,10 +5007,12 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-compaction-image-offload` | `agents` · `sessions` | [`packages/compaction/compaction-image-offload/src/index.ts`](../packages/compaction/compaction-image-offload/src/index.ts) |
 | `@janhq/jan-computer-use` | — | [`packages/computer-use/computer-use/src/index.ts`](../packages/computer-use/computer-use/src/index.ts) |
 | `@janhq/jan-config-editor` | `loader` · `profileContext` | [`packages/boot/config-editor/src/index.ts`](../packages/boot/config-editor/src/index.ts) |
+| `@janhq/jan-context-usage` | `llm` · `systemPrompt` · `tokenMeter` · `tools` | [`packages/llm/context-usage/src/index.ts`](../packages/llm/context-usage/src/index.ts) |
 | `@janhq/jan-cordis-client-runner` | — | [`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts) |
 | `@janhq/jan-creation-recommendations` | `tools` · `pluginManager` · `agents` · `subagents` · `profileContext` · `skills` · `actionCards` | [`packages/experimental/creation-recommendations/src/index.ts`](../packages/experimental/creation-recommendations/src/index.ts) |
 | `@janhq/jan-cua` | — | [`packages/experimental/cua/src/index.ts`](../packages/experimental/cua/src/index.ts) |
 | `@janhq/jan-deliverable-file-references` | `systemPrompt` | [`packages/deliverables/deliverable-file-references/src/index.ts`](../packages/deliverables/deliverable-file-references/src/index.ts) |
+| `@janhq/jan-downloads` | `connection` | [`packages/host/downloads/src/index.ts`](../packages/host/downloads/src/index.ts) |
 | `@janhq/jan-experimental-auto-review` | `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory` | [`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts) |
 | `@janhq/jan-experimental-client-ui-claude-code-mods` | — | [`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts) |
 | `@janhq/jan-experimental-client-ui-stats` | — | [`packages/experimental/client-ui-stats/src/index.ts`](../packages/experimental/client-ui-stats/src/index.ts) |

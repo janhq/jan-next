@@ -7,7 +7,7 @@ kind: "package-library"
 
 ## Summary
 
-`jan-client-web` boots the web GUI: it loads the client module system from the Host-provided boot graph, then activates the client plugins before the application mounts. The UI mounts once every required plugin and every plugin a required one waits on is up; any other plugin that fails is reported in the console and left out. A framework-free boot page keeps a required-plugin failure visible instead of a blank screen. It also defines the shared module table (`PLATFORM_MODULES`) that every dynamic bundle resolves its externals against. The model never sees this package.
+Use `new AppWebEntry(container).run()` to start the browser app from the Host's boot graph, as the `apps/web` entry does. The app mounts only after required plugins and the plugins they wait on activate. A framework-free startup page shows required-plugin failures instead of leaving a blank screen; other plugin failures are reported in the console and those plugins are left out. Dynamic bundles resolve shared externals through the same module table.
 
 ## Table of Contents
 
@@ -35,9 +35,11 @@ Web and Desktop mathematical rendering requires WOFF2 support. The [Web build](.
 
 Boot runs in two stages: the module stage adopts the parser-loaded bootstrap batch, builds the module system from the Host-provided boot graph, and prefetches the `immediately` tier through the shared application-batch URL, which executes once. The plugin stage then activates every graph entry and waits for all of them before handing the marked boot DOM to the UI renderer, which hydrates it and switches to the complete UI.
 
+Boot supplies the Host release version and a synchronous connection-state reader to shared failure diagnostics. Reports prefer the stamped client build version when available and keep the connection state from the time of failure, even if the connection recovers before the report is copied.
+
 ### The boot page
 
-The boot page uses plain DOM and local CSS, so bundle and plugin-activation failures remain visible: it shows Jan's waving hand and wordmark over one progress bar that grows as entries activate. The bar and the wave's animation phase persist until the full UI replaces the boot page. When a required plugin fails import or activation, the page names every inactive plugin with the reason (missing service, import failure, or activation error) and marks the required ones, instead of a blank page. An optional plugin's failure appears in one console warning and does not stop the application. The console contains the original import error.
+The boot page uses plain DOM and local CSS, so bundle and plugin-activation failures remain visible: it shows Jan's waving hand and wordmark over one progress bar that grows as entries activate. The bar and the wave's animation phase persist until the full UI replaces the boot page. With reduced motion, the hand is still and the bar updates without a transition. When a required plugin fails import or activation, the page names every inactive plugin with the reason (missing service, import failure, or activation error) and marks the required ones, instead of a blank page. An optional plugin's failure appears in one console warning and does not stop the application. The console contains the original import error.
 
 <a id="the-shared-module-table"></a>
 ### The shared module table

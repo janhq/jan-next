@@ -38,6 +38,11 @@ export interface DevelopmentProjectOptions {
   readonly release: DesktopRelease
   /** Build target whose prepared payload the disposable project runs against. */
   readonly target: DesktopBuildTarget
+  /**
+   * Development-only plugin package directories. Each is linked and declared by the project manifest, because
+   * the runtime resolver supplies only packages reachable from the installation's dependency graph.
+   */
+  readonly pluginDirs?: readonly string[]
 }
 
 function readManifest(path: string): PackageManifest {
@@ -143,14 +148,29 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
     throw new Error('desktop development: apps/desktop-host/lib/index.js is missing; run pnpm run build')
   }
 
+  const plugins = (options.pluginDirs ?? []).map((dir) => {
+    const manifest = readManifest(join(dir, 'package.json'))
+    if (manifest.name === undefined || manifest.version === undefined) {
+      throw new Error(`desktop development: ${dir} has no package name and version; run pnpm install`)
+    }
+    return { dir, name: manifest.name, version: manifest.version }
+  })
+
   removeOwnedPath(options.projectDir)
-  createDevelopmentProjectMetadata(options.projectDir, options.release)
+  createDevelopmentProjectMetadata(options.projectDir, options.release,
+    Object.fromEntries(plugins.map(plugin => [plugin.name, plugin.version])))
   const destinationModules = join(options.projectDir, 'node_modules')
   mkdirSync(destinationModules, { recursive: true })
   const names = [
     ...mirrorDependencyLinks(options.dependencyDir, destinationModules),
-    ...mirrorWorkspaceDependencies([options.cliDir, options.hostDir], destinationModules),
+    ...mirrorWorkspaceDependencies([options.cliDir, options.hostDir, ...plugins.map(plugin => plugin.dir)], destinationModules),
   ]
+  for (const plugin of plugins) {
+    const link = join(destinationModules, ...plugin.name.split('/'))
+    removeOwnedPath(link)
+    linkDirectory(plugin.dir, link)
+    names.push(plugin.name)
+  }
   const janLink = join(destinationModules, '@janhq', 'jan')
   removeOwnedPath(janLink)
   linkDirectory(options.cliDir, janLink)

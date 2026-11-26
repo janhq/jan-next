@@ -63,11 +63,11 @@ describe('OpenInAppPathController gestures', () => {
     const refused = new OpenInAppPathController(remoteOf({
       openWorkspacePath: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'boom', {}) }),
     }))
-    expect(await refused.openPath('/w/clip.mp4', 'open')).toEqual({ kind: 'failed', failure: 'openError' })
-    expect(await refused.openPath('/w/clip.mp4', 'reveal')).toEqual({ kind: 'failed', failure: 'revealError' })
+    expect(await refused.openPath('/w/clip.mp4', 'open')).toMatchObject({ kind: 'failed', failure: 'openError', details: { errors: [expect.objectContaining({ code: 'gateway/internal' })] } })
+    expect(await refused.openPath('/w/clip.mp4', 'reveal')).toMatchObject({ kind: 'failed', failure: 'revealError', details: { operation: 'session.revealWorkspacePath' } })
 
     const rejecting = new OpenInAppPathController(remoteOf({ openWorkspacePath: () => Promise.reject(new Error('down')) }))
-    expect(await rejecting.openPath('/w/clip.mp4', 'open')).toEqual({ kind: 'failed', failure: 'openError' })
+    expect(await rejecting.openPath('/w/clip.mp4', 'open')).toMatchObject({ kind: 'failed', failure: 'openError', details: { errors: [expect.objectContaining({ message: 'down' })] } })
   })
 })
 

@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@janhq/cordis'
-import { createMessage, createSystemMessage, createUserMessage } from '@janhq/jan-llm'
+import { createMessage, createSystemMessage, createToolResultMessage, createUserMessage, ToolCallId } from '@janhq/jan-llm'
 import type { ContentBlock, ToolSchema } from '@janhq/jan-llm'
 import type { ContextFormed } from '@janhq/jan-llm'
 import SessionStore, { SessionLogOffset, SessionSeq } from '@janhq/jan-session'
@@ -232,6 +232,51 @@ describe('contextBreakdown session projection', () => {
     expect(projected(ctx, session).messageTokens).toBe(9)
   })
 
+  it('moves loaded skill instructions out of the message figure and back when compaction removes them', async () => {
+    const { ctx, session } = await harness()
+    const user = appendUser(session, 'use the office skill')
+    session.append('step/start', { turn: 1, step: 1 })
+    const call = session.append('tool/call', {
+      turn: 1, step: 1, callId: ToolCallId('call-skill'), name: 'skill', arguments: '{"name":"office"}',
+    }).seq
+    const loaded = createToolResultMessage({
+      callId: ToolCallId('call-skill'),
+      content: [{ type: 'text', text: '<skill_content name="office">long instructions</skill_content>' }],
+      isError: false,
+    })
+    const result = session.append('tool/result', { turn: 1, step: 1, message: loaded }, {
+      surfaceOp: 'append', sourceEventSeqs: [call],
+    }).seq
+    session.append('step/end', { turn: 1, step: 1 })
+    const userTokens = estimateMessage(createUserMessage({
+      content: [{ type: 'text', text: 'use the office skill' }], source: { kind: 'user' },
+    }))
+    expect(projected(ctx, session)).toEqual({
+      systemTokens: 0, toolsTokens: 0, messageTokens: userTokens, skillTokens: estimateMessage(loaded),
+    })
+    const summary = createUserMessage({ content: [{ type: 'text', text: 'summary' }], source: { kind: 'test' } })
+    appendSummaryMeter(ctx, session, user, result)
+    session.append('user/message', summary, {
+      surfaceOp: { op: 'replace', startSeq: user, endSeq: result }, sourceEventSeqs: [user, result],
+    })
+    expect(projected(ctx, session)).toEqual({ systemTokens: 0, toolsTokens: 0, messageTokens: estimateMessage(summary) })
+  })
+
+  it('counts skill_search results under skills', async () => {
+    const { ctx, session } = await harness()
+    appendUser(session, 'find a skill')
+    session.append('step/start', { turn: 1, step: 1 })
+    const call = session.append('tool/call', {
+      turn: 1, step: 1, callId: ToolCallId('call-search'), name: 'skill_search', arguments: '{"query":"video"}',
+    }).seq
+    const found = createToolResultMessage({
+      callId: ToolCallId('call-search'), content: [{ type: 'text', text: '- `video-editing`: Cut and trim.' }], isError: false,
+    })
+    session.append('tool/result', { turn: 1, step: 1, message: found }, { surfaceOp: 'append', sourceEventSeqs: [call] })
+    session.append('step/end', { turn: 1, step: 1 })
+    expect(projected(ctx, session).skillTokens).toBe(estimateMessage(found))
+  })
+
   it('shrinks the message figure when a metered replacement compacts the surface', async () => {
     const { ctx, session } = await harness()
     const first = appendUser(session, 'before compaction, a longer message')
@@ -383,7 +428,7 @@ describe('contextBreakdown session projection', () => {
     expect(projected(ctx, session)).toMatchObject({ systemTokens: 0, messageTokens: 10 })
   })
 
-  it('retains only system prompts and one surface total as history grows and compacts', async () => {
+  it('retains only system prompts, skill nodes, and one surface total as history grows and compacts', async () => {
     const { ctx, session } = await harness()
     appendSystem(session, 'head')
     const first = appendUser(session, 'the first of many messages')
@@ -395,8 +440,10 @@ describe('contextBreakdown session projection', () => {
       if (current === undefined) throw new Error('registered context breakdown has no state')
       return current
     }
-    expect(Object.keys(state()).sort()).toEqual(['breakdown', 'surfaceTokens', 'systems'])
+    expect(Object.keys(state()).sort()).toEqual(['breakdown', 'skillCalls', 'skills', 'surfaceTokens', 'systems'])
     expect(state().systems).toHaveLength(1)
+    expect(state().skills).toEqual([])
+    expect(state().skillCalls).toEqual([])
     appendSummaryMeter(ctx, session, first, last)
     expect(state().claim).toMatchObject({ start: first, end: last, systemSeqs: [] })
     const shadowed = session.surface.nodes.filter(seq => seq >= first)
@@ -435,7 +482,7 @@ describe('contextBreakdown session projection', () => {
       ctx.sessionProjections.checkpoint(session),
     )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
     const row = checkpoint['contextBreakdown']!
-    expect(row.ver).toBe(6)
+    expect(row.ver).toBe(8)
     expect(ctx.sessionProjections.viewCheckpoint(checkpoint).contextBreakdown).toEqual(projected(ctx, session))
     appendSummaryMeter(ctx, session, first, last)
     const meter = session.snapshotEvents().at(-1)!
@@ -456,7 +503,7 @@ describe('contextBreakdown session projection', () => {
       stale, session.snapshotEvents(), SessionLogOffset(0), session.header, session.inheritedEventCount,
     )
     expect(replayed.snapshot.values.contextBreakdown).toEqual(projected(ctx, session))
-    expect(replayed.checkpoint['contextBreakdown']?.ver).toBe(6)
+    expect(replayed.checkpoint['contextBreakdown']?.ver).toBe(8)
     const invalid = {
       ...checkpoint,
       contextBreakdown: {
@@ -490,7 +537,7 @@ describe('contextBreakdown session projection', () => {
         systemTokens: 8, toolsTokens: staleValue.toolsTokens, messageTokens: 9,
       })
       expect(restored.checkpoint).toEqual(current)
-      expect(restored.checkpoint['contextBreakdown']?.ver).toBe(6)
+      expect(restored.checkpoint['contextBreakdown']?.ver).toBe(8)
     } finally {
       await ctx.fiber.dispose()
     }

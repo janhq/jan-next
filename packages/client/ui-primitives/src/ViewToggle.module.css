@@ -21,7 +21,7 @@
   border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-bg-layer-1);
   box-shadow: var(--dsw-elevation-soft);
-  transition: transform 160ms var(--ds-ease-out, ease);
+  transition: transform var(--ds-transition-duration) var(--ds-ease-in-out);
   pointer-events: none;
 }
 
@@ -42,7 +42,7 @@
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
-  transition: color 120ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .segment[aria-checked='true'] {

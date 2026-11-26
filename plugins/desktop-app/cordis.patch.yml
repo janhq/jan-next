@@ -47,10 +47,6 @@
     - id: jan-preset-square
       name: '@janhq/jan-preset-square'
 
-    # Every local model download in one page, opened from the More menu.
-    - id: jan-downloads
-      name: '@janhq/jan-downloads'
-
     # Find, download and start local models from Jan's model catalog; a sidebar row opens it.
     - id: jan-model-hub
       name: '@janhq/jan-model-hub'
@@ -64,6 +60,10 @@
     - id: jan-hosts
       name: '@janhq/jan-hosts'
 
+    # Coordinate worker chats from one chat, on this or connected computers.
+    - id: jan-orchestration
+      name: '@janhq/jan-orchestration'
+
     # Let Sessions use the published Chrome extension without an MCP subprocess.
     # Off until the user enables Jan Browser in Plugins: its loopback bridge
     # trusts any local process that reaches the port, and an unconnected
@@ -74,6 +74,11 @@
       name: '@janhq/jan-browser'
       disabled: true
 
+    # Jan's own web browser: per-chat sessions whose sign-ins every chat and bot
+    # shares. Navigation, page actions and screenshots ask before running.
+    - id: jan-agent-browser
+      name: '@janhq/jan-agent-browser'
+
     # Observe native windows and approve semantic actions through Jan.
     - id: jan-agent-desktop
       name: '@janhq/jan-agent-desktop'
@@ -83,6 +88,10 @@
     # System One classification, all on the signed-in account's key.
     - id: jan-tokamak
       name: '@janhq/jan-tokamak'
+
+    # Connect subscription accounts and offer their models through a local proxy.
+    - id: jan-cli-proxy
+      name: '@janhq/jan-cli-proxy'
 
     # Attach element context and marked-up screenshots to the current draft.
     - id: jan-annotate
@@ -112,16 +121,31 @@
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'
 
+    # Office: Word, PowerPoint and Excel skills with the bundled Python and
+    # LibreOffice Kit. Customize > Plugins > Office switches it off, or one
+    # format or the LibreOffice operations at a time. The Desktop Host names
+    # its bundled payload in JAN_BUNDLED_* before the profile loads.
+    - id: jan-office
+      name: '@janhq/jan-office'
+
     # Generative UI: a reply can answer with a live React card (a ```ui4a/tsx
     # fence) inline in the chat, or a canvas file that opens beside it.
     - id: dsh-generative-ui
       name: '@janhq/dsh-generative-ui'
+      config:
+        # The card guide is long and rides in every request. The coding modes
+        # leave it out; the generative-ui skill still loads it on demand.
+        inlinePromptByMode:
+          standard: 'off'
+          ptc: 'off'
 
-    # Chat mode: conversation, web research and simple visual artifacts. The
-    # agent searches and reads the web and can create new files it hands over
-    # with present (SVG, HTML, Markdown, CSV); it cannot read or edit your
-    # files, run commands, manage plugins or start subagents. It names itself,
-    # so its copy is its own rather than a stock preset's.
+    # Chat mode: conversation, web research, simple visual artifacts and
+    # subagents. The agent searches and reads the web, can create new files it
+    # hands over with present (SVG, HTML, Markdown, CSV), and can start
+    # subagents (optionally from an agent profile) and message them both ways;
+    # each child runs in Chat mode too. It cannot read or edit your files, run
+    # commands or manage plugins. It names itself, so its copy is its own
+    # rather than a stock preset's.
     - id: preset-chat
       name: '@janhq/jan-agent-preset'
       config:
@@ -141,10 +165,11 @@
 
                 When a picture, diagram, chart, small page or document would help, or the user asks for one, create it as a new file with write, then hand it over with present. Prefer a self-contained SVG for images, icons, diagrams and charts, and a single self-contained HTML file (inline CSS and JavaScript, no external requests) for interactive visualizations and pages. Give each file a new, descriptive name; never overwrite an existing file. Keep short content such as a table or a code snippet in the reply instead of a file.
 
-                You cannot read or edit the user's files or run commands.
+                You cannot read or edit the user's files or run commands. When the user asks for subagents, or a request splits into independent research or writing parts, start subagents with the subagent tool (pass an agent from Available agents when one fits) and message them with send_message.
               complete: true
-              # Generative UI's fence instructions, while that plugin is on.
-              keep: ['dsh-generative-ui:inline']
+              # Generative UI's fence instructions, while that plugin is on,
+              # and the subagent tool's delegation guidance.
+              keep: ['dsh-generative-ui:inline', 'tool:subagent']
               includeRuntimeContext: false
           # Loads the Generative UI authoring guide before the agent drafts a card.
           - id: tool-skill
@@ -184,3 +209,18 @@
                   thresholdChars: 8192
                   headChars: 4096
                   tailChars: 1024
+          # Delegation without a terminal: children join Chat mode, so they keep
+          # its tool limits; an agent profile only narrows them further.
+          - id: delegation
+            name: cordis:group
+            group: true
+            config:
+              - id: tool-subagent-control
+                name: '@janhq/jan-tool-subagent-control'
+              - id: tool-subagent
+                name: '@janhq/jan-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  modelSelection: true
+                  modelDiscovery: true

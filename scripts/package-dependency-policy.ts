@@ -88,8 +88,21 @@ const PEER_REQUIRED_HOST_EXPORTS = {
   '@janhq/jan-experimental-worktree': ['generatedWorktreeName'],
   // The forge panel matches ctx.fs failures with `instanceof FsError`.
   '@janhq/jan-fs': ['FsError'],
-  // Stateless; peer resolution keeps Liveshare's default owner-state path on the host's home resolver.
-  '@janhq/jan-home-paths': ['janHomePath'],
+  // Origins live in the registering mcp-client instance's WeakMap; another copy answers undefined for every tool,
+  // and server-entry expansion reads the same map.
+  '@janhq/jan-mcp-client': ['expandMcpServerEntries', 'mcpToolOrigin'],
+  // Stateless; peer resolution keeps Liveshare's default owner-state path and agent-profile roots on the host's home resolver.
+  '@janhq/jan-home-paths': ['janHomePath', 'resolveAgentsHome', 'resolveJanHome'],
+  // Agent-profile model routes brand effort ids with the Host's own llm copy.
+  '@janhq/jan-llm/brand': ['ReasoningEffortId'],
+  // /btw assembles a side request from the live agent's context and prompt sections, which belong to the Host's copies.
+  '@janhq/jan-agent': ['assembleContextFor'],
+  '@janhq/jan-llm': ['createAssistantMessage', 'createSystemMessage'],
+  '@janhq/jan-system-prompt': ['joinContextSections', 'renderContextSections', 'renderPrompt'],
+  // The /context breakdown must add up to the composer meter's figure, so it estimates with the Host's token-meter copy.
+  '@janhq/jan-token-meter/estimate': ['ROLE_OVERHEAD', 'estimateContent'],
+  // Project defaults apply the same Coding Tools rule the Host's preset roster shows.
+  '@janhq/jan-agent-preset-registry/display': ['requiresCodingTools'],
   '@janhq/jan-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],
   // The launch snapshot belongs to the Host's own instance; remotes reads it to name the local computer.
   '@janhq/jan-launch-environment': ['launchEnvironmentOf', 'launchedThroughSsh'],

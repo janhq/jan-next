@@ -25,15 +25,20 @@
   overflow-wrap: anywhere;
   opacity: 0;
   transform: scale(0.98);
-  transition: opacity 150ms ease, transform 150ms ease, display 150ms allow-discrete, overlay 150ms allow-discrete;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in), transform var(--ds-transition-duration-fast) var(--ds-ease-in), display var(--ds-transition-duration-fast) allow-discrete, overlay var(--ds-transition-duration-fast) allow-discrete;
 }
 
 .card[data-side='top'] { position-area: top; }
 .card[data-side='left'] { position-area: left; position-try-fallbacks: flip-inline, bottom, top, --jan-coachmark-centered; }
 .card[data-side='right'] { position-area: right; position-try-fallbacks: flip-inline, bottom, top, --jan-coachmark-centered; }
-.card:popover-open { opacity: 1; transform: none; }
+.card:popover-open {
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--ds-transition-duration);
+  transition-timing-function: var(--ds-ease-out);
+}
 @starting-style { .card:popover-open { opacity: 0; transform: scale(0.98); } }
-@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .card, .card:popover-open { transition: none; } }
 
 @position-try --jan-coachmark-centered {
   position-area: none;

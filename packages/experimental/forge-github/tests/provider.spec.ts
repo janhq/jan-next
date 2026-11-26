@@ -55,6 +55,89 @@ describe('GitHub provider addressing', () => {
   })
 })
 
+it('lists only previews and artifacts for the requested head, even after a force-push', async () => {
+  const sha = 'a'.repeat(40)
+  const oldSha = 'b'.repeat(40)
+  const fake = fakeGh((args) => {
+    const endpoint = args.at(-1)
+    if (endpoint === `repos/octo/demo/deployments?sha=${sha}&per_page=10`) return output([
+      { id: 1, environment: 'Docs' }, { id: 2, environment: 'Old' },
+    ])
+    if (endpoint === 'repos/octo/demo/deployments/1/statuses?per_page=1') return output([{ state: 'success', environment_url: 'https://docs.example.test/pr-7' }])
+    if (endpoint === 'repos/octo/demo/deployments/2/statuses?per_page=1') return output([{ state: 'inactive', environment_url: 'https://old.example.test' }])
+    if (endpoint === 'repos/octo/demo/issues/7/comments?direction=desc&sort=created&per_page=30') return output([
+      { user: { type: 'Bot', login: 'vercel[bot]' }, body: `Commit: \`${sha}\`\n[Preview](https://vercel.example.test/pr-7) [Build](https://logs.example.test)` },
+      { user: { type: 'Bot', login: 'netlify[bot]' }, body: `|<span aria-hidden="true">🔨</span> Latest commit | ${sha} |\n[Deploy Preview](https://netlify.example.test/pr-7)` },
+      { user: { type: 'Bot', login: 'netlify[bot]' }, body: `|<span aria-hidden="true">🔨</span> Latest commit | ${oldSha} |\n[Deploy Preview](https://stale.example.test/pr-7)\nSuperseded by ${sha}.` },
+      { user: { type: 'Bot', login: 'cloudflare-pages[bot]' }, body: `Latest commit: \`${sha.slice(0, 7)}\`\n[Preview](https://abbreviated.example.test/pr-7)` },
+      { user: { type: 'Bot', login: 'netlify[bot]' }, body: `Latest commit: ${sha}\nLatest commit: ${oldSha.slice(0, 7)}\n[Preview](https://ambiguous.example.test/pr-7)` },
+      { user: { type: 'Bot', login: 'vercel[bot]' }, body: '[Preview](https://unknown-commit.example.test/pr-7)' },
+      { user: { type: 'User', login: 'octo' }, body: `Commit: ${sha}\n[Preview](https://unrelated.example.test)` },
+    ])
+    if (endpoint === `repos/octo/demo/actions/runs?head_sha=${sha}&per_page=20`) return output({ workflow_runs: [
+      { id: 9, head_sha: sha, event: 'pull_request', pull_requests: [{ number: 7 }], artifacts_url: 'ignored' },
+      { id: 10, head_sha: sha, event: 'pull_request', pull_requests: [{ number: 8 }] },
+    ] })
+    if (endpoint === 'repos/octo/demo/actions/runs/9/artifacts?per_page=30') return output({ artifacts: [
+      { id: 81, name: 'docs.zip', size_in_bytes: 2048, expires_at: '2026-11-26T09:00:00Z', expired: false },
+    ] })
+    throw new Error(`unexpected call: ${endpoint}`)
+  })
+  const result = await provider(fake.run).fetchAssets(pull(7), sha, signal)
+  expect(result.previews).toEqual([
+    { url: 'https://docs.example.test/pr-7', label: 'Docs' }, { url: 'https://vercel.example.test/pr-7', label: 'Preview' },
+    { url: 'https://netlify.example.test/pr-7', label: 'Deploy Preview' },
+    { url: 'https://abbreviated.example.test/pr-7', label: 'Preview' },
+  ])
+  expect(result.artifacts).toEqual([{
+    url: 'https://github.com/octo/demo/actions/runs/9/artifacts/81', name: 'docs.zip', sizeBytes: 2048,
+    expiresAt: '2026-11-26T09:00:00Z', expired: false,
+  }])
+})
+
+it('uses the failed Actions step without including unrelated steps and carries check output and review locations', async () => {
+  const sha = 'f'.repeat(40)
+  const lint = { ...checkRun('lint', 'COMPLETED', 'FAILURE'), detailsUrl: 'https://github.com/octo/demo/actions/runs/9/job/81',
+    title: 'Lint failure', summary: 'Wrong type' }
+  const fake = fakeGh((args) => {
+    const endpoint = args.at(-1)
+    if (endpoint?.startsWith('query=') && endpoint.includes('latestOpinionatedReviews')) return output({ data: { repository: { pullRequest: {
+      latestOpinionatedReviews: { pageInfo: { hasNextPage: false }, nodes: [
+        { state: 'CHANGES_REQUESTED', author: { login: 'octo' }, body: 'Fix types', comments: {
+          pageInfo: { hasNextPage: false }, nodes: [{ path: 'src/a.ts', line: 7, originalLine: 6, body: 'Avoid any' }],
+        } },
+        { state: 'APPROVED', author: { login: 'mona' }, body: 'LGTM', comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
+      ] },
+    } } } })
+    if (endpoint?.startsWith('query=')) return output({ data: { r0: { p0: pullRequestNode(7, { reviewDecision: 'CHANGES_REQUESTED' }, [lint]) } } })
+    if (endpoint === 'repos/octo/demo/actions/jobs/81') return output({ id: 81, run_id: 9, head_sha: sha, steps: [
+      { conclusion: 'failure', name: 'Run lint', started_at: '2026-11-24T09:00:02Z', completed_at: '2026-11-24T09:00:02Z' },
+    ] })
+    if (endpoint === 'repos/octo/demo/actions/jobs/81/logs') {
+      if (!args.includes('--allow-escape-sequences')) return {
+        exitCode: 1, stdout: '', stderr: 'gh: the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway',
+      }
+      return output([
+        '2026-11-24T09:00:02.1000000Z Setup',
+        '2026-11-24T09:00:02.3000000Z ##[group]Run lint',
+        '2026-11-24T09:00:02.5000000Z \u001b[31mLint failed\u001b[0m',
+        '2026-11-24T09:00:02.7000000Z Cleaning up orphan processes',
+        '2026-11-24T09:00:03.0000000Z Post job cleanup',
+      ].join('\n'))
+    }
+    throw new Error(`unexpected call: ${endpoint}`)
+  })
+  const github = provider(fake.run)
+  await github.fetch([pull(7)], signal)
+  expect(fake.calls[0]?.at(-1)).not.toContain('title summary')
+  const detail = await github.fetchFailureContext(pull(7), sha, { kind: 'all' }, signal)
+  expect(detail).toMatchObject({
+    snapshot: { checks: [{ url: lint.detailsUrl, output: { title: 'Lint failure', summary: 'Wrong type' } }] },
+    logs: [{ step: 'Run lint', text: '##[group]Run lint\nLint failed' }],
+    reviews: [{ author: 'octo', body: 'Fix types', comments: [{ path: 'src/a.ts', line: 7, body: 'Avoid any' }] }],
+  })
+})
+
 describe('GitHub provider fetch', () => {
   const firstPage = () => pullRequestNode(1, { commits: { nodes: [{ commit: { statusCheckRollup: {
     id: 'fixed-rollup', state: 'SUCCESS', contexts: { pageInfo: { hasNextPage: true, endCursor: 'page-1' },

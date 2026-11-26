@@ -1,2 +1,3 @@
 - button "Choose project": workspace
-- button "Standard mode"
+- button "Code mode"
+- 'button "Choose agent: Jan"': Jan

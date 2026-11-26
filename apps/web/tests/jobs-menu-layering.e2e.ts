@@ -3,7 +3,7 @@ import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import type { Browser, Page } from 'playwright'
+import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { Agent } from '@janhq/jan-agent'
@@ -25,13 +25,12 @@ const RELEASE = '.jobs-menu-layering.release'
 const COMMAND = `printf 'jobs-menu-%s\\n' output; for _ in $(seq 1 3000); do [ -e ${RELEASE} ] && break; sleep 0.2; done`
 
 /** Measure actual overlap and hit testing; ARIA alone cannot expose clipping or stacking. */
-function placement(page: Page) {
-  return page.evaluate(() => {
+function placement(trigger: Locator) {
+  return trigger.evaluate((anchor) => {
     const list = document.querySelector<HTMLElement>('ul[aria-label="Background jobs"]')
-    const anchor = document.querySelector<HTMLElement>('button[aria-label="1 background job"]')
     const frame = document.querySelector<HTMLElement>('[data-sidebar-browser-frame]')
     const dock = document.querySelector<HTMLElement>('[data-sidebar-right-panel][data-sidebar-right-open]')
-    if (list === null || anchor === null || frame === null || dock === null) {
+    if (list === null || frame === null || dock === null) {
       throw new Error('job menu, trigger, or Browser dock is missing')
     }
     const menu = list.closest<HTMLElement>('[data-menu-material]') ?? list
@@ -47,13 +46,14 @@ function placement(page: Page) {
       [0.25, 0.5, 0.75].every(y => menu.contains(document.elementFromPoint(
         left + (right - left) * x, top + (bottom - top) * y,
       ))))
-    const verticalGap = Math.min(Math.abs(box.top - trigger.bottom - 5), Math.abs(trigger.top - box.bottom - 5))
+    const verticalGap = trigger.top - box.bottom
     const horizontalAlignment = Math.min(Math.abs(box.left - trigger.left), Math.abs(box.right - trigger.right))
     return {
       dockMode: dock.dataset.sidebarRightPanel,
       bodyMounted: menu.parentElement === document.body,
       fixed: getComputedStyle(menu).position === 'fixed',
-      anchored: verticalGap <= 1 && horizontalAlignment <= 1,
+      anchored: Math.abs(verticalGap - 5) <= 1 && horizontalAlignment <= 1,
+      aboveTrigger: verticalGap > 0,
       viewportBounded: box.left >= 11 && box.top >= 11
         && box.right <= innerWidth - 11 && box.bottom <= innerHeight - 11,
       overlapsBrowser,
@@ -149,7 +149,7 @@ describe.skipIf(MODE === 'record')('web e2e: jobs menu layering', () => {
     await page.frameLocator('[data-sidebar-browser-frame]')
       .getByRole('heading', { name: 'Jobs menu browser fixture' }).waitFor()
 
-    const trigger = page.getByRole('button', { name: '1 background job', exact: true })
+    const trigger = page.locator('[data-composer-dock]').getByRole('button', { name: '1 running', exact: true })
     await trigger.waitFor({ timeout: 15_000 })
     await trigger.focus()
     await page.keyboard.press('Enter')
@@ -159,20 +159,20 @@ describe.skipIf(MODE === 'record')('web e2e: jobs menu layering', () => {
     expect(await list.getByRole('button', { name: /Show live output/ })
       .evaluate(element => element === document.activeElement)).toBe(true)
     const expectedPlacement = {
-      dockMode: 'push', bodyMounted: true, fixed: true, anchored: true,
+      dockMode: 'push', bodyMounted: true, fixed: true, anchored: true, aboveTrigger: true,
       viewportBounded: true, overlapsBrowser: true, aboveBrowser: true,
     }
-    await expect.poll(() => placement(page)).toEqual(expectedPlacement)
-    const collapsed = await placement(page)
+    await expect.poll(() => placement(trigger)).toEqual(expectedPlacement)
+    const collapsed = await placement(trigger)
 
     await list.getByRole('button', { name: /Show live output/ }).click()
     await list.getByText('jobs-menu-output', { exact: true }).waitFor({ timeout: 15_000 })
-    await expect.poll(() => placement(page)).toEqual(expectedPlacement)
-    const expanded = await placement(page)
+    await expect.poll(() => placement(trigger)).toEqual(expectedPlacement)
+    const expanded = await placement(trigger)
 
     await page.setViewportSize({ width: 1280, height: 760 })
-    await expect.poll(() => placement(page)).toEqual(expectedPlacement)
-    const resized = await placement(page)
+    await expect.poll(() => placement(trigger)).toEqual(expectedPlacement)
+    const resized = await placement(trigger)
     await list.getByRole('button', { name: /Hide live output/ }).focus()
     await page.keyboard.press('Escape')
     await list.waitFor({ state: 'detached' })

@@ -6,6 +6,7 @@ import type { TsdownBundle } from 'tsdown'
 import { writeClientBuildRecord } from './client-build-environment.ts'
 import {
   devWebBuildEnvironment,
+  discoverHostLibraryDirs,
   discoverLibraryDirs,
   discoverPluginDirs,
   parseDevWebArguments,
@@ -76,7 +77,7 @@ describe('StageSupervisor', () => {
 
 describe('parseDevWebArguments', () => {
   it('builds, serves, and watches natively by default', () => {
-    expect(parseDevWebArguments([])).toEqual({ skipBuild: false, serve: true, pollInterval: undefined, appArgs: [] })
+    expect(parseDevWebArguments([])).toEqual({ skipBuild: false, serve: true, host: false, pollInterval: undefined, appArgs: [] })
   })
 
   it('reads the polling interval with its 500ms default', () => {
@@ -90,7 +91,7 @@ describe('parseDevWebArguments', () => {
 
   it('separates its own flags from the arguments forwarded to jan web', () => {
     expect(parseDevWebArguments(['--skip-build', '--poll', '--no-open', '--port', '8080'])).toEqual({
-      skipBuild: true, serve: true, pollInterval: 500, appArgs: ['--no-open', '--port', '8080'],
+      skipBuild: true, serve: true, host: false, pollInterval: 500, appArgs: ['--no-open', '--port', '8080'],
     })
   })
 
@@ -105,6 +106,11 @@ describe('parseDevWebArguments', () => {
 
   it('rejects jan web arguments when no server is started', () => {
     expect(() => parseDevWebArguments(['--no-serve', '--no-open'])).toThrow('--no-serve leaves no jan web process for --no-open')
+  })
+
+  it('adds Host package watchers only beside a server started elsewhere', () => {
+    expect(parseDevWebArguments(['--skip-build', '--no-serve', '--host'])).toMatchObject({ serve: false, host: true })
+    expect(() => parseDevWebArguments(['--host'])).toThrow('--host requires --no-serve')
   })
 })
 
@@ -179,6 +185,7 @@ it('discovers client-preset packages the shell links, excluding loader-delivered
     await write('packages/host/server', {}, "import { defineConfig } from 'tsdown'\nexport default defineConfig({})\n")
 
     expect(discoverLibraryDirs(root)).toEqual(['packages/client/linked'])
+    expect(discoverHostLibraryDirs(root)).toEqual(['packages/host/server'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

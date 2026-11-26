@@ -23,7 +23,7 @@ import SubagentRuntime, {
   type SubagentRunEndInfo,
   type SubagentStartRequest,
 } from '@janhq/jan-subagent'
-import { Session, SessionId, type SessionEvent } from '@janhq/jan-session'
+import { Session, SessionId, SessionLogOffset, SessionSeq, type SessionEvent } from '@janhq/jan-session'
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
 
 function fakeParent(id = 'parent-1'): Agent {
@@ -526,6 +526,31 @@ describe('subagent descriptors', () => {
     data,
   } as unknown as SessionEvent<'subagent/descriptor'>)
 
+  it('reuses a version-2 identity checkpoint before a profiled descriptor', async () => {
+    const { ctx } = await service()
+    const { agent } = await ctx.agents.create({ sessionId: SessionId('identity-checkpoint') })
+    const session = agent.session
+    const historical = session.append('subagent/descriptor', {
+      version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'continuable', provider: 'spawn', label: 'Old label',
+    })
+    const events = session.snapshotEvents()
+    const checkpoint = ctx.sessionProjections.checkpoint(session)
+    expect(checkpoint['subagent']).toEqual({ ver: 2, seq: historical.seq, val: {
+      identity: { mode: 'continuable', label: 'Old label', seq: historical.seq },
+    } })
+    const next: SessionEvent<'subagent/descriptor'> = {
+      type: 'subagent/descriptor', seq: SessionSeq(historical.seq + 1), time: historical.time,
+      data: { ...historical.data, mode: 'continuable', label: 'New label', agent: 'team/reviewer' },
+    }
+    const registry = ctx.sessionProjections
+    const restored = registry.restore(checkpoint, [next], SessionLogOffset(next.seq), session.header, session.inheritedEventCount)
+    const replayed = registry.restore({}, [...events, next], SessionLogOffset(0), session.header, session.inheritedEventCount)
+    expect(restored).toEqual(replayed)
+    expect(restored.snapshot.values.subagent).toEqual({
+      mode: 'continuable', label: 'New label', agent: 'team/reviewer', seq: next.seq,
+    })
+  })
+
   it('omits absent fields, recovers a complete payload, and rejects unsupported versions', () => {
     expect(foldSubagentDescriptor([])).toBeUndefined()
     const minimal = {
@@ -544,21 +569,25 @@ describe('subagent descriptors', () => {
       mode: 'continuable' as const,
       provider: 'spawn',
       label: 'complete child',
+      agent: 'team/reviewer',
       agentProvider: 'deepseek',
       agentModel: 'chat',
       agentReasoningEffort: ReasoningEffortId('high'),
       persona: 'reviewer',
       toolFilter: { allow: ['read'], deny: ['bash'] },
+      sandboxMode: 'read-only' as const,
     }
     expect(snapshotSubagentDescriptor({
       mode: 'continuable',
       provider: complete.provider,
       label: complete.label,
+      agent: complete.agent,
       agentProvider: complete.agentProvider,
       agentModel: complete.agentModel,
       agentReasoningEffort: complete.agentReasoningEffort,
       persona: complete.persona,
       toolFilter: complete.toolFilter,
+      sandboxMode: complete.sandboxMode,
     })).toEqual(complete)
     expect(foldSubagentDescriptor([event(complete)])).toEqual(complete)
     expect(foldSubagentDescriptor([
@@ -662,6 +691,13 @@ describe('subagent descriptors', () => {
       label: 'l',
       persona: {},
     }, 'persona must be a string'],
+    ['unknown sandbox mode', {
+      version: SUBAGENT_DESCRIPTOR_VERSION,
+      mode: 'continuable',
+      provider: 'spawn',
+      label: 'l',
+      sandboxMode: 'unconfined',
+    }, 'sandboxMode must be a supported sandbox mode'],
     ['non-object tool filter', {
       version: SUBAGENT_DESCRIPTOR_VERSION,
       mode: 'continuable',

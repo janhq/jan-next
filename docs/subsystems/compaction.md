@@ -182,6 +182,15 @@ abstract compactIfNeeded( agent: CompactionAgentContext, trigger: CompactionTrig
 abstract compactNow( agent: ManualCompactAgentContext, signal: AbortSignal, sourceCommandId?: CommandId, ): Promise<CompactionResult | null>
 
 /**
+ * Request pressure at which automatic compaction would run for the agent's routed request.
+ * Read-only: a display such as `/context` uses it to show the remaining room.
+ * @param _agent - agent whose current route selects the policy.
+ * @param _signal - cancels any capacity lookup.
+ * @returns threshold tokens, or undefined when this engine has no automatic threshold for the route.
+ */
+autoCompactThreshold(_agent: CompactionAgentContext, _signal: AbortSignal): Promise<number | undefined>
+
+/**
  * Forcibly compact a range of surface nodes into a single summary node.
  * `start` and `end` name an inclusive span by surface position, not numeric seq
  * order; replacements can make visible seqs non-monotonic. Both edges must be

@@ -47,7 +47,8 @@ import { AgentPresetSectionController } from './section-store.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type AgentPresetSettingsKey } from './locales.ts'
 import { AGENT_PRESET_SETTINGS_NS, AgentPresetSettingsController } from './settings-store.ts'
 import { analyticsMode } from './analytics.ts'
-// Type-only: pulls the custom-editor seat declaration into this registration.
+import { registerModeDecoration } from './mode-actions.tsx'
+// Type-only: the mode picker and settings extension positions.
 import type {} from './slot-contract.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
@@ -70,6 +71,8 @@ export interface AgentPresetModeAction {
   readonly id: string
   /** Menu icon: a product glyph name such as `users-outline`, or one emoji. */
   readonly icon?: string
+  /** Sort position alongside preset declarations; unranked actions follow ranked entries. */
+  readonly order?: number
   name(): string
   description(): string
   run(sessionId: SessionId | undefined): void
@@ -91,6 +94,7 @@ export const inject = [
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
+  ctx.effect(() => registerModeDecoration(ctx))
   const toolsSettings = ctx.configForms.get<{ enabled: boolean }>('ui-settings')
   const presetSettings = ctx.configForms.get(AGENT_PRESET_SETTINGS_NS)
   let active = true

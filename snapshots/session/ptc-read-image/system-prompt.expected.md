@@ -140,7 +140,7 @@ interface ToolArgsMap {
     job_id: string;
     /** Block until the job finishes or the timeout expires; a timed-out wait leaves the job running. Defaults to false. */
     wait?: boolean;
-    /** Max wait in milliseconds with wait: true. Defaults to and is capped by configuration. */
+    /** Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting. */
     timeout_ms?: number;
   } & Record<string, JsonValue>;
   /** Watch new output from a running background job without polling. Matching lines arrive in batched notices, waking you when idle if enabled. Does not consume job_output. */
@@ -192,6 +192,8 @@ interface ToolArgsMap {
     name?: string;
     /** The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs. */
     prompt: string;
+    /** Name of a Jan agent to run this task (see Available agents) */
+    agent?: string;
   } & Record<string, JsonValue>;
   /** Delegate a task to a subagent that inherits this conversation: a child agent seeded with all completed turns so far (it does not see the current in-flight turn). Use this when the subtask builds on this conversation's context — a follow-up analysis, a review, a continuation — without consuming this conversation's context for the work itself. You receive its result, not its intermediate steps. This tool starts a subagent and returns its name. If you are still online when it finishes, the completion notice delivers its final answer separately from any interim messages. Use `send_message` to steer it while running or continue its conversation after it finishes. */
   subagent_fork: {
@@ -231,12 +233,12 @@ interface ToolArgsMap {
   } & Record<string, JsonValue>;
   /** Wait for input at your next step, including agent messages, completion notifications, and user steering. Returns immediately if new input is pending. `timedOut: false` means new input is pending. Pending input is delivered to the model after code execution finishes. */
   wait_agent: {
-    /** Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000. */
+    /** Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting. */
     timeout_ms?: number;
   } & Record<string, JsonValue>;
   /** Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled. */
   wake_after: {
-    /** Delay in seconds, from 1 to 86400. */
+    /** Delay in seconds, from 1 to 86400. Prefer 270 or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation. */
     seconds: number;
     /** Non-blank reminder to include in the completion notice (up to 1024 UTF-8 bytes). */
     note: string;

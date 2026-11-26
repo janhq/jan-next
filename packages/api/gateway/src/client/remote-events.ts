@@ -288,7 +288,8 @@ function parseRemoteEventReady(value: unknown): {
   const { home } = host
   if (typeof home !== 'string') throw new TypeError('client api: forwarded Remote event stream did not begin with ready')
   if (hasExactRemoteEventKeys(host, ['home'])) {
-    return { clientId: value.clientId, host: { home, name: 'Host', remote: false } }
+    const name = home.split(/[\\/]/).findLast(segment => segment !== '') ?? 'Host'
+    return { clientId: value.clientId, host: { home, name, remote: false } }
   }
   if (hasExactRemoteEventKeys(host, ['home', 'name', 'remote']) && typeof host.name === 'string' && typeof host.remote === 'boolean') {
     return { clientId: value.clientId, host: { home, name: host.name, remote: host.remote } }

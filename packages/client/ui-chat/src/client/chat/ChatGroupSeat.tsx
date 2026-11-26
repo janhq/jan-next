@@ -272,8 +272,9 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({
         data-scroll-up={edges.canScrollUp || undefined} data-scroll-down={edges.canScrollDown || undefined}
         {...events} onClick={peeking ? toggle : undefined} data-process-peek={peeking || undefined}
         // The preview is visual only: assistive technology and focus treat the group as closed until opened.
-        aria-hidden={peeking || undefined} {...peeking ? { inert: '' } : {}}>
-        <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow="">
+        aria-hidden={peeking || undefined}>
+        <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow=""
+          {...peeking ? { inert: '' } : {}}>
           <GroupMembers {...props} traceDetailsVisible={!outerHidden && (!grouped || open)} members={members} />
         </div>
       </div>

@@ -1,7 +1,9 @@
 /**
  * Model-facing whole-list replacement. Each call appends a `todo/write` snapshot to the calling
  * agent's session; replay is last-write-wins, and UIs render from session events. A non-agent
- * caller has no owning list and is rejected. Named exports preserve loader injection metadata.
+ * caller has no owning list and is rejected. With `stopReminders`, an agent that tries to end its
+ * turn with unfinished todos is steered back to them a bounded number of times. Named exports
+ * preserve loader injection metadata.
  * @module @janhq/jan-tool-todo
  */
 
@@ -10,7 +12,20 @@ import z from '@janhq/schemastery'
 import { z as zod } from 'zod'
 import type { ZodType } from 'zod'
 import { defineTool } from '@janhq/jan-tools'
+import type { Agent, PreStepDecision } from '@janhq/jan-agent'
+import { createUserMessage } from '@janhq/jan-llm'
+import type { ContextFormed, MessageSource } from '@janhq/jan-llm'
 import type { TodoItem } from './types.ts'
+
+declare module '@janhq/jan-llm' {
+  interface MessageSourceMap {
+    /**
+     * Model-visible reminder with no reader-side behavior.
+     * @persistenceAttribution
+     */
+    'todo-reminder': { kind: 'todo-reminder' } & ContextFormed
+  }
+}
 // Type-only: resolves the required ctx.sessionProjections service declaration.
 import type {} from '@janhq/jan-session-projection'
 // The `todos` projection-key declaration lives in src/types.ts (its one home);
@@ -35,12 +50,47 @@ export interface Config {
    * rejected.
    */
   allowParallelInProgress: boolean
+  /**
+   * How many times one turn may be steered back when the agent stops with unfinished todos
+   * (default 0: never). Each reminder lists the open todos and asks the agent to finish them or
+   * update the list; a user message resets the count, and a tool that ends the turn on purpose
+   * (a question to the user, a plan awaiting approval) is never overridden.
+   */
+  stopReminders?: number
 }
 
 /** Schemastery configuration for the todo tool consumer. */
 export const Config: z<Config> = z.object({
   allowParallelInProgress: z.boolean().required(),
+  stopReminders: z.natural().default(0),
 })
+
+/** Producer label on every reminder; non-user sources render as notices, never as user prompts. */
+const REMINDER_SOURCE: MessageSource = { kind: 'todo-reminder' }
+
+/**
+ * The steering text for one reminder.
+ * @param open - todos not yet completed, in list order.
+ * @param attempt - this reminder's 1-based number.
+ * @param limit - the turn's reminder budget.
+ * @returns model-visible reminder text.
+ */
+function reminderText(open: readonly TodoItem[], attempt: number, limit: number): string {
+  const lines = open.map(todo => `- [${todo.status}] ${todo.content}`)
+  return `You are about to stop, but ${open.length} todo${open.length === 1 ? ' is' : 's are'} not completed:\n`
+    + `${lines.join('\n')}\n`
+    + 'Continue working on them now. If one is no longer needed or is blocked on the user, update the list '
+    + 'with todo_write (mark it completed or remove it) and say why before you stop. '
+    + `Reminder ${attempt} of ${limit}.`
+}
+
+/** One agent's reminder state for its current turn. */
+interface TurnState {
+  turn: number
+  todos: readonly TodoItem[] | null
+  reminders: number
+  concluded: boolean
+}
 
 const DESCRIPTION_HEAD =
   'Record and update a task list to plan multi-step work and show progress; skip it for trivial '
@@ -117,6 +167,41 @@ const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
  */
 export async function apply(ctx: Context, config: Config): Promise<void> {
   const allowParallel = config.allowParallelInProgress
+  const reminderLimit = config.stopReminders ?? 0
+  // Per-agent state for the open turn: the latest list this turn wrote (the
+  // same standing plan the `todos` projection folds), reminders spent, and
+  // whether a tool concluded the turn on purpose in the current step.
+  const turns = new WeakMap<Agent, TurnState>()
+  if (reminderLimit > 0) {
+    ctx.on('agent/pre-step', ({ agent, messages, turn }, next): Promise<PreStepDecision> => {
+      const state = turns.get(agent)
+      if (state === undefined || state.turn !== turn) {
+        turns.set(agent, { turn, todos: null, reminders: 0, concluded: false })
+      } else {
+        state.concluded = false
+        // The user steering mid-turn is fresh direction, not an early stop.
+        if (messages.some(message => message.source.kind === 'user')) state.reminders = 0
+      }
+      return next()
+    })
+    ctx.on('tools/result', (exec, result) => {
+      const state = exec.agent === undefined ? undefined : turns.get(exec.agent)
+      if (state !== undefined && !result.isError && result.concludesTurn === true) state.concluded = true
+      return undefined
+    })
+    ctx.on('agent/turn-stopping', ({ agent, signal }) => {
+      const state = turns.get(agent)
+      if (state === undefined || state.todos === null || state.concluded || signal.aborted) return
+      if (state.reminders >= reminderLimit) return
+      const open = state.todos.filter(todo => todo.status !== 'completed')
+      if (open.length === 0) return
+      state.reminders += 1
+      agent.steer(createUserMessage({
+        content: [{ type: 'text', text: reminderText(open, state.reminders, reminderLimit) }],
+        source: { ...REMINDER_SOURCE, form: 'notice', summary: `${open.length} unfinished todo${open.length === 1 ? '' : 's'}` },
+      }))
+    })
+  }
   // Standing-plan fold: latest whole todo/write list, cleared by the next
   // turn/start (turn/end keeps the finished checklist visible); null before the
   // first write or after a later turn begins; every other event returns the
@@ -198,6 +283,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         throw new Error('todo_write requires an owning agent session')
       }
       exec.agent.session.append('todo/write', { todos })
+      const turnState = turns.get(exec.agent)
+      if (turnState !== undefined) turnState.todos = todos
       const count = (status: TodoItem['status']): number => todos.filter(t => t.status === status).length
       return Promise.resolve({
         todos: todos.map(todo => ({ content: todo.content, status: todo.status })),

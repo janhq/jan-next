@@ -41,9 +41,11 @@
     "client": {
       "inject": [
         "@janhq/jan-api-remotes",
+        "@janhq/jan-client-connection",
         "@janhq/jan-client-locale",
         "@janhq/jan-client-ui-conversation",
         "@janhq/jan-client-ui-layout",
+        "@janhq/jan-client-ui-settings",
         "@janhq/jan-client-ui-sidebar-right",
         "@janhq/jan-client-ui-workspace"
       ],
@@ -77,6 +79,7 @@
     "@janhq/jan-agent-loop-testkit": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
     "@janhq/jan-client-locale": "workspace:*",
     "@janhq/jan-client-store": "workspace:*",
     "@janhq/jan-client-test-runtime": "workspace:*",
@@ -85,6 +88,7 @@
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-session": "workspace:*",
+    "@janhq/jan-client-ui-settings": "workspace:*",
     "@janhq/jan-client-ui-sidebar-right": "workspace:*",
     "@janhq/jan-client-ui-slots": "workspace:*",
     "@janhq/jan-client-ui-workspace": "workspace:*",

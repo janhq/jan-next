@@ -45,7 +45,9 @@ import { closeWithPaneFocus, openWithPaneFocus } from './shell/close-focus.ts'
 import { RightbarRoot, type RightbarRootInjected } from './shell/RightbarRoot.tsx'
 import { SidebarSessionViews } from './session-views.ts'
 import { createSidebarRightController, type SidebarRightController } from './service.ts'
-import { SidebarRightTabRegistry } from './tab-registry.ts'
+import { SidebarRightTabRegistry, type SidebarRightGuideBox } from './tab-registry.ts'
+import { offeredGuideEntries } from './guide-offers.ts'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import { createSidebarRightStore } from './stores.ts'
 import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
 import { GUIDE_ID, guideDefinition } from './tabs/guide/definition.ts'
@@ -196,6 +198,15 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-sidebar-right: dictionaries')
   ctx.effect(() => registerSidebarShortcuts(ctx.shortcuts, controller, t, () => {
     void ctx.shortcuts.closeWindow().catch((error: unknown) => { console.error('Window close failed', error) })
+  }, (kind, target) => {
+    const desk = ctx.get('uiConversation')?.desk
+    const tab = desk?.tabForTarget(target)
+    if (desk === undefined || tab === undefined) return undefined
+    if (kind === 'split') {
+      return desk.canSplitTab(tab, 'row') ? { status: 'handled', run: () => { desk.splitTab(tab, 'row') } }
+        : { status: 'blocked', reason: t('command.width') }
+    }
+    return desk.canCloseTab() ? { status: 'handled', run: () => { if (desk.canCloseTab()) desk.closeTab(tab) } } : undefined
   }), 'ui-sidebar-right: shortcuts')
   if (typeof document !== 'undefined') ctx.effect(() => observeSidebarFocus(document), 'ui-sidebar-right: focus')
 
@@ -285,11 +296,14 @@ export function apply(ctx: ClientContext): void {
     }, ExpandButton))
     // Stage two for the guide: it declares the chain child it hosts and reads
     // the registry's entry boxes, which an ordinary type has no reason to do.
+    const guideEntries: ObservableSnapshot<readonly SidebarRightGuideBox[]> = {
+      subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.guide(),
+    }
     const guidePins = createGuidePins()
     const guideInjected: GuideInjected = {
       hooks: {
         shortcuts: ctx.shortcuts.catalog,
-        guideEntries: { subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.guide() },
+        guideEntries,
         entryPins: guidePins.unpinned,
         entryActions: {
           getSnapshot: () => ctx.slots.entriesOfSlot('sidebar.right.tab.guide.actions').length > 0,
@@ -315,7 +329,11 @@ export function apply(ctx: ClientContext): void {
           kind: 'chain', scope: 'session', inject: { hooks: { tabInfo: guideTabInfoFactory } },
         },
       },
-      inject: () => guideInjected,
+      // Each chat's guide lists only the entries that chat offers.
+      inject: (sessionId: SessionId): GuideInjected => ({
+        ...guideInjected,
+        hooks: { ...guideInjected.hooks, guideEntries: offeredGuideEntries(guideEntries, sessionId) },
+      }),
     }, GuideBody))
     const disposeGuideTitle = ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register(
       { name: 'sidebar.right.pane.tab.title', key: GUIDE_ID },
@@ -332,15 +350,16 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'ui-sidebar-right: seats and shipped tab type')
 
-  // The chat tab strip's `+` menu lists every type the guide offers; a pick
-  // opens it in that pane's chat sidebar. The pane is focused while the menu
-  // is open, so its chat is normally the one on screen and the open takes focus.
+  // The chat tab strip's `+` menu lists every type the guide offers in that
+  // chat; a pick opens it in that pane's chat sidebar. The pane is focused while
+  // the menu is open, so its chat is normally the one on screen and the open takes focus.
   ctx.effect(() => {
+    const registered: ObservableSnapshot<readonly SidebarRightGuideBox[]> = {
+      subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.guide(),
+    }
     const injected: NewTabItemsInjected = {
-      hooks: {
-        guideEntries: { subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.guide() },
-        shortcuts: ctx.shortcuts.catalog,
-      },
+      hooks: { shortcuts: ctx.shortcuts.catalog },
+      offeredIn: sessionId => offeredGuideEntries(registered, sessionId),
       openIn: (sessionId, kind) => {
         if (controller.mounted.getSnapshot() === sessionId) controller.openTab(kind)
         else controller.openTabIn(sessionId, kind)

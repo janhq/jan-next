@@ -6,11 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { Context } from '@janhq/cordis'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import type { ChangeResult, PluginEntryId, PluginI18nJob, PluginInstallRequestId, PluginUpdateResult, PluginVersion, RegistryAttempt } from '@janhq/jan-api-remotes/client'
-import type { PluginI18nState, TranslationOffer } from '@janhq/jan-client-ui-plugin-i18n/client'
+import type { PluginI18nService, PluginI18nState } from '@janhq/jan-client-ui-plugin-i18n/client'
 import { allowAllAccess, bindSnapshotSelector, stubConfigForm } from '@janhq/jan-client-test-runtime'
 import type { ConfigForm, ConfigFormSnapshot, SettingsMirrorSnapshot } from '@janhq/jan-client-ui-settings/client'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { MenuItemButton } from '@janhq/jan-client-ui-primitives'
+import { MenuItemButton, captureFailure } from '@janhq/jan-client-ui-primitives'
 import { StrictMode, type ReactNode } from 'react'
 import type { LocaleSnapshot } from '@janhq/jan-client-locale/client'
 import { bundleDetailKey, type BundleDetailsState } from '../src/client/detail-store.ts'
@@ -249,7 +249,7 @@ describe('PluginManagerPage', () => {
     const suggestions = createSnapshotStore<readonly (typeof suggestion)[]>(initial)
     const service = {
       getSnapshot: () => state.getSnapshot(), subscribe: (listener: () => void) => state.subscribe(listener), suggestions,
-      assess: vi.fn((): TranslationOffer | null => null),
+      assess: vi.fn<PluginI18nService['assess']>(() => null),
       translate: vi.fn(async (name: string): Promise<PluginI18nJob> => {
         state.set({ ...state.getSnapshot(), consent: { global: false, packages: [name] } })
         suggestions.set([])
@@ -289,6 +289,21 @@ describe('PluginManagerPage', () => {
     service.assess.mockReturnValue({ pkg: suggestion.pkg, locale: 'en', language: 'English', route: null })
     renderTab({ packages: [pkg({ description: '还没有特征' })] }, {}, {}, {}, [], props)
     expect(screen.getByRole('button', { name: 'Translate to English' })).toBeTruthy()
+  })
+
+  it('keeps manual translation on the card and details after the plugin offer is opted out', async () => {
+    const { service, props } = translationFixture([])
+    service.assess.mockImplementation(({ pkg: name }, options) => options?.manual && name === suggestion.pkg
+      ? { pkg: name, locale: 'en', language: 'English', route: null }
+      : null)
+    renderTab({ packages: [pkg(), pkg({ name: 'jan-other' })] }, {}, {}, {}, [], props)
+    const card = screen.getByRole('button', { name: 'Translate to English' }).closest('[data-plugin-package]')
+    expect(card?.getAttribute('data-plugin-package')).toBe(suggestion.pkg)
+    fireEvent.click(screen.getByRole('button', { name: t('openDetail', { name: suggestion.pkg }) }))
+    const action = screen.getByRole('button', { name: 'Translate to English' })
+    expect(action.closest('[data-plugin-detail]')).not.toBeNull()
+    await act(async () => { fireEvent.click(action) })
+    expect(service.translate).toHaveBeenCalledExactlyOnceWith(suggestion.pkg)
   })
 
   it('shows an original-language action on a consented package and clears translation when selected', async () => {
@@ -657,7 +672,7 @@ describe('PluginManagerPage', () => {
       .toBe('https://jan.example/api/plugin-manager/detail-file?bundle=jan-better-sidebar&document=guide/DETAIL.md&path=img/a.png')
     const failures = [['too-large', en.detailTooLarge], ['network', en.detailNetwork], ['denied', en.detailFailed], ['invalid', en.detailInvalid], ['other', en.detailFailed]] as const
     for (const [failure, text] of failures) {
-      b.setDetails({ [key]: { status: 'error', failure } })
+      b.setDetails({ [key]: { status: 'error', failure, diagnostics: captureFailure('pluginManager.detail', new Error(failure)) } })
       expect(screen.getByRole('alert').textContent).toBe(text)
     }
     fireEvent.click(screen.getByRole('button', { name: en.retry }))
@@ -2082,9 +2097,12 @@ describe('PluginManagerPage', () => {
     expect(actions.translateInstalled).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: en.installTranslateSkip }))
     expect(actions.declineTranslation).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: "Don't show again" }))
+    expect(actions.declineTranslation).toHaveBeenLastCalledWith('never')
     set({ install: { ...base, translate: { ...offer, step: 'running' } } })
     expect(screen.getByText(en.installTranslateRunning.replace('{language}', '日本語'))).toBeTruthy()
     expect(screen.queryByRole('button', { name: en.installTranslateSkip })).toBeNull()
+    expect(screen.queryByRole('button', { name: "Don't show again" })).toBeNull()
     set({ install: { ...base, translate: { ...offer, step: 'done' } } })
     expect(screen.getByText(en.installTranslateDone.replace('{language}', '日本語'))).toBeTruthy()
     set({ install: { ...base, translate: { ...offer, step: 'failed', message: 'offline', model: null } } })

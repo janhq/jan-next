@@ -49,8 +49,7 @@ export function BundleDetailSection(props: BundleDetailSectionProps): ReactNode 
     () => document === undefined ? undefined : { resolve: value => image(name, document, value, fromNpm) },
     [name, document, fromNpm, image],
   )
-  const shown = detailDocumentState(state?.status === 'error'
-    ? { status: 'error', message: t(FAILURE_KEYS[state.failure]) }
-    : state === undefined || state.status === 'loading' ? state : { status: 'ready', markdown: detail?.status === 'found' ? detail.markdown : undefined })
-  return <DetailDocument state={shown} labels={labels} images={images} onRetry={() => { retry(name, version, language, fromNpm) }} />
+  const shown = detailDocumentState(state, failure => t(FAILURE_KEYS[failure]))
+  return <DetailDocument state={shown} labels={labels} images={images} failure={state?.status === 'error' ? state.diagnostics : undefined}
+    onRetry={() => { retry(name, version, language, fromNpm) }} />
 }

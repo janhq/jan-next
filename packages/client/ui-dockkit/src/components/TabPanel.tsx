@@ -261,7 +261,9 @@ interface TabStripProps extends TabPanelProps {
 }
 
 /** @param props - pane state, gestures and shared offsets. @returns its tab strip without a content container. */
-export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): ReactNode {
+export function TabStrip({ state, pane, callbacks, offsets, windowDrag = true }: TabStripProps & {
+  readonly windowDrag?: boolean
+}): ReactNode {
   // The open context menu and the chip that opened it; the menu positions
   // itself against that chip from its portal.
   const [menu, setMenu] = useState<{ readonly tabId: TabId; readonly anchor: HTMLElement } | undefined>(undefined)
@@ -299,7 +301,7 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
     // row would sit earlier in the document, where this row's drag box overrides the
     // float's own subtraction and swallows the panel's header and controls.
     <div className={css.tabStrip} role="tablist" aria-label={callbacks.tabListLabel} data-dockkit-strip={pane.id}
-      data-window-drag={state.floats.length === 0 ? true : undefined}>
+      data-window-drag={windowDrag && state.floats.length === 0 ? true : undefined}>
       <div ref={stripTabs} className={css.stripTabs} role="presentation" data-dockkit-strip-tabs={pane.id}>
         {pane.tabs.map((tabId, index) => {
           const tab = getTab(state, tabId)
@@ -310,6 +312,15 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
           const quiet = !closable && pane.tabs.length === 1
           const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
             if (event.target !== event.currentTarget) return
+            if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+              if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.nativeEvent.isComposing
+                && callbacks.getTabTriggerProps === undefined) {
+                event.preventDefault()
+                const anchor = event.currentTarget
+                setMenu(current => current?.tabId === tabId ? undefined : { tabId, anchor })
+              }
+              return
+            }
             if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.nativeEvent.isComposing) return
             const next = chipToFocus(event.key, pane.tabs, tabId)
             if (next !== undefined) { event.preventDefault(); focusChip(next); return }
@@ -347,6 +358,8 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
                 onPointerDown={(event) => {
                   if (event.button !== 0) return
                   callbacks.onTabPressed(tabId, event)
+                  event.preventDefault()
+                  event.currentTarget.focus({ preventScroll: true })
                 }}
                 onMouseDown={(event) => {
                   // Prevent middle-button autoscroll or selection paste before release.
@@ -511,19 +524,24 @@ export function PaneDropHints({ pane, callbacks }: Pick<TabPanelProps, 'pane' | 
 }
 
 /** @param props - pane state and gestures. @returns one pane in the recursive, visibility-mounted layout. */
-export function TabPanel({ state, pane, callbacks }: TabPanelProps): ReactNode {
+export function TabPanel({ state, pane, callbacks, leading = false, top = true }: TabPanelProps & {
+  readonly leading?: boolean
+  readonly top?: boolean
+}): ReactNode {
   const active = pane.activeTabId === undefined ? undefined : getTab(state, pane.activeTabId)
   return (
     <section
       className={css.pane}
       data-dockkit-pane={pane.id}
+      data-dockkit-pane-leading={leading || undefined}
+      data-dockkit-pane-top={top || undefined}
       tabIndex={-1}
       data-dockkit-pane-active={state.activePaneId === pane.id || undefined}
       onClick={() => {
         if (state.activePaneId !== pane.id) callbacks.onFocusPane(pane.id)
       }}
     >
-      {callbacks.tabStrips !== false && <TabStrip state={state} pane={pane} callbacks={callbacks} />}
+      {callbacks.tabStrips !== false && <TabStrip state={state} pane={pane} callbacks={callbacks} windowDrag={top} />}
       <div className={css.paneBody}>
         {active === undefined
           ? <p className={css.empty}>{callbacks.labels.emptyPane}</p>

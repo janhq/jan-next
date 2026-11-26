@@ -8,9 +8,9 @@ import { chromium, type Browser, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { startMockLlmServer, type MockLlmServer } from '@janhq/jan-llm-mock-server'
 import { parseSessionHeader } from '@janhq/jan-llm-replay'
-import type {} from '@janhq/jan-plugin-manager'
-import type {} from '@janhq/jan-tools'
-import type {} from '@janhq/jan-subagent'
+import type { } from '@janhq/jan-plugin-manager'
+import type { } from '@janhq/jan-tools'
+import type { } from '@janhq/jan-subagent'
 import {
   assertFinalWorkspaceSnapshot, assertFixtureInventory, captureExpandedTurnProcessAria, compareOrRefreshGolden,
   fixtureUserPrompts, launchWebScaffold, seedSession, selectedSessionFixture, watchConsole, webSnapshotMode, type WebScaffold,
@@ -84,16 +84,18 @@ describe.skipIf(MODE === 'record')('web snapshot: Official native subagent bundl
     nativeEndpoint = await heldNativeEndpoint(server.baseURL)
     const overlay = join(root, 'native-provider.patch.json')
     // This environment belongs only to the SDK-spawned product; host credentials and homes remain untouched.
-    await writeFile(overlay, JSON.stringify([{ id: 'subagent-claude-code', config: {
-      model: 'fixture-model',
-      env: {
-        ANTHROPIC_API_KEY: 'snapshot-fake-key', ANTHROPIC_BASE_URL: nativeEndpoint.baseURL,
-        CLAUDE_CONFIG_DIR: config, HOME: root, XDG_CONFIG_HOME: xdg,
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
-        DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1',
-        HTTP_PROXY: '', HTTPS_PROXY: '', ALL_PROXY: '', NO_PROXY: '127.0.0.1,localhost',
+    await writeFile(overlay, JSON.stringify([{
+      id: 'subagent-claude-code', config: {
+        model: 'fixture-model',
+        env: {
+          ANTHROPIC_API_KEY: 'snapshot-fake-key', ANTHROPIC_BASE_URL: nativeEndpoint.baseURL,
+          CLAUDE_CONFIG_DIR: config, HOME: root, XDG_CONFIG_HOME: xdg,
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
+          DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1',
+          HTTP_PROXY: '', HTTPS_PROXY: '', ALL_PROXY: '', NO_PROXY: '127.0.0.1,localhost',
+        },
       },
-    } }]))
+    }]))
     scaffold = await launchWebScaffold({
       developerTools: true, profile: { packages: [{ dir: PACKAGE }] },
       extraOverlayPath: [fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)), overlay],
@@ -111,7 +113,7 @@ describe.skipIf(MODE === 'record')('web snapshot: Official native subagent bundl
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
+    await page.getByRole('button', { name: 'Code mode', exact: true }).click()
     await page.getByRole('menuitem', { name: /^PTC mode/ }).click()
     await page.getByRole('button', { name: 'PTC mode', exact: true }).waitFor({ state: 'visible' })
   })

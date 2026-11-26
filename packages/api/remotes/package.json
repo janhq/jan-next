@@ -96,6 +96,7 @@
     "@janhq/jan-command-feedback": "workspace:*",
     "@janhq/jan-api-terminal-controller": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",
+    "@janhq/jan-skill": "workspace:*",
     "@janhq/jan-mcp-manager": "workspace:*",
     "@janhq/jan-plugin-market": "workspace:*",
     "@janhq/jan-client-ui-plugin-manager": "workspace:*",

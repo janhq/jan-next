@@ -20,6 +20,7 @@ import type { } from '@janhq/jan-client-ui-context-menu/client'
  * packages/client/AGENTS.md.
  */
 import type { } from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-ui-settings/client'
 import type { Context } from '@janhq/cordis'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type { ISessions, SessionForkError } from '@janhq/jan-api-session-controller/client'
@@ -29,7 +30,7 @@ import type {
 import type { RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
 import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { writeClipboard } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, writeClipboard } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only: pulls the Controller service merges.
@@ -61,6 +62,7 @@ import { SessionRenameDialog } from './session-actions/RenameSession.tsx'
 import { RowActionToast } from './session-actions/RowActionToast.tsx'
 import { registerToasts } from './toast/register.ts'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
+import { WorkingSectionRow, type WorkingSectionRowInjected } from './WorkingSectionRow.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type WorkspaceKey } from './locales.ts'
 
 export type { StartSessionOptions, UiWorkspace } from './navigation.ts'
@@ -105,6 +107,9 @@ declare module '@janhq/jan-api-session-controller/client' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'workspace'
 
+/** Host Config entry of this plugin in the Web composition, whose form holds `workingSection`. */
+const CONFIG_ENTRY = 'ui-workspace'
+
 /**
  * Required services (cordis fiber inject). The target slots are declared by
  * the ui-sidebar / ui-conversation applies, whose activation order relative
@@ -131,6 +136,10 @@ export function apply(ctx: Context): void {
   // view order through the same instance the renderer hands the browser.
   const viewHandle = createWorkspaceViewStore()
   const viewInstance = viewHandle.create()
+  // Showing archived rows is a lookup, not a preference: every launch starts
+  // with them hidden, so one "show archived" never keeps archived Sessions in
+  // the list after a restart.
+  viewInstance.actions.setArchivedFilter('default')
   const viewStore: typeof viewHandle = { ...viewHandle, create: () => viewInstance }
   const rowToast = createSnapshotStore<RowToastState | null>(null)
   let toastSeq = 0
@@ -201,6 +210,22 @@ export function apply(ctx: Context): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
+  // The General switch lives on the Host entry. `configForms` may arrive after this plugin, so each
+  // read and subscription looks it up again; the section shows until the form says otherwise.
+  const workingForm = () => ctx.get('configForms')?.get<{ workingSection?: boolean }>(CONFIG_ENTRY)
+  const workingSection: HostObservable<boolean> = {
+    getSnapshot: () => workingForm()?.getSnapshot().value?.workingSection !== false,
+    subscribe: listener => workingForm()?.subscribe(listener) ?? (() => {}),
+  }
+  ctx.inject(['configForms'], (scope) => {
+    scope.slots.inject('settings.general.item', () => scope.slots.register({
+      name: 'settings.general.item', id: 'working-section', order: 17, locale: NS,
+      inject: (): WorkingSectionRowInjected => ({
+        hooks: { workingSection },
+        setShown: shown => scope.configForms.get(CONFIG_ENTRY).set('workingSection', shown),
+      }),
+    }, WorkingSectionRow))
+  })
   const openSession: WorkspaceBrowserInjected['open'] = (sessionId, modifiers) => {
     const newTab = modifiers !== undefined
       && (ctx.shortcuts.platform === 'macos' ? modifiers.meta : modifiers.control)
@@ -235,10 +260,14 @@ export function apply(ctx: Context): void {
     // Pin failures surface as a notice: nothing else on the surface moves, so
     // a silent failure would read as a dead action.
     pinSession: (sessionId) => {
-      uiWorkspace.pinSession(sessionId).catch(() => { notify({ kind: 'pinFailed' }) })
+      uiWorkspace.pinSession(sessionId).catch((error: unknown) => {
+        notify({ kind: 'pinFailed', failure: captureFailure('workspace.pinSession', error) })
+      })
     },
     unpinSession: (sessionId) => {
-      uiWorkspace.unpinSession(sessionId).catch(() => { notify({ kind: 'unpinFailed' }) })
+      uiWorkspace.unpinSession(sessionId).catch((error: unknown) => {
+        notify({ kind: 'unpinFailed', failure: captureFailure('workspace.unpinSession', error) })
+      })
     },
   })
   const archiveInjected = (): ArchiveSessionInjected => ({
@@ -263,7 +292,7 @@ export function apply(ctx: Context): void {
     unarchiveSession,
   })
   installWorkspaceShortcuts(ctx, uiWorkspace, shortcutControls, archiveInjected().archiveSession,
-    (reason) => { notify({ kind: 'shortcutForkFailed', reason }) })
+    (reason, error) => { notify({ kind: 'shortcutForkFailed', reason, failure: captureFailure('session.fork', error) }) })
   installNavigationShortcuts(ctx, uiWorkspace)
   const archiveConfirmInjected = (): SessionArchiveConfirmInjected => ({
     hooks: { archiveRequest },
@@ -280,7 +309,7 @@ export function apply(ctx: Context): void {
       }, { allowMigration: false }).catch((error: unknown) => {
         if (error instanceof Error && error.name === 'SessionForkError'
           && (error as SessionForkError).rpcError.code === 'session/migration-required') {
-          notify({ kind: 'forkRequiresOpen', sessionId })
+          notify({ kind: 'forkRequiresOpen', sessionId, failure: captureFailure('session.fork', error) })
         }
       })
     },
@@ -288,7 +317,9 @@ export function apply(ctx: Context): void {
   const sessionIdInjected = (): SessionIdInjected => ({
     copySessionId: async (sessionId) => {
       const copied = await writeClipboard(sessionId)
-      notify({ kind: copied ? 'sessionIdCopied' : 'sessionIdCopyFailed' })
+      notify(copied ? { kind: 'sessionIdCopied' } : {
+        kind: 'sessionIdCopyFailed', failure: captureFailure('clipboard.copySessionId', 'clipboard/write-rejected'),
+      })
     },
   })
   const renameInjected = (): RenameSessionInjected => ({ requestSessionRename })
@@ -370,7 +401,7 @@ export function apply(ctx: Context): void {
       primaryActions, workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo,
       remoteMachines: uiWorkspace.remoteMachines,
       workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog, projectSurface: uiWorkspace.projectSurface,
-      hiddenSessions: uiWorkspace.hiddenSessions,
+      hiddenSessions: uiWorkspace.hiddenSessions, workingSection,
     },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({

@@ -5,8 +5,14 @@ window.__ModuleLoader__.load({
     const { createElement: h, useEffect, useState, useSyncExternalStore } = require('react')
     const { Switch, Toast, IconWarningTriangleOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-notifications'
-    const KINDS = ['finished', 'failed', 'waiting']
-    const DEFAULTS = { enabled: true, finished: true, failed: true, waiting: true }
+    const KINDS = ['finished', 'failed', 'waiting', 'input']
+    const DEFAULTS = { enabled: true, finished: true, failed: true, waiting: true, input: true }
+    function resolvePreferences({ value, user }) {
+      const preferences = { ...DEFAULTS, ...value }
+      // The Host fills in schema defaults; only the saved layer can identify a legacy opt-out.
+      if (user?.input === undefined && user?.waiting !== undefined) preferences.input = preferences.waiting
+      return preferences
+    }
     /** Notification ids awaiting a click; older ids are dropped once the platform has likely dismissed them. */
     const MAX_TARGETS = 64
     const CSS = `
@@ -18,11 +24,11 @@ window.__ModuleLoader__.load({
 
     return {
       name: NS,
-      inject: ['slots', 'locale', 'uiSession', 'sessions', 'remote', 'configForms', 'uiWorkspace'],
+      // readOutcome reads the turn end from the Session Remote, so its namespace must be injected, not only `remote`.
+      inject: ['slots', 'locale', 'uiSession', 'sessions', 'remote', 'remote.session', 'configForms', 'uiWorkspace', 'layout'],
       apply(ctx) {
         const logger = ctx.logger(NS)
         const form = ctx.configForms.get(NS)
-        const preferences = () => ({ ...DEFAULTS, ...form.getSnapshot().value })
         const bridge = globalThis.janDesktop?.notifications
         /** @type {Map<string, string>} notification id → Session id */
         const targets = new Map()
@@ -43,7 +49,8 @@ window.__ModuleLoader__.load({
           const t = ctx.locale.bind(NS)
           const summary = sessionId => ctx.sessions.list.getSnapshot().byId[sessionId]
           const nameOf = sessionId => summary(sessionId)?.title?.trim() || t('untitled')
-          const isMain = sessionId => (summary(sessionId)?.retainedBy?.mainView ?? 0) > 0
+          const isChatVisible = sessionId => ctx.layout.panelInfo.getSnapshot().activePanelId === null
+            && (summary(sessionId)?.retainedBy?.mainView ?? 0) > 0
           const visible = () => document.visibilityState === 'visible'
           let serial = 0
 
@@ -67,10 +74,10 @@ window.__ModuleLoader__.load({
             },
             emit: ({ kind, sessionId }) => {
               const name = nameOf(sessionId)
-              if (kind === 'failed' && visible() && !isMain(sessionId)) {
+              if (kind === 'failed' && visible() && !isChatVisible(sessionId)) {
                 showToast?.({ key: ++serial, sessionId, text: t('toast.failed', { name }) })
               }
-              const wanted = preferences()
+              const wanted = resolvePreferences(form.getSnapshot())
               if (bridge === undefined || !wanted.enabled || !wanted[kind]) return
               const show = () => {
                 const id = `${kind}:${++serial}`
@@ -79,9 +86,9 @@ window.__ModuleLoader__.load({
                 bridge.show({ id, title: t(`${kind}.title`), body: t(`${kind}.body`, { name }) })
                   .catch(error => { logger.warn('could not show a desktop notification', error) })
               }
-              if (!isMain(sessionId)) { show(); return }
+              if (!isChatVisible(sessionId)) { show(); return }
               // The open chat notifies only while the native window is hidden, minimized or unfocused.
-              bridge.windowActive().then((active) => { if (!active) show() }, (error) => {
+              bridge.windowActive().then((active) => { if (!active || !isChatVisible(sessionId)) show() }, (error) => {
                 logger.warn('could not read the window state', error)
                 show()
               })
@@ -121,7 +128,7 @@ window.__ModuleLoader__.load({
           const usePreferences = () => useSyncExternalStore(listener => form.subscribe(listener), () => form.getSnapshot())
           function PreferenceRow({ field, title, description, nested }) {
             const snapshot = usePreferences()
-            const value = { ...DEFAULTS, ...snapshot.value }
+            const value = resolvePreferences(snapshot)
             const [busy, setBusy] = useState(false)
             const [failed, setFailed] = useState(false)
             if (nested && !value.enabled) return null
@@ -140,7 +147,7 @@ window.__ModuleLoader__.load({
           const rows = [
             { field: 'enabled', title: () => t('settings.title'), description: () => t('settings.description') },
             ...KINDS.map(kind => ({ field: kind, nested: true, title: () => t(`settings.${kind}`),
-              description: () => (kind === 'waiting' ? t('settings.waitingDescription') : undefined) })),
+              description: () => (kind === 'waiting' || kind === 'input' ? t(`settings.${kind}Description`) : undefined) })),
           ]
           // After the conversation rows (12–17) and before performance usage (30).
           rows.forEach((row, index) => {

@@ -242,7 +242,7 @@ describe('external catalog membership', () => {
 })
 
 describe('named catalog membership', () => {
-  it('reuses version-6 unnamed checkpoints and folds only the named suffix', async () => {
+  it('reuses version-6 checkpoints and folds a suffix with profile identity and sandbox mode', async () => {
     const ctx = new Context()
     try {
       await ctx.plugin(SessionProjectionRegistry)
@@ -258,7 +258,7 @@ describe('named catalog membership', () => {
       const suffix: SessionEvent<'subagent/catalog'>[] = [
         { type: 'subagent/catalog', seq: SessionSeq(3), time: 0,
           data: { version: 3, childId: SessionId('reviewer'), childCreatedAt: 4,
-            mode: 'continuable', label: 'Review', name: 'reviewer' } },
+            mode: 'continuable', label: 'Review (changed files)', name: 'reviewer', agent: 'team/reviewer', sandboxMode: 'read-only' } },
         { type: 'subagent/catalog', seq: SessionSeq(4), time: 0,
           data: { version: 3, childId: SessionId('auditor'), childCreatedAt: 5, mode: 'external', name: 'auditor' } },
       ]
@@ -279,6 +279,9 @@ describe('named catalog membership', () => {
       expect(restored.checkpoint['subagentCatalog']!.ver).toBe(6)
       expect(restored.snapshot.values.subagentCatalog?.map(entry => 'name' in entry ? entry.name : undefined))
         .toEqual([undefined, undefined, undefined, 'reviewer', 'auditor'])
+      expect(restored.snapshot.values.subagentCatalog?.map(entry => entry.agent))
+        .toEqual([undefined, undefined, undefined, 'team/reviewer', undefined])
+      expect(restored.snapshot.values.subagentCatalog?.[3]).toMatchObject({ sandboxMode: 'read-only' })
     } finally {
       await ctx.fiber.dispose()
     }

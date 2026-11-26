@@ -126,7 +126,7 @@ interface WorkspaceNavigation {
   openWorkspace(
     workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0] | undefined,
     beforeOpen: (sessionId: SessionId) => void,
-    options?: { readonly reuseBlank: boolean },
+    options?: { readonly reuseBlank: boolean; readonly agentProfile?: string | null },
   ): Promise<void>
 }
 
@@ -169,7 +169,15 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   // Schemastery's field default is materialized before Cordis calls apply.
   const maxConcurrentFileUploads = config.maxConcurrentFileUploads as number
   const workspaceNavigation = ctx.get('uiWorkspace') as WorkspaceNavigation
-  const uiConversation = new UiConversation(ctx, sessions)
+  const desktop = (globalThis as { janConversationWindow?: ConversationPanelInjected['desktop'] }).janConversationWindow
+  const storageKey = desktop?.id === undefined ? MULTITASK_LAYOUT_KEY : `${MULTITASK_LAYOUT_KEY}.${desktop.id}`
+  const layout = new ConversationLayout(globalThis.localStorage.getItem(storageKey) ?? undefined,
+    (value) => { globalThis.localStorage.setItem(storageKey, value) },
+    (id) => {
+      if (id === undefined) workspaceNavigation.showEmptyConversation?.()
+      else workspaceNavigation.openSession(id)
+    })
+  const uiConversation = new UiConversation(ctx, sessions, layout)
   uiConversation.userText.register(sessionReferenceRule)
   uiConversation.userText.register(collapseWhitespaceRule)
   uiConversation.userText.register(trimWhitespaceRule)
@@ -197,14 +205,6 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-conversation: dictionaries')
   const t = ctx.locale.bind(NS)
-  const desktop = (globalThis as { janConversationWindow?: ConversationPanelInjected['desktop'] }).janConversationWindow
-  const storageKey = desktop?.id === undefined ? MULTITASK_LAYOUT_KEY : `${MULTITASK_LAYOUT_KEY}.${desktop.id}`
-  const layout = new ConversationLayout(globalThis.localStorage.getItem(storageKey) ?? undefined,
-    (value) => { globalThis.localStorage.setItem(storageKey, value) },
-    (id) => {
-      if (id === undefined) workspaceNavigation.showEmptyConversation?.()
-      else workspaceNavigation.openSession(id)
-    })
   const retainPane = paneRetainer(sessions)
   const mainBinding = ctx.uiSession.adapter.current
   const workspaces = ctx.workspaces.list
@@ -426,6 +426,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
       'conversation.composer.agentPreset': { kind: 'single', scope: 'session' },
+      'conversation.hero.agentProfile': { kind: 'single', scope: 'session-maybe' },
+      'conversation.composer.agentProfile': { kind: 'single', scope: 'session' },
       'conversation.hero.options': { kind: 'list', scope: 'session' },
     },
     slots: {
@@ -451,11 +453,11 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
         heroPlaceholder,
       },
-      openDefaultDraft: readText => workspaceNavigation.openWorkspace(undefined, (nextId) => {
+      openDefaultDraft: (readText, agentProfile) => workspaceNavigation.openWorkspace(undefined, (nextId) => {
         const text = readText()
         if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
-      }, { reuseBlank: false }),
-      selectWorkspace: (workspaceId, readText) => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
+      }, { reuseBlank: false, ...agentProfile === undefined ? {} : { agentProfile } }),
+      selectWorkspace: (workspaceId, readText, agentProfile) => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
         if (sessionId === undefined) {
           const text = readText?.() ?? ''
           if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
@@ -483,7 +485,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             }
           }
         }
-      }, { reuseBlank: sessionId !== undefined }),
+      }, { reuseBlank: sessionId !== undefined, ...agentProfile === undefined ? {} : { agentProfile } }),
     }),
   }, ConversationContent)
 

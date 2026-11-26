@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createRequire } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import * as primitives from '@janhq/jan-client-ui-primitives'
 import * as React from 'react'
 import { expect, it, vi } from 'vitest'
 
-const client = readFileSync(resolve(import.meta.dirname, '../../../plugins/downloads/client.js'), 'utf8')
+const client = readFileSync(resolve(import.meta.dirname, '../../../packages/host/downloads/client.js'), 'utf8')
 
 type Translate = (key: string, values?: Record<string, string>) => string
 
@@ -42,15 +43,21 @@ it('warns with the model name and size, leaves it on cancel, and refreshes after
       if (typeof cleanup === 'function') dispose.push(cleanup as () => void)
     },
     slots: {
-      inject(_slot: string, activate: () => void) { activate() },
+      inject(slot: string, activate: () => void) { if (slot !== 'sidebar.toggle.actions') activate(); return () => {} },
       register(options: { name: string; inject?: () => object }, Component: React.ComponentType<{ t: Translate }>) {
         if (options.name === 'main') Page = () => <Component {...options.inject?.()} t={scope.locale.bind()} />
       },
     },
   }
-  runInNewContext(client, { document, AbortController, setTimeout, clearTimeout, window: { __ModuleLoader__: {
+  const fetchInbox = async (_: string, { signal }: { signal: AbortSignal }) => {
+    signal.throwIfAborted()
+    const stop = Promise.withResolvers<never>()
+    signal.addEventListener('abort', () => { stop.reject(signal.reason) }, { once: true })
+    return stop.promise
+  }
+  runInNewContext(client, { document, AbortController, URL, setTimeout, clearTimeout, fetch: fetchInbox, window: { __ModuleLoader__: {
     load(module: { factory: (require: (id: string) => unknown) => { apply: (ctx: unknown) => void } }) {
-      module.factory(id => id === 'react' ? React : primitives).apply(scope)
+      module.factory(id => id === 'react' ? React : id === 'react-dom' ? createRequire(import.meta.url)('react-dom') : primitives).apply(scope)
     },
   } } })
   if (Page === undefined) throw new Error('Downloads did not register a page')

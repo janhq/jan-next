@@ -58,6 +58,11 @@ interface ForgeProvider {
   ): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>>
   /** Read all checks for one change request on demand; omission declares that only the polling preview is available. */
   fetchChecks?(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>
+  /** Read previews and artifacts for the supplied head commit, independently of polling. */
+  fetchAssets?(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>
+  /** Read failed checks, job log tails and blocking reviews on demand. The caller verifies the returned head. */
+  fetchFailureContext?(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection,
+    signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>
   /** Find open change requests whose head is `branch` in `repository`, excluding the default branch and forks. */
   findByHead(repository: ForgeRepository, branch: string, signal: AbortSignal): Promise<readonly ChangeRequestRef[]>
   /** Report whether the provider can reach `host` with current credentials. */
@@ -114,6 +119,8 @@ interface ChangeRequestCheck {
   readonly startedAt: string | null
   /** ISO 8601 time the check completed, or null while it runs and when the host reports none. */
   readonly completedAt: string | null
+  /** Check-run output, available on explicit detail reads when the host supplies it. */
+  readonly output?: { readonly title: string | null; readonly summary: string | null }
 }
 ```
 
@@ -219,6 +226,75 @@ type ChangeRequestUpdate = {
  * @param update - the settled result.
  */
 type ChangeRequestListener = (update: ChangeRequestUpdate) => void
+```
+
+## Previews, artifacts and failure context
+
+`ctx.forge.fetchAssets(ref, headSha, signal)` reads previews and workflow artifacts for an expanded card independently of polling. `ctx.forge.fetchFailureContext(ref, headSha, selection, signal)` reads the full check list and, as available, failed job-step excerpts and active requests for changes. Optional source failures leave other results intact. Neither read updates the watched status.
+
+```ts type-equiv
+/** A browser-openable preview linked to the head commit or posted to its change request. */
+interface ChangeRequestPreview {
+  readonly label: string
+  readonly url: string
+}
+```
+
+```ts type-equiv
+/** A workflow artifact and the host page where the signed-in user can download it. */
+interface ChangeRequestArtifact {
+  readonly name: string
+  readonly sizeBytes: number
+  readonly expiresAt: string
+  readonly expired: boolean
+  readonly url: string
+}
+```
+
+```ts type-equiv
+/** On-demand assets; one source can fail without discarding successful results from the other sources. */
+interface ChangeRequestAssets {
+  readonly previews: readonly ChangeRequestPreview[]
+  readonly artifacts: readonly ChangeRequestArtifact[]
+  readonly failures: readonly ForgeFailure[]
+  readonly truncated: boolean
+}
+```
+
+```ts type-equiv
+/** Selects the entire request, only its reviews, or one check from the displayed head. */
+type ChangeRequestFailureSelection = { readonly kind: 'all' } | { readonly kind: 'review' }
+  | { readonly kind: 'check'; readonly name: string; readonly workflow: string | null; readonly url: string | null }
+```
+
+```ts type-equiv
+/** Text preserved from one failed step, associated with its check by browser URL. */
+interface ChangeRequestFailureLog {
+  readonly url: string
+  readonly step: string
+  readonly text: string
+  readonly truncated: boolean
+}
+```
+
+```ts type-equiv
+/** A review currently requesting changes, with body and inline comments. */
+interface ChangeRequestBlockingReview {
+  readonly author: string | null
+  readonly body: string
+  readonly comments: readonly { readonly path: string; readonly line: number | null; readonly body: string }[]
+}
+```
+
+```ts type-equiv
+/** Head-verified failure context; unavailable optional details are reported without losing the check list. */
+interface ChangeRequestFailureContext {
+  readonly snapshot: ChangeRequestSnapshot
+  readonly logs: readonly ChangeRequestFailureLog[]
+  readonly reviews: readonly ChangeRequestBlockingReview[]
+  readonly failures: readonly ForgeFailure[]
+  readonly truncated: boolean
+}
 ```
 
 ## Change request actions
@@ -811,6 +887,25 @@ async merge(ref: ChangeRequestRef, request: MergeRequest, signal: AbortSignal): 
 async fetchChecks(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>
 
 /**
+ * Read assets for the displayed head without affecting polling.
+ * @param ref - change request served by a registered provider.
+ * @param headSha - commit whose assets are requested.
+ * @param signal - cancellation of the detail view.
+ * @returns previews, artifacts, and any failures isolated to their sources.
+ */
+async fetchAssets(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>
+
+/**
+ * Read diagnostics for an explicit failure action without affecting polling.
+ * @param ref - change request served by a registered provider.
+ * @param headSha - commit whose diagnostics are requested.
+ * @param selection - which checks or reviews to enrich.
+ * @param signal - cancellation of the action.
+ * @returns diagnostics, or a failure if the change request cannot be read.
+ */
+async fetchFailureContext(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>
+
+/**
  * Read the changes of a change request as its host computes them.
  * @param ref - change request served by a registered provider.
  * @param signal - cancellation of the read.
@@ -993,6 +1088,27 @@ Serves the forge panel. Following a Session inspects the checkout of its current
  * or `forgePanel/checks-failed` when the provider cannot complete the read.
  */
 @Remote async changeRequestChecks(session: Session, url: string, headSha: string, signal: AbortSignal): Promise<ChangeRequestSnapshot>
+
+/**
+ * Read previews and artifacts for a visible change request at the displayed head.
+ * @param session - Session retaining the visible binding.
+ * @param url - binding URL.
+ * @param headSha - commit displayed by the card.
+ * @param signal - cancellation when the card closes.
+ * @returns previews, artifacts, and any individual read failures.
+ */
+@Remote async changeRequestAssets(session: Session, url: string, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>
+
+/**
+ * Read diagnostics for a fix-context action of a visible change request.
+ * @param session - Session retaining the visible binding.
+ * @param url - binding URL.
+ * @param headSha - commit displayed by the card.
+ * @param selection - which failures to include.
+ * @param signal - cancellation when the card closes.
+ * @returns head-verified failure context, or throws if status could not be read.
+ */
+@Remote async changeRequestFailureContext(session: Session, url: string, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext>
 
 /**
  * Read the changes of a change request of a Session as its code host

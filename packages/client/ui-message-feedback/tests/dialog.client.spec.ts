@@ -97,7 +97,7 @@ describe('FeedbackDialogController', () => {
 
     expect(controller.state.getSnapshot()).toMatchObject({
       target: MESSAGE_TARGET, text: 'draft', submitting: false,
-      failure: 'version-conflict', toast: 0,
+      failure: { code: 'version-conflict', details: { errors: [expect.objectContaining({ code: 'version-conflict', message: 'changed' })] } }, toast: 0,
     })
   })
 

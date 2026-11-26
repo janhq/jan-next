@@ -160,7 +160,7 @@ export function registerMigrateTools(ctx, { list, importSelected }) {
     output: { schema: {}, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     async execute(args, exec) {
       const questions = ctx.get('userQuestions')
-      if (!questions) throw new Error('This chat cannot show the import form. Use Settings -> Built-in plugins -> Import sessions instead.')
+      if (!questions) throw new Error('This chat cannot show the import form. Use Settings -> Import -> Local chats and settings instead.')
       const window = days(args.days)
       const approval = {}
       const listed = await list({ source: args.source }, approval)

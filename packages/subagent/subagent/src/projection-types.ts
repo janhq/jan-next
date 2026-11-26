@@ -29,6 +29,8 @@ export type KnownSubagentCatalogFields =
     readonly label: string
     /** Name unique among the parent's children; absent on historical entries. */
     readonly name?: string
+    /** Effective sandbox mode fixed at delegation, when a profile supplied a cap. */
+    readonly sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access'
   }
 
 /** One current direct-child discovery row materialized from parent facts. */
@@ -36,6 +38,8 @@ export type SubagentCatalogEntry =
   & {
     readonly id: SessionId
     readonly createdAt: number
+    /** Profile id selected at creation; absent when none was recorded. */
+    readonly agent?: string
   }
   & (
     | KnownSubagentCatalogFields
@@ -78,7 +82,7 @@ export interface SubagentActivityProjection {
 
 /**
  * Durable identity of one descriptor-backed subagent session: lifecycle mode
- * plus creation label, folded last-wins from `subagent/descriptor` events.
+ * plus the creation label and optional profile id, folded last-wins from `subagent/descriptor` events.
  * Label strength follows the descriptor schema: a continuable child always
  * carries one, a one-shot child may omit it.
  */
@@ -101,6 +105,8 @@ export type SubagentIdentityProjection =
     mode: 'continuable'
     /** Durable creation label from the child's descriptor. */
     label: string
+    /** Profile id selected at creation; absent when none was recorded. */
+    agent?: string
     /** Seq of the folded descriptor event; see the one-shot arm for the own-suffix proof. */
     seq: SessionSeq
   }

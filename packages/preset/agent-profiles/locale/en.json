@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Agent profiles",
+    "description": "Named agents with their own instructions, model and tools, shared with Claude Code, opencode and Codex."
+  }
+}

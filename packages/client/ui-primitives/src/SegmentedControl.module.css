@@ -30,7 +30,7 @@
   background: var(--dsw-alias-bg-layer-1);
   box-shadow: var(--dsw-elevation-soft);
   transform: translateX(calc(var(--jan-segment-index) * (100% + 2px)));
-  transition: transform 160ms ease;
+  transition: transform var(--ds-transition-duration) var(--ds-ease-in-out);
   pointer-events: none;
 }
 
@@ -50,7 +50,7 @@
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 120ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .tab[aria-selected='true'] {

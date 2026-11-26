@@ -46,6 +46,10 @@ On a mixed-input device, a mouse preview can appear while the primary-pointer CS
 
 The [Jan unified corner-radius standard](ui-radius.md) defines the radius scale, component size mapping, circle and capsule exceptions, nested hover geometry, and settings-card fills and strokes.
 
+## Motion
+
+The [Jan motion standard](ui-motion.md) defines shared durations and curves, reduced motion, and the reviewed exceptions for component-specific timing.
+
 ## Review the assembled design
 
 Use the [UI review baseline](ui-design-review-cases.md#review-baseline) to combine these material and typography rules with radius, responsive behavior, feedback and artwork guidance across the [entire page or modal](ui-design-review-cases.md#whole-interface-review). Compare all regions and same-role elements within that unit; individually compliant components can still form doubled edges, inconsistent grouping or clipped focus indicators. This document and the theme remain the styling owners.

@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
-import { DraggableImage } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, DraggableImage } from '@janhq/jan-client-ui-primitives'
 import { FILE_DRAG_TOKEN_TYPE, type DesktopFileDrag, type FileDragHandle } from '@janhq/jan-util-file-drag'
 import * as plugin from '../src/client/index.ts'
 import { apply as applyHost } from '../src/index.ts'
@@ -95,7 +95,7 @@ it.each([
 it('ignores an unsupported desktop protocol and removes feedback with the plugin', async () => {
   vi.stubGlobal('janDesktop', { protocolVersion: 2, fileDrag: {} })
   const { service, owner } = await bench()
-  act(() => { service.actions.reportFailure() })
+  act(() => { service.actions.reportFailure(captureFailure('fileDrag.start', new Error('failed'))) })
   expect(screen.getByRole('alert')).toBeTruthy()
   await owner.dispose()
   expect(screen.queryByRole('alert')).toBeNull()

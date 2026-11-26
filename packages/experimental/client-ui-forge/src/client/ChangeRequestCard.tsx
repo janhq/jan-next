@@ -5,7 +5,7 @@
  * the ready-for-review or merge action.
  */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   Button, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseOutlineRegular, IconCopyOutlineRegular,
@@ -15,9 +15,12 @@ import {
 } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale } from '@janhq/jan-client-ui-slots'
 import type {
-  ChangeRequestCheck, ChangeRequestSnapshot, CheckState, ChecksRollup, ForgeFailure, MergeMethod, MergeRequest,
+  ChangeRequestAssets as Assets, ChangeRequestCheck, ChangeRequestFailureContext, ChangeRequestFailureSelection,
+  ChangeRequestSnapshot, CheckState, ChecksRollup, ForgeFailure, MergeMethod, MergeRequest,
 } from '@janhq/jan-experimental-forge/types'
 import type { ForgePanelChangeRequest } from '../types.ts'
+import { ChangeRequestAssets } from './ChangeRequestAssets.tsx'
+import { buildFailureContext } from './failure-context.ts'
 import { formatAgo, formatDuration } from './format.ts'
 import { ChangeRequestGlyph, CheckGlyph } from './glyphs.tsx'
 import type { ForgePanelKey, NS } from './locales.ts'
@@ -42,6 +45,15 @@ export interface ChangeRequestActions {
   readonly merge?: ((entry: ForgePanelChangeRequest, request: MergeRequest) => Promise<void>) | undefined
   /** Load complete check details independently of polling; cancellation follows the open list. */
   readonly readChecks?: ((url: string, headSha: string, signal: AbortSignal) => Promise<ChangeRequestSnapshot>) | undefined
+  /** Read previews and artifacts only while this change request is expanded. */
+  readonly readAssets?: ((url: string, headSha: string, signal: AbortSignal) => Promise<Assets>) | undefined
+  /** Read head-verified failure details for a user action. */
+  readonly readFailureContext?: ((url: string, headSha: string, selection: ChangeRequestFailureSelection,
+    signal: AbortSignal) => Promise<ChangeRequestFailureContext>) | undefined
+  /** Copy the composed failure block. */
+  readonly copyFailure?: ((text: string) => void) | undefined
+  /** Append the same failure block to the current draft without sending it. */
+  readonly addFailureToChat?: ((text: string) => void) | undefined
   /** Open the changes view of the change request. */
   readonly viewChanges?: ((entry: ForgePanelChangeRequest) => void) | undefined
 }
@@ -194,10 +206,13 @@ type CheckRead = { readonly kind: 'idle' | 'loading' }
   | { readonly kind: 'ready'; readonly snapshot: ChangeRequestSnapshot }
   | { readonly kind: 'failed'; readonly message: string }
 
-function ChecksRow({ snapshot, openLink, readChecks, t }: {
+type FixAction = (destination: 'copy' | 'chat', selection: ChangeRequestFailureSelection) => void
+
+function ChecksRow({ snapshot, openLink, readChecks, fix, t }: {
   readonly snapshot: ChangeRequestSnapshot
   readonly openLink: (url: string) => void
   readonly readChecks: ChangeRequestActions['readChecks']
+  readonly fix: FixAction | undefined
   readonly t: Translate
 }): ReactNode {
   const [open, setOpen] = useState(false)
@@ -205,7 +220,7 @@ function ChecksRow({ snapshot, openLink, readChecks, t }: {
   const [attempt, setAttempt] = useState(0)
   const { url, headSha, checksTruncated } = snapshot
   useEffect(() => {
-    if (!open || !checksTruncated || readChecks === undefined) { setRead({ kind: 'idle' }); return }
+    if (!open || (!checksTruncated && fix === undefined) || readChecks === undefined) { setRead({ kind: 'idle' }); return }
     const controller = new AbortController()
     setRead({ kind: 'loading' })
     void (async () => {
@@ -217,7 +232,7 @@ function ChecksRow({ snapshot, openLink, readChecks, t }: {
       }
     })()
     return () => { controller.abort() }
-  }, [open, url, headSha, checksTruncated, readChecks, attempt])
+  }, [open, url, headSha, checksTruncated, readChecks, fix !== undefined, attempt])
   const displayed = read.kind === 'ready' && read.snapshot.headSha === headSha ? read.snapshot : snapshot
   if (displayed.checks.length === 0 && !displayed.checksTruncated) {
     return (
@@ -244,6 +259,21 @@ function ChecksRow({ snapshot, openLink, readChecks, t }: {
     footer.push({ type: 'label', id: 'failed', text: t('change.checks.loadFailed', { message: read.message }) },
       { id: 'retry', label: t('change.checks.retry') })
   }
+  const items: MenuEntry[] = open ? orderedChecks(displayed.checks).map((check, index) => ({
+    id: `check:${String(index)}`,
+    icon: <CheckGlyph state={check.state} />,
+    label: <span className={css.checkItem}>
+      <span className={css.ellipsis} title={check.name}>{check.name}</span>
+      <span className={css.checkTime}>{checkTime(check, t)}</span>
+      {check.output !== undefined && <span className={clsx(css.ellipsis, css.checkOutput)}
+        title={[check.output.title, check.output.summary].filter(Boolean).join('\n')}>{check.output.title ?? check.output.summary}</span>}
+    </span>,
+    ...(fix !== undefined && (check.state === 'failure' || check.state === 'cancelled') ? { submenu: [
+      ...check.url === null ? [] : [{ id: `open:${String(index)}`, label: t('change.view') }],
+      { id: `copy:${String(index)}`, label: t('change.failure.copy') },
+      { id: `chat:${String(index)}`, label: t('change.failure.add') },
+    ] } : { disabled: check.url === null }),
+  })) : []
   return (
     <Menu
       open={open}
@@ -262,30 +292,19 @@ function ChecksRow({ snapshot, openLink, readChecks, t }: {
           <IconChevronRightOutlineRegular size={12} className={css.rowChevron} />
         </button>
       )}
+      items={items}
       footer={footer}
-      onSelect={() => { setAttempt(value => value + 1) }}
-    >
-      {orderedChecks(displayed.checks).map((check, index) => {
-        const { url } = check
-        return (
-          <MenuItemButton
-            // The list is replaced as a whole with each snapshot, and check names can repeat.
-            key={index}
-            icon={<CheckGlyph state={check.state} />}
-            disabled={url === null}
-            onSelect={url === null ? close : () => {
-              close()
-              openLink(url)
-            }}
-          >
-            <span className={css.checkItem}>
-              <span className={css.ellipsis}>{check.name}</span>
-              <span className={css.checkTime}>{checkTime(check, t)}</span>
-            </span>
-          </MenuItemButton>
-        )
-      })}
-    </Menu>
+      onSelect={(id) => {
+        if (id === 'retry') { setAttempt(value => value + 1); return }
+        const [action, index] = id.split(':')
+        const check = orderedChecks(displayed.checks)[Number(index)]
+        if (check === undefined) return
+        close()
+        if (action === 'copy' || action === 'chat') {
+          fix?.(action, { kind: 'check', name: check.name, workflow: check.workflow, url: check.url })
+        } else if (check.url !== null) openLink(check.url)
+      }}
+    />
   )
 }
 
@@ -410,6 +429,47 @@ function Details({ entry, snapshot, name, now, actions, locale, t }: {
   readonly locale: string
   readonly t: Translate
 }): ReactNode {
+  const [pending, setPending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const operation = useRef<AbortController | null>(null)
+  const cached = useRef<{ key: string; text: string } | null>(null)
+  useEffect(() => () => { operation.current?.abort(); operation.current = null }, [])
+  const fix: FixAction | undefined = actions.readFailureContext === undefined ? undefined : (destination, selection) => {
+    if (operation.current !== null) return
+    const finish = destination === 'copy' ? actions.copyFailure : actions.addFailureToChat
+    if (finish === undefined) return
+    const key = JSON.stringify([snapshot.updatedAt, selection])
+    if (cached.current?.key === key) { finish(cached.current.text); return }
+    const controller = new AbortController()
+    operation.current = controller
+    setPending(true)
+    setFailure(null)
+    void (async () => {
+      try {
+        const context = await actions.readFailureContext?.(entry.url, snapshot.headSha, selection, controller.signal)
+        if (context === undefined || controller.signal.aborted) return
+        const text = buildFailureContext(context, selection, t)
+        cached.current = { key, text }
+        finish(text)
+      } catch (error) {
+        if (!controller.signal.aborted) setFailure(error instanceof Error ? error.message : String(error))
+      } finally {
+        if (!controller.signal.aborted) { operation.current = null; setPending(false) }
+      }
+    })()
+  }
+  const assets = actions.readAssets === undefined ? null
+    : <ChangeRequestAssets snapshot={snapshot} readAssets={actions.readAssets} openLink={actions.openLink} locale={locale} t={t} />
+  const fixButtons = (selection: ChangeRequestFailureSelection): ReactNode => fix === undefined ? null : (
+    <div className={css.fixActions}>
+      {actions.copyFailure !== undefined && <Button size="sm" variant="outline" disabled={pending} onClick={() => { fix('copy', selection) }}>
+        {t('change.failure.copy')}
+      </Button>}
+      {actions.addFailureToChat !== undefined && <Button size="sm" variant="outline" disabled={pending} onClick={() => { fix('chat', selection) }}>
+        {t('change.failure.add')}
+      </Button>}
+    </div>
+  )
   const changes = <ChangesRow entry={entry} snapshot={snapshot} name={name} actions={actions} locale={locale} t={t} />
   if (snapshot.state !== 'open') {
     return (
@@ -419,6 +479,7 @@ function Details({ entry, snapshot, name, now, actions, locale, t }: {
           <span className={clsx(css.rowValue, css.rowWide)} data-tone={snapshot.state}>{finished(snapshot, now, t)}</span>
         </div>
         {changes}
+        {assets}
       </div>
     )
   }
@@ -429,7 +490,8 @@ function Details({ entry, snapshot, name, now, actions, locale, t }: {
     : snapshot.mergeability === 'conflicting' ? t('change.merge.conflicting', { base: snapshot.baseBranch }) : t('change.merge.unknown')
   return (
     <div className={css.rows}>
-      <ChecksRow key={snapshot.headSha} snapshot={snapshot} openLink={actions.openLink} readChecks={actions.readChecks} t={t} />
+      <ChecksRow snapshot={snapshot} openLink={actions.openLink} readChecks={actions.readChecks} fix={fix} t={t} />
+      {snapshot.checksRollup === 'failure' && fixButtons({ kind: 'all' })}
       <div className={css.row}>
         <span className={css.rowIcon}><IconUserOutlineRegular size={16} /></span>
         <span className={css.rowLabel}>{t('change.row.review')}</span>
@@ -437,6 +499,10 @@ function Details({ entry, snapshot, name, now, actions, locale, t }: {
           {snapshot.unresolvedThreads > 0 ? t('change.review.threads', { review, count: snapshot.unresolvedThreads }) : review}
         </span>
       </div>
+      {snapshot.reviewDecision === 'changes-requested' && fixButtons({ kind: snapshot.checksRollup === 'failure' ? 'review' : 'all' })}
+      {pending && <div className={css.detailStatus} role="status"><StateDot state="ongoing" size={14} />{t('change.failure.loading')}</div>}
+      {failure !== null && <div className={css.detailStatus} role="status" title={failure}>{t('change.failure.failed')}</div>}
+      {assets}
       <div className={css.row}>
         <span className={css.rowIcon}><ChangeRequestGlyph tone="merged" tinted={false} size={16} /></span>
         <span className={css.rowLabel}>{t('change.row.merge')}</span>
@@ -526,7 +592,7 @@ export function ChangeRequestCard({ entry, expanded, onToggle, now, actions, loc
         </div>
       )}
       {expanded && snapshot !== null && (
-        <Details entry={entry} snapshot={snapshot} name={name} now={now} actions={actions} locale={locale} t={t} />
+        <Details key={snapshot.headSha} entry={entry} snapshot={snapshot} name={name} now={now} actions={actions} locale={locale} t={t} />
       )}
       {expanded && snapshot !== null && <Primary entry={entry} snapshot={snapshot} name={name} actions={actions} t={t} />}
     </li>

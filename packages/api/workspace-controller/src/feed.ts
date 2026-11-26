@@ -14,7 +14,7 @@ import type {
   WorkspaceFollowFrame,
   WorkspaceView,
 } from './types.ts'
-import { githubOwnerOf } from './github-owner.ts'
+import { gitMetadataOf } from './github-owner.ts'
 
 /** The frames the feed produces: every follow frame except `replace`, which only access filtering sends. */
 type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replace' }>
@@ -26,7 +26,7 @@ type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replac
  * @returns detached Workspace projection for Remote consumers.
  */
 export function workspaceView(workspace: Workspace, defaultId: Workspace['id'] | undefined): Promise<WorkspaceView> {
-  return withGithubOwner(projectWorkspace(workspace, defaultId))
+  return withGitMetadata(projectWorkspace(workspace, defaultId))
 }
 
 function projectWorkspace(workspace: Workspace, defaultId: Workspace['id'] | undefined): WorkspaceView {
@@ -58,9 +58,9 @@ function changedWorkspaceView(workspaceId: string, value: unknown, defaultId: Wo
   }
 }
 
-async function withGithubOwner(workspace: WorkspaceView): Promise<WorkspaceView> {
-  const githubOwner = await githubOwnerOf(workspace.path)
-  return githubOwner === undefined ? workspace : { ...workspace, githubOwner }
+async function withGitMetadata(workspace: WorkspaceView): Promise<WorkspaceView> {
+  const metadata = await gitMetadataOf(workspace.path)
+  return metadata === undefined ? workspace : { ...workspace, ...metadata }
 }
 
 /** Owns Workspace domain observation and all active follow generations. */
@@ -99,7 +99,7 @@ export class WorkspaceFeed {
       archivedSessionIds: [...registry.archivedSessionIds],
       pinnedSessionIds: [...registry.pinnedSessionIds],
     }
-    return { ...baseline, items: await Promise.all(baseline.items.map(withGithubOwner)) }
+    return { ...baseline, items: await Promise.all(baseline.items.map(withGitMetadata)) }
   }
 
   /**
@@ -114,7 +114,7 @@ export class WorkspaceFeed {
     try {
       yield { type: 'baseline', value: await this.baseline() }
       for await (const frame of follower.read(signal)) {
-        yield frame.type === 'upsert' ? { ...frame, workspace: await withGithubOwner(frame.workspace) } : frame
+        yield frame.type === 'upsert' ? { ...frame, workspace: await withGitMetadata(frame.workspace) } : frame
       }
     } finally {
       this.followers.delete(follower)

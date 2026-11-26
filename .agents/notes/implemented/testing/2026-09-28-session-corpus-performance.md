@@ -69,6 +69,8 @@ On Apple M5 Pro with Node 26.5, isolated runs measured list 1,000 at 311–358 m
 
 Node 24.22 hosted runs of the unchanged longest-fork workload recorded 696 MiB peak RSS on EPYC 9V74 and 1,077.7 MiB on EPYC 7763, against the same 938 MiB budget. On Apple M5 Pro with Node 24.19, two default-heap runs retained 192.8–193.4 MiB and peaked at 770.7–812.6 MiB in 2.416–2.447 s; two 512 MiB old-space runs retained the same range and peaked at 764.2–764.7 MiB in 2.487–2.528 s. The fixed limit controls the heap policy without raising the RSS or timing budgets.
 
+On Apple M4 with Node 25.9.0, skipping FTS deletes for sessions without an indexed row reduced the 1,000-Session benchmark's first response from 52.35 s to 26.68 s and first-response CPU from 55.94 s to 27.95 s. The matching CPU profile attributed 61.94% of its baseline non-idle samples to `_deleteSession`; it did not sample that function on the fresh index after the change. The canonical run uses one search sample per build and does not establish a warm-query speedup. No search budget changed.
+
 ## Alternatives considered
 
 - **Sanitized copies of real Sessions.** Rejected: benchmarks never use recorded user material.

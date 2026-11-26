@@ -28,6 +28,25 @@ async function setup(root: string, task?: ScheduleTask) {
   })
 }
 
+it('persists a task paused on its first write and only dispatches once resumed', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-schedule-create-paused-'))
+  roots.push(root)
+  const first = await setup(root)
+  const created = await first.service.create({ title: 'Imported routine', prompt: 'Check reports',
+    timing: { kind: 'cron', cron: { expression: '0 9 * * *', time_zone: 'UTC' } }, active: false })
+  expect(created.status).toBe('paused')
+  expect(storedUnit(await readFile(join(root, 'schedule.json'), 'utf8')).tables.tasks[created.id]?.status).toBe('paused')
+  await first.ctx.fiber.dispose()
+
+  vi.setSystemTime(new Date('2026-09-16T10:00:00Z'))
+  const restarted = await setup(root)
+  expect(await restarted.service.catalog()).toMatchObject([{ id: created.id, status: 'paused' }])
+  expect((await restarted.service.list({ active: true })).items).toEqual([])
+  expect(restarted.resolve).not.toHaveBeenCalled()
+  expect(await restarted.service.edit({ id: created.id, action: 'update', patch: { active: true } }))
+    .toMatchObject({ id: created.id, status: 'active' })
+})
+
 it.each([true, false])('persists same-ID daily edits of a version-1 task with saved history=%s without Session activation', async (withHistory) => {
   const root = await mkdtemp(join(tmpdir(), 'jan-schedule-update-'))
   roots.push(root)

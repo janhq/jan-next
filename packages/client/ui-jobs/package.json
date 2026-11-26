@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-client-ui-jobs",
-  "description": "Session-header background-job list with on-demand streaming record panels",
+  "description": "Composer dock background-job list with on-demand streaming output",
   "version": "0.2.2-rc.1",
   "type": "module",
   "main": "lib/index.js",
@@ -44,6 +44,7 @@
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-session": "workspace:*",
     "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-client-ui-tool": "workspace:*",
     "@janhq/jan-jobs": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "react": "^18.2.0",
@@ -61,7 +62,8 @@
         "@janhq/jan-api-job-controller",
         "@janhq/jan-client-locale",
         "@janhq/jan-client-ui-conversation",
-        "@janhq/jan-client-ui-primitives"
+        "@janhq/jan-client-ui-primitives",
+        "@janhq/jan-client-ui-tool"
       ],
       "platform": "web"
     }

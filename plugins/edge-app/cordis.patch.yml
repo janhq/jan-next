@@ -44,3 +44,7 @@
     # Device access starts switched off; Settings > Hosts turns it on.
     - id: jan-hosts
       name: '@janhq/jan-hosts'
+
+    # Coordinate worker chats from one chat, on this or connected computers.
+    - id: jan-orchestration
+      name: '@janhq/jan-orchestration'

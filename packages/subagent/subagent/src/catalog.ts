@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { appendChunkedList, chunkedListSchema, iterateChunkedList } from '@janhq/jan-chunked-list'
 import type { ChunkedList } from '@janhq/jan-chunked-list'
+import type { SandboxMode } from '@janhq/jan-sandbox'
 import type {
   Session,
   SessionEvent,
@@ -15,6 +16,7 @@ import type {
   SessionLogOffset,
 } from '@janhq/jan-session'
 import type { ProjectionDefinition } from '@janhq/jan-session-projection'
+import type { ContinuableSubagentDescriptorData } from './descriptor.ts'
 import { isAgentName } from './names.ts'
 import type { SubagentCatalogEntry } from './projection-types.ts'
 
@@ -27,7 +29,7 @@ type KnownCatalogMode =
 
 /**
  * Parent catalog v0 records local modes, v1 adds unknown children, v2 records
- * external executions, and v3 adds each child's name, unique among its siblings.
+ * external executions, and v3 adds sibling-unique names, profile ids, and capped sandbox modes.
  */
 export type SubagentCatalogEvent =
   & {
@@ -37,8 +39,8 @@ export type SubagentCatalogEvent =
     | ({ readonly version: 0 } & KnownCatalogMode)
     | ({ readonly version: 1 } & (KnownCatalogMode | { readonly mode: 'unknown'; readonly label?: string }))
     | { readonly version: 2; readonly mode: 'external'; readonly label?: string }
-    | ({ readonly version: 3; readonly name: string } & (
-      | { readonly mode: 'continuable'; readonly label: string }
+    | ({ readonly version: 3; readonly name: string; readonly agent?: string } & (
+      | { readonly mode: 'continuable'; readonly label: string; readonly sandboxMode?: SandboxMode }
       | { readonly mode: 'external'; readonly label?: string }
     ))
   )
@@ -77,8 +79,13 @@ const continuableCatalogSchema = z.object({
 const externalCatalogSchema = oneShotCatalogSchema.extend({ version: z.literal(2), mode: z.literal('external') })
 const unknownCatalogSchema = oneShotCatalogSchema.extend({ version: z.literal(1), mode: z.literal('unknown') })
 const nameSchema = z.string().refine(isAgentName, 'invalid agent name')
-const namedContinuableCatalogSchema = continuableCatalogSchema.extend({ version: z.literal(3), name: nameSchema })
-const namedExternalCatalogSchema = externalCatalogSchema.extend({ version: z.literal(3), name: nameSchema })
+const namedCatalogFields = { name: nameSchema, agent: z.string().optional() }
+const namedContinuableCatalogSchema = continuableCatalogSchema.extend({
+  version: z.literal(3),
+  ...namedCatalogFields,
+  sandboxMode: z.enum(['read-only', 'workspace-write', 'danger-full-access']).optional(),
+})
+const namedExternalCatalogSchema = externalCatalogSchema.extend({ version: z.literal(3), ...namedCatalogFields })
 const eventDataSchema = z.union([
   oneShotCatalogSchema,
   externalCatalogSchema,
@@ -96,11 +103,14 @@ const viewSchema = z.array(z.union([
     id: sessionIdSchema,
     createdAt: externalCatalogSchema.shape.childCreatedAt,
     name: nameSchema.optional(),
+    agent: namedCatalogFields.agent,
   }),
   continuableCatalogSchema.omit({ version: true, childId: true, childCreatedAt: true }).extend({
     id: sessionIdSchema,
     createdAt: continuableCatalogSchema.shape.childCreatedAt,
     name: nameSchema.optional(),
+    agent: namedCatalogFields.agent,
+    sandboxMode: namedContinuableCatalogSchema.shape.sandboxMode,
   }),
   unknownCatalogSchema.omit({ version: true, childId: true, childCreatedAt: true }).extend({
     id: sessionIdSchema,
@@ -126,7 +136,7 @@ function subagentCatalogEntries(state: SubagentCatalogState): SubagentCatalogEnt
   return entries
 }
 
-/** Parent-owned catalog; version-6 checkpoints retain unnamed facts, and invalid own facts reject restoration. */
+/** Parent-owned catalog; version-6 checkpoints retain historical facts without profile metadata. */
 export const subagentCatalogProjectionDefinition = {
   key: 'subagentCatalog',
   stateSchema,
@@ -143,13 +153,13 @@ export const subagentCatalogProjectionDefinition = {
  * Append a complete direct-child discovery fact to its parent Session.
  * @param parent - durable direct parent receiving the discovery fact.
  * @param child - established child's immutable Session metadata.
- * @param descriptor - mode-discriminated creation label frozen with the child.
+ * @param descriptor - immutable creation fields saved by the child.
  * @param name - the child's name, reserved unique among the parent's children.
  */
 export function establishCatalogChild(
   parent: Session,
   child: SessionHeader,
-  descriptor: { readonly mode: 'continuable'; readonly label: string },
+  descriptor: Pick<ContinuableSubagentDescriptorData, 'mode' | 'label' | 'agent' | 'sandboxMode'>,
   name: string,
 ): void {
   parent.append('subagent/catalog', {
@@ -159,6 +169,8 @@ export function establishCatalogChild(
     mode: descriptor.mode,
     label: descriptor.label,
     name,
+    ...descriptor.agent !== undefined ? { agent: descriptor.agent } : {},
+    ...descriptor.sandboxMode !== undefined ? { sandboxMode: descriptor.sandboxMode } : {},
   })
 }
 
@@ -168,8 +180,9 @@ export function establishCatalogChild(
  * @param childId - identity returned by the external provider.
  * @param label - display label assigned by the caller.
  * @param name - the child's name, reserved unique among the parent's children.
+ * @param agent - optional profile id supplied at creation.
  */
-export function establishExternalCatalogChild(parent: Session, childId: SessionId, label: string, name: string): void {
+export function establishExternalCatalogChild(parent: Session, childId: SessionId, label: string, name: string, agent?: string): void {
   parent.append('subagent/catalog', {
     version: SUBAGENT_CATALOG_VERSION,
     childId,
@@ -177,6 +190,7 @@ export function establishExternalCatalogChild(parent: Session, childId: SessionI
     mode: 'external',
     label,
     name,
+    ...agent !== undefined ? { agent } : {},
   })
 }
 

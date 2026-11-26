@@ -27,6 +27,10 @@ const COPY: Record<string, string> = {
   'fontFamily.terminal.title': 'Terminal font',
   'fontSize.code.increase': 'Increase code font size',
   'fontSize.terminal.decrease': 'Decrease terminal font size',
+  'codeTheme.title': 'Code theme',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Classic',
+  'codeTheme.solarized': 'Solarized',
 }
 
 /** Empty global standard-kit hooks (the row reads neither). */
@@ -48,9 +52,10 @@ const useSessionStatus: FontSettingsGroupProps['useSessionStatus'] = selector =>
 
 function mount() {
   const store = createFontRowStore().create()
-  store.actions.sync({ text: 14, code: 11, terminal: 13 }, { text: '', code: '"Iosevka"', terminal: '' }, 0)
+  store.actions.sync({ text: 14, code: 11, terminal: 13 }, { text: '', code: '"Iosevka"', terminal: '' }, 'github', 0)
   const setFontFamily = vi.fn()
   const setFontSize = vi.fn()
+  const setCodeTheme = vi.fn()
   const props: FontSettingsGroupProps = {
     useSessions: emptySessions(),
     useSessionStatus,
@@ -63,9 +68,10 @@ function mount() {
     t: (key: string) => COPY[key] ?? key,
     setFontFamily,
     setFontSize,
+    setCodeTheme,
   }
   render(<FontSettingsGroup {...props} />)
-  return { setFontFamily, setFontSize, header: screen.getByRole('button', { name: 'More font settings' }) }
+  return { setFontFamily, setCodeTheme, setFontSize, header: screen.getByRole('button', { name: 'More font settings' }) }
 }
 
 describe('FontSettingsGroup', () => {
@@ -94,5 +100,15 @@ describe('FontSettingsGroup', () => {
     expect(g.setFontSize).toHaveBeenCalledWith('code', 12)
     fireEvent.click(screen.getByRole('button', { name: 'Decrease terminal font size' }))
     expect(g.setFontSize).toHaveBeenCalledWith('terminal', 12)
+    fireEvent.click(screen.getByRole('button', { name: 'Solarized' }))
+    expect(g.setCodeTheme).toHaveBeenCalledWith('solarized')
+  })
+
+  it('marks the persisted syntax theme as pressed', () => {
+    const g = mount()
+    fireEvent.click(g.header)
+    expect(screen.getByRole('group', { name: 'Code theme' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'GitHub' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Classic' }).getAttribute('aria-pressed')).toBe('false')
   })
 })

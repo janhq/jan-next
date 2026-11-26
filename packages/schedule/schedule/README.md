@@ -58,7 +58,7 @@ The service requires `agents`, `sessions`, `storageDomain`, and `sessionPersiste
 
 The [configuration catalog](../../../docs/config-catalog.md#janhqjan-schedule) defines all fields. Remote `deliveryLimits()` exposes the effective new-Session interval for UI hints.
 
-Create with `create({ title, prompt, timing, target? }, actorSessionId?, signal?)`. `timing.kind` selects `after`, `at`, `every`, `daily`, `weekly`, `cron`, or `rrule`; only its corresponding selector is accepted. The [Schedule reference](../../../docs/subsystems/schedule.md#recurrence-rules) defines each selector and its bounds. For example:
+Create with `create({ title, prompt, timing, target?, active? }, actorSessionId?, signal?)`. Pass `active: false` to save a task paused in its first write; otherwise it starts active. `timing.kind` selects `after`, `at`, `every`, `daily`, `weekly`, `cron`, or `rrule`; only its corresponding selector is accepted. The [Schedule reference](../../../docs/subsystems/schedule.md#recurrence-rules) defines each selector and its bounds. For example:
 
 ```json
 {"title":"Deploy check","prompt":"Check the deployment.","timing":{"kind":"cron","cron":{"expression":"*/15 9-17 * * 1-5","time_zone":"Asia/Shanghai"}},"target":{"kind":"new_once"}}

@@ -42,8 +42,9 @@ Choose it when one agent session should own the task list and whole-list updates
 | Field | Default | Meaning |
 |---|---|---|
 | `allowParallelInProgress` | required | Whether several todos may be `in_progress` at once; also selects the active-status clause of the model description |
+| `stopReminders` | `0` | How many times one turn is steered back when the agent stops with unfinished todos; `0` never reminds. Code mode sets `3` |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-tool-todo) is the exhaustive source for the accepted field.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-tool-todo) is the exhaustive source for the accepted fields.
 
 ### What each call does
 
@@ -52,6 +53,10 @@ The agent sends the ENTIRE list on every update; the new list replaces the previ
 ### Single owner
 
 The task list belongs to the one agent session that created it — subagents and other agents each keep their own list, and there is no way to share a list between agents. A call from outside an agent session is rejected, so the agent learns the update failed instead of silently writing nowhere. If you need a list shared across agents, this package does not provide it.
+
+### Stop reminders
+
+With `stopReminders` above zero, an agent that tries to end its turn while the list it wrote this turn still has unfinished todos gets a reminder instead of stopping: a `todo-reminder` notice listing each open todo with its status, asking it to finish them or update the list and say why. The loop then runs another step in the same turn. After `stopReminders` reminders the turn ends normally. A user message during the turn resets the count. A tool that ends the turn on purpose, such as a question to the user or a plan awaiting approval, is never overridden, and a cancelled turn is never reminded. The list a turn starts with is empty, matching the `todos` projection, so an earlier turn's plan does not trigger reminders.
 
 -----
 

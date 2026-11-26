@@ -1,0 +1,31 @@
+{
+  "name": "@janhq/jan-cli-proxy",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Connect model subscriptions to Jan through a managed local CLIProxyAPI installation.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "process.mjs", "release.mjs", "subscriptions.mjs", "callback.mjs", "route.mjs", "client.js", "client.locale.js", "client.icons.js"],
+  "dependencies": {
+    "@earendil-works/pi-ai": "^1.3.0",
+    "@janhq/jan-home-paths": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-llm-pi-ai": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "fflate": "^0.8.2",
+    "tar": "^7.5.22"
+  },
+  "devDependencies": { "@janhq/cordis": "workspace:~" },
+  "jan": {
+    "manifestVersion": 1,
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

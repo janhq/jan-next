@@ -1,6 +1,6 @@
 - banner:
   - navigation "Session hierarchy": Begin your reply with the
-  - text: Standard mode
+  - text: Code mode
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

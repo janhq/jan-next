@@ -135,8 +135,8 @@ it('refreshes an Include through the queue and skips registered exact paths', as
   expect(refresh).toHaveBeenCalledOnce()
 })
 
-it('continues the batch when an Include refresh reports unsaved changes', async () => {
-  const { ctx, dir } = await fixture()
+it.each([false, true])('reports only successful include refreshes (mixed batch: %s)', async (mixed) => {
+  const { ctx, dir, hmr } = await fixture()
   const moduleWatcher = watchers.at(-1)!
   const imported = vi.spyOn(ctx.loader, 'import').mockResolvedValue(Include)
   onTestFinished(() => { imported.mockRestore() })
@@ -153,11 +153,24 @@ it('continues the batch when an Include refresh reports unsaved changes', async 
   const rejected = vi.spyOn(first!, 'refresh').mockRejectedValue(failure)
   const refreshed = vi.spyOn(second!, 'refresh')
   const warn = vi.spyOn(ctx.logger, 'warn')
+  const applied = vi.fn()
+  const held = Promise.withResolvers<undefined>()
+  ctx.on('hmr/applied', applied)
+  ctx.on('hmr/held', () => { held.resolve(undefined) })
+  onTestFinished(hmr.setGate({ hold: () => 'busy' }))
   moduleWatcher.emit('change', includes[0]!.file)
-  moduleWatcher.emit('change', includes[1]!.file)
-  await vi.waitFor(() => { expect(refreshed).toHaveBeenCalledOnce() })
+  if (mixed) moduleWatcher.emit('change', includes[1]!.file)
+  await held.promise
+  expect(await hmr.applyHeld()).toBe(mixed)
   expect(rejected).toHaveBeenCalledOnce()
   expect(warn).toHaveBeenCalledWith(failure)
+  if (mixed) {
+    expect(refreshed).toHaveBeenCalledOnce()
+    expect(applied).toHaveBeenCalledExactlyOnceWith([pathToFileURL(includes[1]!.file).href])
+  } else {
+    expect(refreshed).not.toHaveBeenCalled()
+    expect(applied).not.toHaveBeenCalled()
+  }
 })
 
 it('queues cached module replacements behind configuration mutations and recovers after failure', async () => {

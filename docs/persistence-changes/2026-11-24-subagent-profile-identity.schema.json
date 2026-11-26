@@ -1,0 +1,39 @@
+{
+  "formatVersion": 2,
+  "roots": [
+    {"key":"event:subagent/catalog","kind":"event","event":"subagent/catalog","surface":false,"digest":"fc5fb3e11a0893eda3d103559c51e7ee2bb980446a7427c06d3c1e3da70df7ab"},
+    {"key":"event:subagent/descriptor","kind":"event","event":"subagent/descriptor","surface":false,"digest":"4361a3d93547526a10405800027dea7d8c1b9705f120b42d3a96bbc66a3ba5a7"}
+  ],
+  "types": [],
+  "nodes": {
+    "05a2796621b1ee6c": {"kind":"literal","value":"unknown"},
+    "0657d3ca5ac4e7bf": {"kind":"primitive","type":"number"},
+    "06fe42b9452ee3b5": {"kind":"object","properties":[{"name":"agent","type":"4cd48f3e5108bd6e","optional":true},{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":false},{"name":"mode","type":"e5d3828df1ec3e2a","optional":false},{"name":"name","type":"4cd48f3e5108bd6e","optional":false},{"name":"version","type":"137ac60e26bcb192","optional":false}],"indices":[]},
+    "0e10d7c096b47e61": {"kind":"object","properties":[{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":false},{"name":"mode","type":"e5d3828df1ec3e2a","optional":false},{"name":"version","type":"93d38436347f67c9","optional":false}],"indices":[]},
+    "137ac60e26bcb192": {"kind":"literal","value":3},
+    "3cfc3a56502da1f8": {"kind":"object","properties":[{"name":"allow","type":"93c33d9687613293","optional":true},{"name":"deny","type":"93c33d9687613293","optional":true}],"indices":[]},
+    "4361a3d93547526a": {"kind":"object","properties":[{"name":"data","type":"6055b1dfd0765e54","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"5ebce1317eacd2c1","optional":false}],"indices":[]},
+    "44c8c77aa9aa100b": {"kind":"literal","value":"subagent/catalog"},
+    "4cd48f3e5108bd6e": {"kind":"primitive","type":"string"},
+    "5d542ac7bdf13310": {"kind":"object","properties":[{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":true},{"name":"mode","type":"d28765f87d6b6ab4","optional":false},{"name":"version","type":"93d38436347f67c9","optional":false}],"indices":[]},
+    "5ebce1317eacd2c1": {"kind":"literal","value":"subagent/descriptor"},
+    "5f758f3de5f00c18": {"kind":"object","properties":[{"name":"label","type":"4cd48f3e5108bd6e","optional":true},{"name":"mode","type":"d28765f87d6b6ab4","optional":false},{"name":"provider","type":"4cd48f3e5108bd6e","optional":false},{"name":"version","type":"0657d3ca5ac4e7bf","optional":false}],"indices":[]},
+    "6055b1dfd0765e54": {"kind":"union","types":["5f758f3de5f00c18","7f5d376bf481fbb1"]},
+    "6980c514db337a30": {"kind":"object","properties":[{"name":"agent","type":"4cd48f3e5108bd6e","optional":true},{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":true},{"name":"mode","type":"fc351843b8ecbd05","optional":false},{"name":"name","type":"4cd48f3e5108bd6e","optional":false},{"name":"version","type":"137ac60e26bcb192","optional":false}],"indices":[]},
+    "7f5d376bf481fbb1": {"kind":"object","properties":[{"name":"agent","type":"4cd48f3e5108bd6e","optional":true},{"name":"agentModel","type":"4cd48f3e5108bd6e","optional":true},{"name":"agentProvider","type":"4cd48f3e5108bd6e","optional":true},{"name":"agentReasoningEffort","type":"4cd48f3e5108bd6e","optional":true},{"name":"label","type":"4cd48f3e5108bd6e","optional":false},{"name":"mode","type":"e5d3828df1ec3e2a","optional":false},{"name":"persona","type":"4cd48f3e5108bd6e","optional":true},{"name":"provider","type":"4cd48f3e5108bd6e","optional":false},{"name":"toolFilter","type":"3cfc3a56502da1f8","optional":true},{"name":"version","type":"0657d3ca5ac4e7bf","optional":false}],"indices":[]},
+    "93c33d9687613293": {"kind":"array","element":"4cd48f3e5108bd6e"},
+    "93d38436347f67c9": {"kind":"literal","value":0},
+    "a0f25b5aeeebf2bf": {"kind":"object","properties":[{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":true},{"name":"mode","type":"05a2796621b1ee6c","optional":false},{"name":"version","type":"f88f1b7b6bb733f6","optional":false}],"indices":[]},
+    "a0f906856fc06f1c": {"kind":"literal","value":2},
+    "b6896938660a1dfe": {"kind":"object","properties":[{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":true},{"name":"mode","type":"d28765f87d6b6ab4","optional":false},{"name":"version","type":"f88f1b7b6bb733f6","optional":false}],"indices":[]},
+    "cbbe8377ee744964": {"kind":"object","properties":[{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":true},{"name":"mode","type":"fc351843b8ecbd05","optional":false},{"name":"version","type":"a0f906856fc06f1c","optional":false}],"indices":[]},
+    "d28765f87d6b6ab4": {"kind":"literal","value":"one-shot"},
+    "dacf3d5f3e4ff619": {"kind":"literal","value":true},
+    "dbd991f8211f0616": {"kind":"union","types":["06fe42b9452ee3b5","0e10d7c096b47e61","5d542ac7bdf13310","6980c514db337a30","a0f25b5aeeebf2bf","b6896938660a1dfe","cbbe8377ee744964","e2ad8f5bcd813f26"]},
+    "e2ad8f5bcd813f26": {"kind":"object","properties":[{"name":"childCreatedAt","type":"0657d3ca5ac4e7bf","optional":false},{"name":"childId","type":"4cd48f3e5108bd6e","optional":false},{"name":"label","type":"4cd48f3e5108bd6e","optional":false},{"name":"mode","type":"e5d3828df1ec3e2a","optional":false},{"name":"version","type":"f88f1b7b6bb733f6","optional":false}],"indices":[]},
+    "e5d3828df1ec3e2a": {"kind":"literal","value":"continuable"},
+    "f88f1b7b6bb733f6": {"kind":"literal","value":1},
+    "fc351843b8ecbd05": {"kind":"literal","value":"external"},
+    "fc5fb3e11a0893ed": {"kind":"object","properties":[{"name":"data","type":"dbd991f8211f0616","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"44c8c77aa9aa100b","optional":false}],"indices":[]}
+  }
+}

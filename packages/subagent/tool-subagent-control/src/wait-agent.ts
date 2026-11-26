@@ -78,6 +78,13 @@ function waitForInput(
 }
 
 /**
+ * Longest single wait. Providers drop the prompt cache after about five
+ * minutes idle; waking before that and waiting again keeps the next request
+ * cheap, so longer requests are clamped here instead of rejected.
+ */
+const MAX_WAIT_MS = 270_000
+
+/**
  * Register one inbox wait tool and cancel its waits when the plugin unloads.
  * @param ctx - plugin context owning the tool, event listeners, and wait lifetime.
  */
@@ -93,7 +100,7 @@ export function registerWaitAgent(ctx: Context): void {
     parameters: {
       timeout_ms: {
         type: 'integer',
-        description: 'Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000.',
+        description: 'Wait duration in milliseconds, from 10000; values above 270000 (4.5 minutes, inside the provider prompt-cache window) are clamped to it. Defaults to 30000. Call again to keep waiting.',
       },
     },
     output: {
@@ -105,10 +112,11 @@ export function registerWaitAgent(ctx: Context): void {
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args, exec) {
-      const timeoutMs = args.timeout_ms ?? 30_000
-      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 3_600_000) {
-        throw new AgentWaitError('timeout_ms must be an integer from 10000 through 3600000', 'WAIT_INVALID_TIMEOUT')
+      const requested = args.timeout_ms ?? 30_000
+      if (!Number.isSafeInteger(requested) || requested < 10_000) {
+        throw new AgentWaitError('timeout_ms must be an integer of at least 10000', 'WAIT_INVALID_TIMEOUT')
       }
+      const timeoutMs = Math.min(requested, MAX_WAIT_MS)
       if (exec.agent === undefined) {
         throw new AgentWaitError('wait_agent requires a calling agent', 'WAIT_UNAVAILABLE')
       }

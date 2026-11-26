@@ -49,7 +49,7 @@
   border-radius: var(--dsw-radius-sm);
   background: none;
   color: var(--dsw-alias-label-tertiary);
-  transition: color 100ms ease;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
   font: inherit;
   text-align: left;
 }
@@ -222,7 +222,7 @@
   border-bottom: 1.5px solid currentcolor;
   content: '';
   transform: rotate(-45deg);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 @media (hover: hover) {

@@ -183,7 +183,7 @@ registerSessionDestination(sessionId: SessionId, owner: string, receive: Schedul
 async retargetPluginTasks(owner: string, sessionId: SessionId, workspaceId?: WorkspaceId): Promise<void>
 
 /** Create an idempotently named task with a checkpoint for a mounted Session inbox.
- * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+ * @param request - Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.
  * @param destination - Session with a registered inbox, stable task key, and optional opaque payload.
  * @param signal - Cancellation before the durable write.
  * @returns The stored task without its private payload.
@@ -191,7 +191,7 @@ async retargetPluginTasks(owner: string, sessionId: SessionId, workspaceId?: Wor
 async createSessionTask(request: Omit<ScheduleCreateRequest, 'target'>, destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>
 
 /** Create a plugin-owned task, reusing its original task identity when the owner retries the same key.
- * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+ * @param request - Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.
  * @param destination - Registered owner, stable owner-local task key, and optional opaque payload.
  * @param signal - Cancellation before the durable write.
  * @returns The stored task without its private payload.
@@ -205,7 +205,7 @@ async createPluginTask(request: Omit<ScheduleCreateRequest, 'target'>, destinati
 
 /**
  * Create one task with a Host-generated identity for a human Remote caller.
- * @param request - Title, prompt, recurrence, and delivery destination.
+ * @param request - Title, prompt, recurrence, delivery destination, and initial activity.
  * @param signal - Cancellation checked before the durable write begins, including after FIFO waits.
  * @returns The stored task. Cancellation does not roll back an in-flight write.
  */
@@ -216,7 +216,7 @@ async createPluginTask(request: Omit<ScheduleCreateRequest, 'target'>, destinati
  *
  * The record is built from the clock reading taken before the request joins the serialized queue. A `session`
  * target must exist and must not belong to a delegated child; a `new_once` target reserves its Session identity.
- * @param request - Title, prompt, recurrence, and delivery destination.
+ * @param request - Title, prompt, recurrence, delivery destination, and initial activity.
  * @param actorSessionId - Session of the acting Agent, or undefined for a human caller.
  * @param signal - Cancellation checked before the durable write begins, including after FIFO waits.
  * @returns The stored task. Cancellation does not roll back an in-flight write.

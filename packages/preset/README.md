@@ -23,6 +23,7 @@ This group declares Agent capabilities through ordinary Cordis configuration and
 | [agent-preset-registry](agent-preset-registry/README.md) | Selection, revision retention and profile editing | `ctx.agentPresets` |
 | [agent-preset](agent-preset/README.md) | Declarative child plugins and metadata | — |
 | [persona](persona/README.md) | Composable Agent persona | — |
+| [agent-profiles](agent-profiles/README.md) | Named agents read from Jan, Claude Code, opencode and Codex agent folders | `ctx.agentProfiles` |
 
 <a id="related-documentation"></a>
 ## Related documentation

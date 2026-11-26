@@ -23,9 +23,14 @@ import SessionStore from '@janhq/jan-session'
 import type { SessionId } from '@janhq/jan-session'
 import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
 import { buildModelCatalog } from '../src/catalog.ts'
+import * as McpClient from '@janhq/jan-mcp-client'
+import McpServerManager from '@janhq/jan-mcp-manager'
+import { createScope } from '@janhq/jan-scope'
 import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime, { projectToolSchema } from '@janhq/jan-tools'
 import { RemoteError } from '@janhq/jan-typert-protocol'
 import { createSessionTestRemote } from './test-remote.ts'
+import { previewContext } from '../src/context-preview.ts'
 
 function request<P>(payload: P): P {
   return payload
@@ -174,6 +179,84 @@ function currentSelection(ctx: Context, sessionId: SessionId) {
   return ctx.sessionProjections.snapshot(session).values.modelSelection?.next
     ?? ctx.agentDefaultModel.currentSelection()
 }
+
+it('attributes MCP inventory to the resolved tool even when server names overlap', async () => {
+  const { ctx, agent } = await harness({ provider: 'example', model: 'tokamak-chat' })
+  onTestFinished(() => ctx.fiber.dispose())
+  await ctx.plugin(ToolRuntime)
+  ctx.tools.setExecutor({
+    describe: tools => ({ schemas: tools.map(tool => projectToolSchema(tool, true)) }),
+    execute: async () => { throw new Error('preview does not execute tools') },
+  })
+  // An actual legacy MCP peer advertises one tool per connection.
+  const command = process.execPath
+  const server = `
+    require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
+      const request = JSON.parse(line)
+      if (request.id === undefined) return
+      const response = request.method === 'server/discover'
+        ? { error: { code: -32601, message: 'Legacy server' } }
+        : { result: request.method === 'initialize'
+          ? { protocolVersion: request.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } }
+          : { tools: [{ name: process.argv[1], inputSchema: { type: 'object' } }] } }
+      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, ...response }) + '\\n')
+    })
+  `
+  const entry = (tool: string) => ({ transport: 'stdio' as const, command, args: ['-e', server, tool] })
+  await ctx.plugin(McpServerManager, { servers: { foo__bar: entry('other') } })
+  const connector = await ctx.plugin({
+    name: 'fixture-connector',
+    inject: ['mcpManager'],
+    apply(inner: Context) { inner.mcpManager.register('foo', entry('bar__baz')) },
+  })
+  await vi.waitFor(() => {
+    expect(ctx.mcpManager.list().map(item => item.status.state)).toEqual(['connected', 'connected'])
+  })
+  const signal = new AbortController().signal
+  const first = (await previewContext(agent, signal))?.inventory.mcpTools
+  expect(first).toHaveLength(2)
+  expect(first).toEqual(expect.arrayContaining([
+    { server: 'foo', name: 'bar__baz', origin: { kind: 'plugin', plugin: 'fixture-connector' } },
+    { server: 'foo__bar', name: 'other', origin: { kind: 'global' } },
+  ]))
+
+  // A tool removed while assembly awaits its waterfall is still the MCP tool assembly priced, owned by
+  // the plugin that registered it then.
+  const removeDuringAssembly = ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
+    removeDuringAssembly()
+    await connector.dispose()
+    return next()
+  })
+  const removed = await previewContext(agent, signal)
+  expect(removed?.inventory.mcpTools).toEqual(expect.arrayContaining([
+    { server: 'foo', name: 'bar__baz', origin: { kind: 'plugin', plugin: 'fixture-connector' } },
+  ]))
+  expect(removed?.inventory.tools).not.toContain('mcp__foo__bar__baz')
+  await ctx.plugin({
+    name: 'fixture-connector',
+    inject: ['mcpManager'],
+    apply(inner: Context) { inner.mcpManager.register('foo', entry('bar__baz')) },
+  })
+  await vi.waitFor(() => {
+    expect(ctx.mcpManager.list().map(item => item.status.state)).toEqual(['connected', 'connected'])
+  })
+
+  // An ACP Session can shadow the globally managed definition under the same public name.
+  await ctx.plugin({
+    inject: ['tools', 'systemPrompt', 'mcpManager'],
+    async apply(inner: Context) {
+      // Bind the agent to an ACP-style scope that owns its own MCP client.
+      ;(agent as { ctx: Context }).ctx = createScope(inner, agent).ctx
+      await agent.ctx.plugin(McpClient, { ...entry('baz'), serverName: 'foo__bar', failOnStartupError: true })
+    },
+  })
+  const shadowed = (await previewContext(agent, signal))?.inventory.mcpTools
+  expect(shadowed).toHaveLength(2)
+  expect(shadowed).toEqual(expect.arrayContaining([
+    { server: 'foo__bar', name: 'other', origin: { kind: 'global' } },
+    { server: 'foo__bar', name: 'baz', origin: { kind: 'session' } },
+  ]))
+})
 
 describe('Web session model selection', () => {
   it('validates an ordered image batch before persisting any member', async () => {

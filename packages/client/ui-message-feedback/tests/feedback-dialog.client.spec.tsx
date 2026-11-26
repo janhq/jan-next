@@ -11,6 +11,7 @@ import { useSyncExternalStore } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import { FEEDBACK_CATEGORIES } from '@janhq/jan-command-feedback'
 import { FeedbackDialog } from '../src/client/FeedbackDialog.tsx'
@@ -18,6 +19,8 @@ import type { FeedbackDialogState } from '../src/client/dialog.ts'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
+
+const failed = (code: string) => ({ code, details: captureFailure('feedback.submit', { code }) })
 
 const t = makeTranslate(zh, commonZh)
 
@@ -103,24 +106,24 @@ describe('FeedbackDialog', () => {
   })
 
   it('renders submission failures as toasts outside the dialog', () => {
-    const conflict = mount({ failure: 'version-conflict' })
+    const conflict = mount({ failure: failed('version-conflict') })
     const conflictToast = conflict.getByRole('alert')
     expect(conflictToast.textContent).toBe(zh['error.conflict'])
     expect(conflict.getByRole('dialog').contains(conflictToast)).toBe(false)
     cleanup()
 
-    const oversized = mount({ failure: 'note-too-large' })
+    const oversized = mount({ failure: failed('note-too-large') })
     expect(oversized.getByRole('alert').textContent).toBe(zh['error.noteTooLarge'])
     cleanup()
 
-    const other = mount({ failure: 'session-not-found' })
+    const other = mount({ failure: failed('session-not-found') })
     expect(other.getByRole('alert').textContent).toBe(zh['error.generic'])
   })
 
   it('retires a submission-failure toast after its extended hold', () => {
     vi.useFakeTimers()
     try {
-      const ui = mount({ failure: 'version-conflict' })
+      const ui = mount({ failure: failed('version-conflict') })
 
       act(() => { vi.advanceTimersByTime(7000) })
 

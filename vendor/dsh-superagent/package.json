@@ -37,6 +37,10 @@
     "cordis.patch.yml",
     "locale/*.json",
     "README.md",
+    "SETUP.md",
+    "docs/*.md",
+    "examples/profile.cordis.patch.yml",
+    "scripts/dsh-superagent",
     "prompts",
     "skills"
   ],

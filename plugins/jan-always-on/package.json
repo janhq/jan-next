@@ -16,6 +16,7 @@
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-schedule": "workspace:*",
+    "@janhq/jan-tokamak": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
     "@janhq/schemastery": "workspace:~"
   },

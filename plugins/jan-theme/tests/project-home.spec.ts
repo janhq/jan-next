@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
@@ -9,7 +9,7 @@ type Reply = { status: number; body: { error?: string; result?: unknown } }
 type Request = AsyncIterable<Buffer> & { method: 'POST'; headers: { 'content-type': string } }
 type Response = { writeHead(status: number): void; end(body: string): void }
 
-async function projectHome(events = [], inheritedEventCount = 0) {
+async function projectHome(events = [], inheritedEventCount = 0, services: Record<string, unknown> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'jan-project-home-'))
   onTestFinished(() => rm(root, { recursive: true, force: true }))
   const settings = await mkdtemp(join(tmpdir(), 'jan-project-settings-'))
@@ -21,9 +21,11 @@ async function projectHome(events = [], inheritedEventCount = 0) {
     get: (key: string) => ({
       workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
       janHomePath: (...segments: string[]) => join(settings, ...segments),
-      sessionQuery: { observeSession: async () => ({ events, inheritedEventCount, cursor: events.length - 1, source: 'live', [Symbol.dispose]() {} }) },
+      sessionQuery: { observeSession: async () => ({ events, inheritedEventCount, cursor: events.length - 1, source: 'live', [Symbol.dispose]() { } }) },
+      ...services,
     })[key],
-    inject: (_, callback) => callback({ systemPrompt: { context: section => { prompt = section.text } } }),
+    // Like Cordis, only call back for services this harness provides.
+    inject: (keys: string[], callback) => { if (keys.includes('systemPrompt')) callback({ systemPrompt: { context: section => { prompt = section.text } } }) },
     effect: (register: () => void) => register(),
     webServer: { register: (route: { handler: typeof handler }) => { handler = route.handler } },
     connection: { requestRejection: () => undefined },
@@ -52,6 +54,19 @@ it('adds a project file larger than the generic plugin request limit', async () 
   const result = await call('addFile', { name: 'report.bin', data: bytes.toString('base64') })
   expect(result).toEqual({ status: 200, body: { result: { added: 'report.bin' } } })
   expect((await readFile(join(root, 'report.bin'))).equals(bytes)).toBe(true)
+})
+
+it('counts context files without counting folders or estimating binary or oversized files', async () => {
+  const { root, call } = await projectHome()
+  await mkdir(join(root, 'docs'))
+  await mkdir(join(root, 'node_modules'))
+  await writeFile(join(root, 'docs', 'nested.md'), 'not listed at this level')
+  await writeFile(join(root, 'notes.md'), '世界ab')
+  await writeFile(join(root, 'README'), 'text')
+  await writeFile(join(root, 'photo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+  await writeFile(join(root, 'large.txt'), 'a'.repeat(4 * 1024 * 1024 + 1))
+
+  expect((await call('read')).body.result).toMatchObject({ contextSummary: { fileCount: 4, estimatedTokens: 3 } })
 })
 
 it('enforces the instruction byte limit on the text that will actually be saved', async () => {
@@ -148,10 +163,12 @@ it('lists configured names and source paths without returning MCP secrets', asyn
   await writeFile(join(root, '.vscode', 'mcp.json'), '{ "servers": { "example": { "command": "secret" } }, }')
   await writeFile(join(root, 'package.json'), JSON.stringify({ jan: { profile: { bundles: ['my-plugin'] } } }))
   const { body } = await call('read')
-  expect(body.result).toMatchObject({ inventory: {
-    mcp: [{ name: 'example', path: join(root, '.vscode', 'mcp.json'), loaded: false }],
-    plugins: [{ name: 'my-plugin', path: join(root, 'package.json'), loaded: false }],
-  } })
+  expect(body.result).toMatchObject({
+    inventory: {
+      mcp: [{ name: 'example', path: join(root, '.vscode', 'mcp.json'), loaded: false }],
+      plugins: [{ name: 'my-plugin', path: join(root, 'package.json'), loaded: false }],
+    }
+  })
   expect(JSON.stringify(body)).not.toContain('secret')
 })
 
@@ -168,4 +185,166 @@ it('counts owned turns only and replaces duplicate usage within an attempt', asy
     event('turn/start', 2000, 2),
   ], 3)
   expect((await call('usage')).body.result).toMatchObject({ inputTokens: 21, outputTokens: 3, workingMs: 200, cost: null })
+})
+
+/** In-memory project layer of scoped settings: the catalog reflects the switches written through setSwitch. */
+function fakeScopedSettings(project: string, globallyOff: string[] = [], chatSkill?: string) {
+  const stored = { skillsDisabled: [] as string[], skillFoldersDisabled: [] as string[] }
+  const calls: unknown[][] = []
+  const folders = [['styles', ['look-a', 'look-b']], ['shared', ['review', 'deploy']]] as const
+  const scopedSettings = {
+    projectOf: (_id: string, cwd?: string) => cwd !== undefined && (cwd === project || cwd.startsWith(`${project}/`)) ? 'project' : undefined,
+    skillCatalog: async () => catalog(folders),
+    skillCatalogForProject: async (_id: string, agent: { id: string }) => catalog(
+      chatSkill !== undefined && agent.id === 'chat' ? [...folders, ['chat-mode', [chatSkill]]] : folders),
+    setSwitch: async (address: unknown, key: keyof typeof stored, entry: string, off: boolean) => {
+      calls.push([address, key, entry, off])
+      stored[key] = off ? [...stored[key].filter(value => value !== entry), entry] : stored[key].filter(value => value !== entry)
+      return { [key]: stored[key] }
+    },
+  }
+  const catalog = (entries: readonly (readonly [string, readonly string[]])[]) => ({
+    folders: entries.map(([folder, names]) => ({
+      path: join(project, '..', folder), label: folder, off: stored.skillFoldersDisabled.includes(join(project, '..', folder)),
+      skills: names.map(name => ({
+        name, description: `${name} skill`, off: stored.skillsDisabled.includes(name),
+        ...globallyOff.includes(name) ? { offAt: 'global' } : {},
+      })),
+    }))
+  })
+  return { scopedSettings, calls }
+}
+
+it('estimates only the names and descriptions in enabled skill folders and skills', async () => {
+  const workspaceParent = join(tmpdir(), 'jan-rail-text-estimate')
+  const { scopedSettings } = fakeScopedSettings(join(workspaceParent, 'project'), ['deploy'])
+  const { call } = await projectHome([], 0, { scopedSettings })
+  await call('setSkillFolder', { path: join(workspaceParent, 'styles'), enabled: false })
+
+  // The remaining row is `- \`review\`: review skill\n` (25 UTF-8 bytes).
+  expect((await call('skills')).body.result).toMatchObject({ active: 1, total: 4, estimatedTokens: 7 })
+  await call('setSkill', { name: 'review', enabled: false })
+  expect((await call('skills')).body.result).toMatchObject({ estimatedTokens: 0 })
+})
+
+it('routes the project page skill switches to the project scope of scoped settings', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-project-skills-'))
+  onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const project = join(root, 'project')
+  await mkdir(project)
+  const { scopedSettings, calls } = fakeScopedSettings(project, ['deploy'])
+  let handler: ((req: Request, res: Response) => Promise<void>) | undefined
+  const workspace = { id: 'project', path: project, sessionIds: [] }
+  mountProjectHome({
+    get: (key: string) => ({
+      workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
+      janHomePath: (...segments: string[]) => join(root, ...segments),
+      scopedSettings,
+    })[key],
+    inject: () => { },
+    effect: (register: () => void) => register(),
+    webServer: { register: (route: { handler: typeof handler }) => { handler = route.handler } },
+    connection: { requestRejection: () => undefined },
+  })
+  const call = async (method: string, params: Record<string, unknown> = {}) => {
+    let reply: Reply | undefined
+    let status = 0
+    const payload = Buffer.from(JSON.stringify({ method, params: { workspaceId: 'project', ...params } }))
+    await handler!({ method: 'POST', headers: { 'content-type': 'application/json' }, async *[Symbol.asyncIterator]() { yield payload } },
+      { writeHead: value => { status = value }, end: body => { reply = { status, body: JSON.parse(body) } } })
+    return reply!.body.result as { folders: { path: string; enabled: boolean; skills: { name: string; enabled: boolean; offAt?: string }[] }[] }
+  }
+
+  await call('setSkillFolder', { path: join(root, 'styles'), enabled: false })
+  await call('setSkill', { name: 'review', enabled: false })
+  expect(calls).toEqual([
+    [{ scope: 'project', id: 'project' }, 'skillFoldersDisabled', join(root, 'styles'), true],
+    [{ scope: 'project', id: 'project' }, 'skillsDisabled', 'review', true],
+  ])
+  const view = await call('skills')
+  expect(view.folders.map(folder => [folder.path, folder.enabled, folder.skills.map(s => `${s.name}:${s.enabled}${s.offAt ? `:${s.offAt}` : ''}`)])).toEqual([
+    [join(root, 'styles'), false, ['look-a:true', 'look-b:true']],
+    [join(root, 'shared'), true, ['review:false', 'deploy:false:global']],
+  ])
+})
+
+it('turns an MCP server off and back on for this project without changing global switches', async () => {
+  const global = { toolsDisabled: ['mcp:global-off'] }
+  const project = { toolsDisabled: ['existing'] }
+  const writes: unknown[] = []
+  const scopedSettings = {
+    read: ({ scope }: { scope: string }) => scope === 'global' ? global : project,
+    toolCatalog: async () => ({ mcpServers: ['global-off', 'notes'], tools: [] }),
+    setSwitch: async (address: unknown, key: string, entry: string, off: boolean) => {
+      writes.push({ address, key, entry, off })
+      const keep = project.toolsDisabled.filter(value => value !== entry)
+      project.toolsDisabled = off ? [...keep, entry] : keep
+      return project
+    },
+  }
+  const { call } = await projectHome([], 0, { scopedSettings })
+  expect((await call('setTool', { group: 'mcp', id: 'notes', enabled: false })).status).toBe(200)
+  expect((await call('tools')).body.result).toMatchObject({ mcp: [
+    { id: 'global-off', enabled: false, globallyOff: true },
+    { id: 'notes', enabled: false, globallyOff: false },
+  ] })
+  expect((await call('setTool', { group: 'mcp', id: 'notes', enabled: true })).status).toBe(200)
+  expect(writes).toEqual([true, false].map(off => ({ address: { scope: 'project', id: 'project' }, key: 'toolsDisabled', entry: 'mcp:notes', off })))
+  expect(project.toolsDisabled).toEqual(['existing'])
+  expect(global.toolsDisabled).toEqual(['mcp:global-off'])
+})
+
+it('lets the agent read and change its own project skill switches, asking once and refusing outside a project', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'jan-agent-skills-'))
+  onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const project = join(root, 'project')
+  await mkdir(project)
+  const { scopedSettings, calls } = fakeScopedSettings(project, ['deploy'], 'chat-mode-review')
+  const tools = new Map<string, { execute: (args: unknown, exec: unknown) => Promise<{ ok?: boolean; message?: string; folders?: unknown }> }>()
+  let gate: ((exec: unknown, next: () => Promise<{ kind: string }>) => Promise<{ kind: string; reason?: string }>) | undefined
+  const workspace = { id: 'project', path: project, sessionIds: [] }
+  const toolScope = {
+    tools: { register: (tool: { name: string }) => { tools.set(tool.name, tool as never); return () => { } } },
+    on: (_event: string, listener: typeof gate) => { gate = listener; return () => { } },
+    get: () => undefined,
+    effect: (body: () => Generator) => { for (const _ of body()) { /* registrations only */ } },
+  }
+  mountProjectHome({
+    get: (key: string) => ({
+      workspaceRegistry: { get: (id: string) => id === 'project' ? workspace : undefined, list: () => [workspace] },
+      janHomePath: (...segments: string[]) => join(root, ...segments),
+      scopedSettings,
+    })[key],
+    inject: (keys: string[], callback: (scope: unknown) => void) => { if (keys.includes('tools')) callback(toolScope) },
+    effect: (register: () => void) => register(),
+    webServer: { register: () => { } },
+    connection: { requestRejection: () => undefined },
+  })
+  const agentIn = (cwd: string) => ({ id: 'chat', session: { header: { cwd } } })
+  const execFor = (args: unknown, cwd = project) => ({ name: 'project_skills_change', arguments: args, agent: agentIn(cwd), signal: new AbortController().signal })
+
+  const listed = await tools.get('project_skills_read')!.execute({}, { agent: agentIn(project) })
+  expect(JSON.stringify(listed.folders)).toContain('deploy (off globally)')
+  const chatFolder = join(root, 'chat-mode')
+  expect(listed.folders).toContainEqual({ path: chatFolder, label: 'chat-mode', enabled: true, skills: ['chat-mode-review'] })
+  expect((await tools.get('project_skills_read')!.execute({}, { agent: agentIn(root) })).message).toContain('not in a Jan project')
+
+  const outside = execFor({ skill: 'look-a', enabled: false }, root)
+  expect(await gate!(outside, async () => ({ kind: 'allow' }))).toMatchObject({ kind: 'deny' })
+  const globallyOff = execFor({ skill: 'deploy', enabled: true })
+  expect(await gate!(globallyOff, async () => ({ kind: 'allow' }))).toMatchObject({ kind: 'deny', reason: expect.stringContaining('off in global settings') })
+
+  const exec = execFor({ skill: 'look-a', enabled: false })
+  expect(await gate!(exec, async () => ({ kind: 'allow' }))).toEqual({ kind: 'ask', reason: 'Turn off skill look-a in project project?' })
+  expect(await tools.get('project_skills_change')!.execute(exec.arguments, exec)).toMatchObject({ ok: true })
+  expect(calls).toEqual([[{ scope: 'project', id: 'project' }, 'skillsDisabled', 'look-a', true]])
+
+  const again = execFor({ skill: 'look-a', enabled: false })
+  expect(await gate!(again, async () => ({ kind: 'ask' }))).toEqual({ kind: 'allow' })
+  expect((await tools.get('project_skills_change')!.execute(again.arguments, again)).message).toContain('already off')
+
+  const chatChange = execFor({ folder: chatFolder, enabled: false })
+  expect(await gate!(chatChange, async () => ({ kind: 'allow' }))).toMatchObject({ kind: 'ask' })
+  expect(await tools.get('project_skills_change')!.execute(chatChange.arguments, chatChange)).toMatchObject({ ok: true })
+  expect(calls.at(-1)).toEqual([{ scope: 'project', id: 'project' }, 'skillFoldersDisabled', chatFolder, true])
 })

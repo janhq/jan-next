@@ -113,11 +113,8 @@ export interface IdentityState {
   identity?: SubagentIdentityProjection | undefined
 }
 
-// The cast bridges only the optional-label arm: Zod's optional output
-// includes explicit `undefined`, which exactOptionalPropertyTypes excludes
-// from the public interface. The no-value state itself is the serializable
-// `null` arm — never `undefined` — so every registry read and push frame
-// survives JSON.stringify losslessly.
+// Omit absent optional fields from parsed identities. The wire schema uses
+// null for a missing identity so its absence is preserved in JSON frames.
 const identityValueSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('one-shot'),
@@ -127,9 +124,17 @@ const identityValueSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('continuable'),
     label: z.string(),
+    agent: z.string().optional(),
     seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
   }).strict(),
-]) as unknown as z.ZodType<SubagentIdentityProjection>
+]).transform((identity): SubagentIdentityProjection => {
+  if (identity.mode === 'one-shot') {
+    const { mode, seq, label } = identity
+    return { mode, seq, ...(label === undefined ? {} : { label }) }
+  }
+  const { mode, seq, label, agent } = identity
+  return { mode, seq, label, ...(agent === undefined ? {} : { agent }) }
+})
 
 const identitySchema = identityValueSchema.nullable()
 
@@ -154,11 +159,16 @@ function descriptorIdentity(event: SessionEvent): SubagentIdentityProjection | u
       ...descriptor.label !== undefined ? { label: descriptor.label } : {},
       seq: event.seq,
     }
-    : { mode: 'continuable', label: descriptor.label, seq: event.seq }
+    : {
+      mode: 'continuable',
+      label: descriptor.label,
+      ...descriptor.agent !== undefined ? { agent: descriptor.agent } : {},
+      seq: event.seq,
+    }
 }
 
 /**
- * Fold the durable mode/label identity from `subagent/descriptor` events,
+ * Fold durable identity from `subagent/descriptor` events,
  * last-wins: a fork seed may replay an ancestor's descriptor, and the child's
  * own descriptor must override it — the same reset discipline as
  * {@link subagentTimingProjectionDefinition}. A malformed or unknown-version
@@ -178,7 +188,6 @@ export const subagentIdentityProjectionDefinition = {
     return identity === undefined ? {} : { identity }
   },
   wire: { viewSchema: identitySchema, view: state => state.identity ?? null },
-  // Bumped when the identity gained its `seq` field: an older checkpoint row
-  // would replay into a value the schema rejects, so it must refold instead.
+  // Historical version-2 rows remain valid without a profile id.
   stateVersion: 2,
 } satisfies ProjectionDefinition<'subagent', IdentityState>

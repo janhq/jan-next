@@ -1,8 +1,8 @@
 window.__ModuleLoader__.load({
   id: '@janhq/jan-always-on',
   factory(require) {
-    const { createElement: h, useEffect } = require('react')
-    const { Button, IconLoadingOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { createElement: h, useEffect, useState } = require('react')
+    const { Button, IconLoadingOutlineRegular, captureFailure } = require('@janhq/jan-client-ui-primitives')
     const { createSnapshotStore } = require('@janhq/jan-client-store')
     // The sidebar draws panel glyphs at 16px on labelled rows and 18px on the rail;
     // labelled rows take the Medium (1.3px) line like Jan's other row icons.
@@ -22,12 +22,33 @@ window.__ModuleLoader__.load({
       ru: ['Режим ботов', 'Создайте бота с постоянным чатом.', 'Загрузка ботов', 'Не удалось загрузить ботов.', 'Повторить'],
       pt: ['Modo Bots', 'Crie um bot com uma conversa contínua.', 'Carregando bots', 'Não foi possível carregar os bots.', 'Tentar de novo'],
     }
-    let chunks
+    let chunks, avatars
+    function loadAvatars() {
+      avatars ??= require.async('./client.avatar.js')
+        .then(async avatar => {
+          // Every avatar seat mounts through the same renderer and cursor tracker.
+          const mountBotAvatar = await avatar.loadAvatarRenderer()
+          return { ...avatar, mountBotAvatar }
+        })
+        .catch(error => { avatars = undefined; throw error })
+      return avatars
+    }
     function load() {
-      chunks ??= Promise.all([require.async('./client.bots.js'), require.async('./client.avatar.js'), require.async('./client.copy.js')])
-        .then(async ([ui, avatar, copy]) => ({ ...ui, ...avatar, copy, mountBotAvatar: await avatar.loadAvatarRenderer() }))
+      chunks ??= Promise.all([require.async('./client.bots.js'), loadAvatars(), require.async('./client.copy.js')])
+        .then(([ui, avatar, copy]) => ({ ...ui, ...avatar, copy }))
         .catch(error => { chunks = undefined; throw error })
       return chunks
+    }
+    function ModeDecoration({ useRoster }) {
+      const rows = useRoster(state => state.rows)
+      const [avatar, setAvatar] = useState(null)
+      useEffect(() => {
+        let mounted = true
+        void loadAvatars().then(value => { if (mounted) setAvatar(value) },
+          error => { if (mounted) console.warn('[Bots]', error) })
+        return () => { mounted = false }
+      }, [])
+      return avatar && h(avatar.ModeSquad, { rows, mountBotAvatar: avatar.mountBotAvatar })
     }
     async function call(method, params, signal) {
       const response = await fetch(PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -79,6 +100,22 @@ window.__ModuleLoader__.load({
       const hooks = { roster, notices, selected, ui, uiFailed, dialogs, workspaces: ctx.workspaces.list, language: {
         getSnapshot: () => ctx.locale.getSnapshot().active, subscribe: listener => ctx.locale.subscribe(listener),
       } }
+      const importSection = 'jan-import'
+      const importAvailable = createSnapshotStore(false)
+      let openImport
+      ctx.inject(['settingsNavigation'], scope => {
+        const navigation = scope.settingsNavigation
+        const update = () => importAvailable.set(navigation.availability.getSnapshot()
+          && ctx.slots.entriesOfSlot('settings.section').some(entry => entry.options.id === importSection))
+        openImport = () => importAvailable.getSnapshot() && navigation.open(importSection)
+        ctx.effect(() => {
+          const offAvailability = navigation.availability.subscribe(update)
+          const offSection = ctx.slots.subscribe('settings.section', update)
+          update()
+          return () => { offAvailability(); offSection(); importAvailable.set(false); openImport = undefined }
+        })
+      })
+      hooks.importAvailable = importAvailable
       let refreshing, dirty = false, style, uniqueNotice = 0, loading
       const seen = new Set()
       function requireUi() {
@@ -149,7 +186,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => ctx.sidebarRightTabs.register({ id: PANEL, kind: TAB, priority: 'builtin', title: () => t('details') }))
       ctx.inject(['uiAgentPreset'], scope => {
         scope.effect(() => scope.uiAgentPreset.registerModeAction({
-          id: 'bots', icon: 'users-outline', name: () => tNavigation('modeName'), description: () => tNavigation('modeDescription'),
+          id: 'bots', order: 4, icon: 'users-outline', name: () => tNavigation('modeName'), description: () => tNavigation('modeDescription'),
           run(sourceSessionId) {
             if (getBot(sourceSessionId)) { openDetail(); return }
             void requireUi().then(() => {
@@ -158,12 +195,17 @@ window.__ModuleLoader__.load({
           },
         }))
       })
+      ctx.slots.inject('mode.picker.decoration', () => ctx.slots.register({
+        name: 'mode.picker.decoration', key: 'action:bots', inject: () => ({ hooks: { roster } }),
+      }, ModeDecoration))
       function compact(bot) {
         void change('compact', { id: bot.id }).then(result => notices.set({ id: ++uniqueNotice, copy: result ? 'compacted' : 'noCompact' }),
-          () => notices.set({ id: ++uniqueNotice, copy: 'compactFailed', error: true }))
+          error => notices.set({ id: ++uniqueNotice, copy: 'compactFailed', error: true, failure: captureFailure('bots.compact', error) }))
       }
       const inject = () => ({ hooks, request, change, refresh, open, openDetail, compact,
         dialog: value => dialogs.set(value), dismissNotice: () => notices.set(null),
+        notify: value => notices.set({ id: ++uniqueNotice, ...value }),
+        openImport: () => openImport?.(),
         showRoster: () => ctx.layout.selectPanel(PANEL), openScheduled: () => ctx.layout.selectPanel('schedules'),
         openRoutine: (sessionId, id) => ctx.sidebarRight.openTab('scheduleTask', { params: { sessionId, id } }),
       })

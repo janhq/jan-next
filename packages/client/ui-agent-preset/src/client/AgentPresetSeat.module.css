@@ -67,7 +67,7 @@
    character). All chars occupy their width from the start, so nothing
    reflows mid-run. */
 .introIcon {
-  animation: seat-icon-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: seat-icon-in var(--ds-transition-duration) var(--ds-ease-out) both;
 }
 
 @keyframes seat-icon-in {
@@ -93,7 +93,7 @@
   display: inline-block;
   white-space: pre;
   opacity: 0;
-  animation: seat-char-in 0.4s ease-out forwards;
+  animation: seat-char-in var(--ds-transition-duration-slow) var(--ds-ease-out) forwards;
 }
 
 @keyframes seat-char-in {
@@ -121,6 +121,47 @@
   color: var(--dsw-alias-label-caption);
 }
 
+.itemRow {
+  display: contents;
+}
+
+.itemDecoration {
+  display: none;
+}
+
+.itemRow:has(.itemDecoration [data-slot] > :not([data-slot-error])) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .item {
+    min-inline-size: 0;
+    overflow: hidden;
+  }
+
+  .itemName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-inline-size: 100%;
+  }
+
+  .itemDesc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .itemDecoration {
+    display: block;
+    /* Keep the menu's intrinsic width text-driven, even with several avatars. */
+    contain: inline-size;
+    flex: 0 0 36%;
+    max-inline-size: 96px;
+    margin-inline-start: auto;
+    pointer-events: none;
+  }
+}
+
 /* Menu rows carry the name over its description: the id alone never said what
    a preset does, which is why the metadata exists. */
 .item {
@@ -134,6 +175,22 @@
   font-size: 13px;
   line-height: 20px;
   color: var(--dsw-alias-label-primary);
+}
+
+@supports (background-clip: text) and (color: color-mix(in srgb, currentColor, transparent)) {
+  @media (forced-colors: none) {
+    .creatorName {
+      align-self: flex-start;
+      background-image: linear-gradient(to right,
+        color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-state-warn-label) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-state-success-primary) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-link) 45%, var(--dsw-alias-label-primary)),
+        color-mix(in srgb, var(--dsw-alias-state-done-primary) 45%, var(--dsw-alias-label-primary)));
+      background-clip: text;
+      color: transparent;
+    }
+  }
 }
 
 .itemDesc {

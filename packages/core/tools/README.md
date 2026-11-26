@@ -83,7 +83,7 @@ Agent-step concurrency uses the [agent-loop configuration](../agent-loop/README.
 
 ### Restrict tools per agent
 
-`ctx.tools.restrict(filter)` applies an allow or deny mask to the global tools one agent inherits; masks intersect, scoped registrations stay visible, and the restriction lifts when disposed. `ctx.tools.get(name, scope)` resolves a tool as one scope sees it. A Host-local presenter consumer passes the calling agent when it must match the definition that executed. `ctx.tools.schemas(scope)` returns the visible schemas without the `execute` functions.
+`ctx.tools.restrict(filter)` applies an allow or deny mask to the tools one agent inherits. Masks intersect and lift when disposed. Pass `{ includeScopeLocal: true }` to apply a mask to the viewing scope's own tools as well. To compute a mask from registration metadata, use `ctx.tools.registeredDefinitions(scope)`: nearer registrations win, and existing restrictions do not affect the result. For execution and presentation use `ctx.tools.get(name, scope)` or the step's admitted set, not the unrestricted registry.
 
 ### Enforce policy on calls
 

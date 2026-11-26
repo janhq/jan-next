@@ -9,6 +9,8 @@ kind: "package-reference"
 
 The Scheduled tasks page and right Sidebar task tab use the same editor for task rules, saved delivery records, deletion, and conversation navigation. Manual creation and target selection use the Host Schedule service; conversation cards, header clocks, and Session row marks retain their existing locations.
 
+Single and bulk removal failures offer **Copy details** and **Show log** through the common deletion toast.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

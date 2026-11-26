@@ -9,6 +9,8 @@ kind: "package-reference"
 
 Discover is the second tab of the **Plugins** page, after **Installed**. It lists the bundles that plugin indexes offer; users manage index sources, switch between indexes, search, filter by category and label, sort, open an entry's page, and install an entry after confirming it. Entry pages show each entry's long description as Markdown with images. The Host [`pluginMarket`](../../boot/plugin-market/README.md) service fetches and validates indexes; this package only presents them.
 
+Failed description reads offer **Details** beside **Retry**. The details dialog can copy the redacted failure report or open the Host logs when available.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

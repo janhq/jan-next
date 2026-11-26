@@ -81,17 +81,25 @@ export function turnNavigationItem(
   locations: ChatLocationNodeIndex,
   nodes: ChatNodeStore,
 ): TurnNavigationItem | undefined {
-  const loaded = locations.getTurn(turn)
-    .map(key => nodes.get(key))
-    .filter((node): node is ChatNode => node !== undefined && isVisibleChatNode(node as ChatNode))
-  const user = loaded.find(node => node.kind === 'user')
-  const anchor = user ?? loaded[0]
+  let anchor: ChatNode | undefined
+  let user: ChatNode | undefined
+  let response = ''
+  const keys = locations.getTurn(turn)
+  for (let index = keys.length - 1; index >= 0; index--) {
+    const key = keys[index]
+    if (key === undefined) continue
+    const node = nodes.get(key) as ChatNode | undefined
+    if (node === undefined || !isVisibleChatNode(node)) continue
+    anchor = node
+    if (node.kind === 'user') user = node
+    else if (response === '' && node.kind === 'assistant-step') response = responseText(node)
+  }
+  anchor = user ?? anchor
   if (anchor === undefined) return undefined
-  const response = loaded.findLast(node => responseText(node) !== '')
   return {
     turn,
     anchorKey: anchor.key,
     prompt: user === undefined ? '' : promptText(user),
-    response: response === undefined ? '' : responseText(response),
+    response,
   }
 }

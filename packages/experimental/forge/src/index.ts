@@ -6,7 +6,8 @@ import { deadline, MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { changeRequestKey } from './keys.ts'
 import { nextPollDelay } from './schedule.ts'
 import type {
-  ChangeRequestKey, ChangeRequestListener, ChangeRequestRef, ChangeRequestSnapshot, ChangeRequestUpdate, Config,
+  ChangeRequestAssets, ChangeRequestFailureContext, ChangeRequestFailureSelection, ChangeRequestKey, ChangeRequestListener,
+  ChangeRequestRef, ChangeRequestSnapshot, ChangeRequestUpdate, Config,
   ForgeActionFailure, ForgeFailure, ForgeProvider, ForgeReadiness, ForgeRepository, ForgeReviewRequest, ForgeReviewResult, MergeRequest,
 } from './types.ts'
 
@@ -233,6 +234,41 @@ export class ForgeService extends Service {
     return await this.invoke(this.registration(ref.repository.forge), timeout.signal,
       (provider, operation) => provider.fetchChecks?.(ref, operation)
         ?? Promise.resolve({ code: 'unavailable', message: 'This provider does not support complete check reads' } as const))
+  }
+
+  /**
+   * Read assets for the displayed head without affecting polling.
+   * @param ref - change request served by a registered provider.
+   * @param headSha - commit whose assets are requested.
+   * @param signal - cancellation of the detail view.
+   * @returns previews, artifacts, and any failures isolated to their sources.
+   */
+  async fetchAssets(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets> {
+    using timeout = deadline(signal, this.config.fetchTimeoutMs, 'FORGE_FETCH_TIMEOUT')
+    return await this.invoke(this.registration(ref.repository.forge), timeout.signal,
+      (provider, operation) => provider.fetchAssets?.(ref, headSha, operation)
+        ?? Promise.resolve({ previews: [], artifacts: [], failures: [], truncated: false }))
+  }
+
+  /**
+   * Read diagnostics for an explicit failure action without affecting polling.
+   * @param ref - change request served by a registered provider.
+   * @param headSha - commit whose diagnostics are requested.
+   * @param selection - which checks or reviews to enrich.
+   * @param signal - cancellation of the action.
+   * @returns diagnostics, or a failure if the change request cannot be read.
+   */
+  async fetchFailureContext(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection,
+    signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure> {
+    using timeout = deadline(signal, this.config.fetchTimeoutMs, 'FORGE_FETCH_TIMEOUT')
+    return await this.invoke(this.registration(ref.repository.forge), timeout.signal, async (provider, operation) => {
+      if (provider.fetchFailureContext !== undefined) return await provider.fetchFailureContext(ref, headSha, selection, operation)
+      const snapshot = provider.fetchChecks === undefined
+        ? (await provider.fetch([ref], operation)).get(changeRequestKey(ref)) : await provider.fetchChecks(ref, operation)
+      if (snapshot === undefined) return { code: 'unavailable', message: 'The provider did not return change request status' }
+      if ('code' in snapshot) return snapshot
+      return { snapshot, reviews: [], logs: [], failures: [], truncated: snapshot.checksTruncated }
+    })
   }
 
   /**

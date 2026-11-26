@@ -189,6 +189,8 @@ declare module '@janhq/jan-client-ui-slots' {
 declare module '@janhq/jan-api-session-controller/client' {
   interface SessionReferenceSourceMap {
     mainView: unknown
+    /** A project page's blank chat, whose composer starts a chat in that project like the main view's. */
+    projectHome: unknown
   }
 }
 

@@ -171,6 +171,7 @@ async function base() {
   }
   ctx.provide('remote.forgePanel', forgePanel)
   ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('connection', { generation: { getSnapshot: () => ({ id: 1 }), subscribe: () => () => {} } })
   const unregisterTab = vi.fn()
   const sidebarRightTabs = { register: vi.fn((_type: SidebarRightTabDefinition) => unregisterTab) }
   ctx.provide('sidebarRightTabs', sidebarRightTabs)
@@ -271,7 +272,7 @@ describe('mountForgePanel registration', () => {
   })
 
   it('declares the browser services it needs', () => {
-    expect(inject).toEqual(['remote', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions'])
+    expect(inject).toEqual(['remote', 'connection', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions'])
   })
 
   it('registers the tab types, their bodies and titles, the header button, the worktree option and card, and the toast', async () => {
@@ -390,6 +391,28 @@ describe('mountForgePanel Session stores', () => {
     expect(f.forgePanel.follow).toHaveBeenCalledTimes(2)
     unsubscribe()
     expect(f.streams[1]?.disposed).toHaveBeenCalled()
+    await f.dispose()
+  })
+
+  it('offers the review guide entry only while the Session\'s folder is a Git checkout, over its shared panel stream', async () => {
+    const f = await fixture()
+    const offeredIn = f.sidebarRightTabs.register.mock.calls[0]?.[0].guide?.[0]?.offeredIn
+    if (offeredIn === undefined) throw new Error('expected the review entry to declare offeredIn')
+    const offered = offeredIn(S1)
+    expect(offered.getSnapshot()).toBe(false)
+    const unsubscribe = offered.subscribe(() => {})
+    expect(f.forgePanel.follow).toHaveBeenCalledOnce()
+    f.streams[0]?.push(ready({ checkout: { state: 'none' }, repository: null }))
+    await vi.waitFor(() => { expect(f.tab(S1).hooks.panel.getSnapshot().state).not.toBeNull() })
+    expect(offered.getSnapshot()).toBe(false)
+    f.streams[0]?.push(ready())
+    await vi.waitFor(() => { expect(offered.getSnapshot()).toBe(true) })
+    // Git that cannot run reads as no Git, not as a broken checkout.
+    f.streams[0]?.push(ready({ checkout: { state: 'failed', message: 'spawn git ENOENT' }, repository: null }))
+    await vi.waitFor(() => { expect(offered.getSnapshot()).toBe(false) })
+    unsubscribe()
+    f.sessions.scope.mockReturnValue(undefined)
+    expect(offeredIn(S2).getSnapshot()).toBe(false)
     await f.dispose()
   })
 

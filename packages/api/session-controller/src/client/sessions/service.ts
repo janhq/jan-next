@@ -444,7 +444,7 @@ export class ClientSessions implements ISessions {
   /**
    * Create a Host Session and publish its catalog row before resolving.
    * Callers retain the returned identity before borrowing its binding.
-   * @param opts - target workspace or directory, an optional blank Session to reuse, and an optional Agent preset.
+   * @param opts - target workspace or directory, an optional blank Session, preset, and profile (null for plain Jan).
    * @returns the created or reused session id.
    * @throws {SessionCreateError} with the requested id.
    */
@@ -453,6 +453,7 @@ export class ClientSessions implements ISessions {
     cwd?: string
     sessionId?: SessionId
     agentPreset?: string
+    agentProfile?: string | null
   } = {}): Promise<SessionId> {
     const result = await this.manager.create(opts)
     if (!result.ok) throw new SessionCreateError(result.error, opts.sessionId)

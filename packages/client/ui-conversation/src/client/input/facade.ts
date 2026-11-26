@@ -588,12 +588,13 @@ export class SessionInputShell implements SessionInput {
    * automatic here (the update listener re-tracks at the settled caret, so an
    * open token — a directory pick's trailing slash — reopens the menu without
    * an explicit re-track).
+   * @param submit - run the completed command after committing the replacement.
    * @returns whether the text was applied.
    */
-  insertText(text: string, span: TokenSpan, keepCompleting = false): boolean {
+  insertText(text: string, span: TokenSpan, keepCompleting = false, submit = false): boolean {
     void keepCompleting
     if (span.draftRev !== this.rev) return false
-    return this.draftEditor.replaceText(span, text)
+    return this.draftEditor.replaceText(span, text, submit ? () => { this.submit('queue', 'enter') } : undefined)
   }
 
   /**

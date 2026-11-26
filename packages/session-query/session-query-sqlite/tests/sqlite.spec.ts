@@ -1138,10 +1138,16 @@ describe('SQLite reconciliation and source lifecycle', () => {
     await first.plugin(SessionProjectionRegistry)
     const firstPersistence = await first.plugin(TestPersistence)
     const firstSearch = await first.plugin(SqliteSessionQueryEngine, { path })
+    const prepare = vi.spyOn(DatabaseSync.prototype, 'prepare')
     await first.sessionQuery.searchSessions({ query: 'needle' })
     expect(Object.fromEntries(TestPersistence.reads)).toEqual({ unchanged: 1, changed: 1, deleted: 1 })
     await first.sessionQuery.searchSessions({ query: 'needle' })
     expect(Object.fromEntries(TestPersistence.reads)).toEqual({ unchanged: 1, changed: 1, deleted: 1 })
+    try {
+      expect(prepare.mock.calls.map(([sql]) => sql)).not.toContain('DELETE FROM persisted_docs WHERE session_id = ?')
+    } finally {
+      prepare.mockRestore()
+    }
     await firstSearch.dispose()
     await firstPersistence.dispose()
 

@@ -58,7 +58,7 @@ it.each([{ name: 'Chromium', engine: chromium }, { name: 'WebKit', engine: webki
       const short = await card.boundingBox()
       expect(short!.y + short!.height <= 286 || short!.y >= 314).toBe(true)
 
-      const opensAbove = /(?:ApprovalPanel|ContextMeter|stat-dialog)/.test(panel.file)
+      const opensAbove = /(?:ApprovalPanel|ContextMeter|JobListAction|stat-dialog)/.test(panel.file)
       await page.locator('#trigger').evaluate((node, top) => { node.style.top = `${top}px` }, opensAbove ? 24 : 548)
       await card.evaluate((node) => { node.replaceWith(node.cloneNode(true)) })
       await expect.poll(() => card.evaluate((node, above) => {

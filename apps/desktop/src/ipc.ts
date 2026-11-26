@@ -40,6 +40,7 @@ export const DESKTOP_IPC = {
   fileDragRelease: 'jan-desktop:file-drag-release',
   deviceInfo: 'jan-desktop:device-info',
   factoryReset: 'jan-desktop:factory-reset',
+  restartApplication: 'jan-desktop:restart-application',
   localeBootstrap: 'jan-desktop:locale-bootstrap',
   localeChanged: 'jan-desktop:locale-changed',
   updatesChannelGet: 'jan-desktop:updates-channel-get',
@@ -121,6 +122,8 @@ export interface JanDesktopProductApi {
    * @param categories - nonempty subset of chats, settings, plugins, credentials, skills and logs.
    */
   factoryReset(categories: readonly string[]): Promise<void>
+  /** Relaunch Jan without asking, as the development Restart App Host menu item does; ignored while Jan already quits. */
+  restartApplication(): Promise<void>
   readonly notifications: {
     /**
      * @param request - `id` is echoed to click listeners; `title` and `body` are display text.

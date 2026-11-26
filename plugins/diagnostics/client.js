@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, IconInfoOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, IconInfoOutlineRegular, registerFailureLogSource } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-diagnostics'
     /** How long a finished action's confirmation stays. */
     const NOTE_MS = 2500
@@ -27,9 +27,11 @@ window.__ModuleLoader__.load({
 .jd-status { padding-top: 12px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .jd-status[data-error] { color: var(--dsw-alias-state-error-primary); }`
 
-    async function api(method, params = {}) {
-      const response = await fetch(new URL('jan-api/diagnostics', document.baseURI), {
-        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }),
+    async function api(method, params = {}, signal) {
+      // Desktop's handler transports Host requests to the sidecar instead of using Chromium fetch.
+      const fetchHost = globalThis.__JAN_TRANSPORT__?.fetch ?? fetch
+      const response = await fetchHost(new URL('jan-api/diagnostics', document.baseURI), {
+        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal,
       })
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('unavailable')
       const body = await response.json()
@@ -123,6 +125,10 @@ window.__ModuleLoader__.load({
       inject: ['slots', 'locale'],
       apply(ctx) {
         let live = true
+        if (registerFailureLogSource) ctx.effect(() => registerFailureLogSource({
+          async readTail(signal) { return (await api('failureLogTail', {}, signal)).text ?? undefined },
+          async open(signal) { await api('openLogs', {}, signal) },
+        }), 'jan-diagnostics: failure log source')
         ctx.effect(() => () => { live = false }, 'jan-diagnostics: lifetime')
         const style = document.createElement('style')
         style.dataset.plugin = '@janhq/jan-diagnostics'

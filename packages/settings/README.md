@@ -23,6 +23,7 @@ The package README owns the form behavior; the settings reference documents its 
 | Package | Purpose | ctx key |
 |---|---|---|
 | [`settings`](settings/README.md) | Config projection and revisioned form edits | `settings` |
+| [`scoped-settings`](scoped-settings/README.md) | Project model and mode defaults; tool switches per chat, project and globally | `scopedSettings` |
 
 <a id="related-documentation"></a>
 ## Related documentation

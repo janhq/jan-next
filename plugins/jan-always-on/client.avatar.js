@@ -2,7 +2,7 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-always-on',
   chunk: 'client.avatar.js',
   factory(require) {
-    const { createElement: h, useEffect, useRef } = require('react')
+    const { createElement: h, useEffect, useMemo, useRef } = require('react')
     const CELEBRATE_MS = 4000
     // Open Bot Avatar's chat silhouette, adapted under MIT. See LICENSE.open-bot-avatar.
     const definition = { version: 1, id: 'chat', name: 'Chat', body: {
@@ -14,13 +14,201 @@ window.__ModuleLoader__.load({
       ['capsule', 'M40 22H60A28 28 0 0 1 60 78H40A28 28 0 0 1 40 22Z'],
     ].map(([id, path]) => ({ ...definition, id, name: id, body: { path }, eyes: { ...definition.eyes, y: 49 } }))]
 
-    /** Load the private renderer and return (element, options) => { update, destroy }. */
+    const palette = ['#42688f', '#8c553d', '#75558b', '#467568', '#676d3e', '#915571', '#436b83', '#974c4c']
+    const defaultSquad = [
+      { id: 'round', shape: 1, color: '#FF7A59' },
+      { id: 'chat', shape: 0, color: 'var(--dsw-alias-brand-primary)' },
+      { id: 'square', shape: 2, color: '#7C5CFF' },
+      { id: 'capsule', shape: 3, color: '#5AC8FA' },
+    ]
+
+    /** Give bots without a saved avatar a stable shape and color. */
+    function appearanceFor(name) {
+      let hash = 0
+      for (const ch of name.trim().toLowerCase()) hash = (Math.imul(hash, 31) + ch.codePointAt(0)) >>> 0
+      return { shape: hash % definitions.length, color: palette[(hash >>> 2) % palette.length], locked: false }
+    }
+
+    /** The Bots roster and mode picker put recently active bots first. */
+    const compareBotRecency = (a, b) => (b.latest?.at ?? b.createdAt) - (a.latest?.at ?? a.createdAt)
+
+    const modeSquadCss = `
+      .jao-mode-squad { display: block; container-type: inline-size; }
+      .jao-mode-lineup { display: flex; justify-content: flex-end; align-items: center; }
+      .jao-mode-avatar {
+        display: block; position: relative; flex: none; inline-size: 28px; block-size: 28px;
+        animation: jao-mode-bob calc(var(--ds-transition-duration-ambient) * 1.2) var(--ds-ease-pulse) infinite;
+        animation-delay: calc(var(--ds-transition-duration-slow) * var(--jao-squad-index) * -1.4);
+      }
+      .jao-mode-avatar + .jao-mode-avatar { margin-inline-start: clamp(-12px, calc((100cqw - 112px) / 3), -4px); }
+      @container (width < 76px) { .jao-mode-avatar:nth-child(n + 4) { display: none; } }
+      @container (width < 60px) { .jao-mode-avatar:nth-child(n + 3) { display: none; } }
+      @container (width < 44px) { .jao-mode-avatar:nth-child(n + 2) { display: none; } }
+      @keyframes jao-mode-bob { 50% { transform: translateY(-1px); } }
+      @media (prefers-reduced-motion: reduce) { .jao-mode-avatar { animation: none; } }
+    `
+
+    function modeEyeColor(color) {
+      const ink = 'var(--dsw-static-neutral-bluish-1000)'
+      if (window.CSS?.supports('color', 'contrast-color(red)')) return `contrast-color(${color})`
+      // The scene renderer also accepts theme colors on browsers without contrast-color().
+      if (!color.startsWith('#')) return 'var(--dsw-alias-label-primary-foreground)'
+      const channels = [1, 3, 5].map(offset => Number.parseInt(color.slice(offset, offset + 2), 16) / 255)
+      const luminance = channels.reduce((value, channel, i) => value
+        + [0.2126, 0.7152, 0.0722][i] * (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4), 0)
+      return luminance < 0.179 ? 'var(--dsw-static-neutral-bluish-00)' : ink
+    }
+
+    /** Mount the shared avatar renderer only while the mode picker row is open. */
+    function ModeSquad({ rows, mountBotAvatar }) {
+      const host = useRef(null)
+      const lineup = useRef(null)
+      const avatars = useMemo(() => rows?.length
+        ? rows.toSorted(compareBotRecency).slice(0, 4).map(bot => ({ id: bot.id, ...(bot.avatar ?? appearanceFor(bot.name)) }))
+        : defaultSquad, [rows])
+
+      useEffect(() => {
+        const squad = host.current
+        const row = squad.closest('button[role="menuitem"]')
+        const hover = window.matchMedia('(hover: hover)')
+        let hovered = hover.matches && row.matches(':hover')
+        let focused = row.matches(':focus-visible')
+        const pose = () => ({ mood: hovered || focused ? 'happy' : 'neutral' })
+        const mounted = avatars.map(({ shape, color }, i) => mountBotAvatar(lineup.current.children[i], {
+          definition: definitions[shape], color, eyeColor: modeEyeColor(color), state: 'idle', label: '',
+          depth: 1.5, ...pose(),
+        }))
+        const update = () => {
+          const next = pose()
+          for (const avatar of mounted) avatar.update(next)
+        }
+        const enter = event => { if (event.pointerType !== 'touch' && hover.matches) { hovered = true; update() } }
+        const leave = () => { hovered = false; update() }
+        const focus = () => { focused = row.matches(':focus-visible'); update() }
+        const blur = () => { focused = false; update() }
+        const changeHover = () => { hovered = hover.matches && row.matches(':hover'); update() }
+        row.addEventListener('pointerenter', enter)
+        row.addEventListener('pointerleave', leave)
+        row.addEventListener('focus', focus)
+        row.addEventListener('blur', blur)
+        hover.addEventListener('change', changeHover)
+        return () => {
+          row.removeEventListener('pointerenter', enter)
+          row.removeEventListener('pointerleave', leave)
+          row.removeEventListener('focus', focus)
+          row.removeEventListener('blur', blur)
+          hover.removeEventListener('change', changeHover)
+          for (const avatar of mounted) avatar.destroy()
+        }
+      }, [avatars, mountBotAvatar])
+
+      return h('span', { className: 'jao-mode-squad', 'aria-hidden': true, ref: host },
+        h('style', null, modeSquadCss),
+        h('span', { className: 'jao-mode-lineup', ref: lineup }, avatars.map(({ id }, i) =>
+          h('span', { key: id, className: 'jao-mode-avatar', style: { '--jao-squad-index': i } }))))
+    }
+
+    // The scene keeps both eyes in the DOM, including while ambient animation is stopped.
+    const gazeStyles = `
+      @media (prefers-reduced-motion: no-preference) {
+        [data-jao-gaze] [data-avatar-scene] [data-eye] {
+          translate: var(--jao-eye-x, 0px) var(--jao-eye-y, 0px);
+        }
+      }
+    `
+    const centeredGaze = { x: 0, y: 0 }
+    let gaze
+
+    function createGazeTracker() {
+      const avatars = new Set()
+      const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+      const style = document.createElement('style')
+      style.textContent = gazeStyles
+      document.head.append(style)
+      let frame = 0, cursorX, cursorY
+
+      const paint = () => {
+        frame = 0
+        // Measure every host before writing any transforms.
+        for (const avatar of avatars) {
+          const { left, top, width, height } = avatar.element.getBoundingClientRect()
+          const dx = cursorX - (left + width / 2), dy = cursorY - (top + height / 2)
+          const scale = width && height ? Math.min(3, Math.max(1, width * .065)) / Math.max(48, Math.hypot(dx, dy)) : 0
+          avatar.nextX = Math.round(dx * scale * 20) / 20
+          avatar.nextY = Math.round(dy * scale * 20) / 20
+        }
+        for (const avatar of avatars) setOffset(avatar, avatar.nextX, avatar.nextY)
+      }
+      const schedule = () => { if (!frame) frame = requestAnimationFrame(paint) }
+      const pointerMove = event => {
+        if (motion.matches || event.pointerType === 'touch') return
+        cursorX = event.clientX
+        cursorY = event.clientY
+        schedule()
+      }
+      const changeMotion = () => {
+        if (motion.matches) {
+          cancelAnimationFrame(frame)
+          frame = 0
+          cursorX = cursorY = undefined
+        }
+        for (const avatar of avatars) {
+          if (motion.matches) setOffset(avatar, 0, 0)
+          avatar.refreshMotion()
+        }
+      }
+      document.addEventListener('pointermove', pointerMove, { passive: true })
+      motion.addEventListener('change', changeMotion)
+      return {
+        avatars, motion,
+        add(avatar) {
+          avatars.add(avatar)
+          avatar.element.setAttribute('data-jao-gaze', '')
+          if (cursorX !== undefined) schedule()
+        },
+        destroy() {
+          cancelAnimationFrame(frame)
+          document.removeEventListener('pointermove', pointerMove)
+          motion.removeEventListener('change', changeMotion)
+          style.remove()
+        },
+      }
+    }
+
+    function setOffset(avatar, x, y) {
+      if (avatar.x !== x) avatar.element.style.setProperty('--jao-eye-x', `${avatar.x = x}px`)
+      if (avatar.y !== y) avatar.element.style.setProperty('--jao-eye-y', `${avatar.y = y}px`)
+    }
+
+    /** Load the renderer. Mounted avatars share the cursor and respect system reduced motion. */
     async function loadAvatarRenderer() {
       const { mountAvatar } = await require.async('./client.open-bot-avatar.js')
-      return mountBotAvatar
-
-      function mountBotAvatar(element, options) {
-        return mountAvatar(element, { reducedMotion: 'system', ...options })
+      return (element, { still, ...options }) => {
+        const tracker = gaze ??= createGazeTracker()
+        const motionOptions = () => {
+          const reducedMotion = tracker.motion.matches || !!still
+          return { reducedMotion, lookAt: reducedMotion ? centeredGaze : null }
+        }
+        const renderer = mountAvatar(element, { ...options, ...motionOptions(), renderer: 'scene' })
+        const avatar = { element, x: 0, y: 0, refreshMotion: () => renderer.update(motionOptions()) }
+        tracker.add(avatar)
+        return {
+          update({ still: nextStill = still, ...partial }) {
+            still = nextStill
+            renderer.update({ ...partial, ...motionOptions() })
+          },
+          destroy() {
+            if (!tracker.avatars.delete(avatar)) return
+            element.removeAttribute('data-jao-gaze')
+            element.style.removeProperty('--jao-eye-x')
+            element.style.removeProperty('--jao-eye-y')
+            if (!tracker.avatars.size) {
+              tracker.destroy()
+              gaze = undefined
+            }
+            renderer.destroy()
+          },
+        }
       }
     }
 
@@ -93,6 +281,6 @@ window.__ModuleLoader__.load({
       return h('span', { className: 'jao-avatar', 'data-still': still ? '' : undefined, ref: host })
     }
 
-    return { Avatar, avatarAppearance, definition, loadAvatarRenderer }
+    return { Avatar, ModeSquad, appearanceFor, avatarAppearance, compareBotRecency, definition, loadAvatarRenderer, palette }
   },
 })

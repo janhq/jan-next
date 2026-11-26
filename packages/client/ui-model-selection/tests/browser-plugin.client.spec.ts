@@ -9,7 +9,8 @@
  * Scope disposal drops the directory (HMR safety).
  */
 import { Context } from '@janhq/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { favoriteStore, recentStore } from '../src/client/model-rank.ts'
 import { createScope } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
@@ -115,13 +116,18 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
       set: (id: SessionId, block: { reason: string } | undefined) => { blocks.set(id, block) },
     },
   })
-  let contribution: CommandContribution | undefined
+  const contributions = new Map<string, CommandContribution>()
   ctx.provide('commandUi', {
     register(c: CommandContribution) {
-      contribution = c
-      return () => { contribution = undefined }
+      contributions.set(c.name, c)
+      return () => { contributions.delete(c.name) }
     },
   })
+  const contributionOf = (name: string): CommandContribution => {
+    const found = contributions.get(name)
+    if (found === undefined) throw new Error(`/${name} is not registered`)
+    return found
+  }
   const seats = new Map<string, {
     inject: ((sessionId: SessionId) => ModelSelectInjected) | undefined
     locale: string | undefined
@@ -183,10 +189,11 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
   }
   return {
     ctx, fiber, mint, calls, remote, track,
-    contribution: () => contribution!,
+    contribution: () => contributionOf('model'),
+    command: contributionOf,
     popup: (): PopupSelectSpec => {
-      const ui = contribution!.ui
-      if (ui.kind !== 'popupSelect') throw new Error('expected the popupSelect kind')
+      const ui = contributionOf('model').ui
+      if (ui?.kind !== 'popupSelect') throw new Error('expected the popupSelect kind')
       return ui
     },
     seat: () => seats.get('conversation.input.model')!,
@@ -223,10 +230,43 @@ describe('ui-model-selection dual entry', () => {
   it('registers the /model contribution and the composer model seat', async () => {
     const b = await bench()
     expect(b.contribution().name).toBe('model')
-    expect(b.contribution().ui.kind).toBe('popupSelect')
+    expect(b.contribution().ui?.kind).toBe('popupSelect')
     expect(b.seat().inject).toBeTypeOf('function')
     // Copy rides the standard locale seat.
     expect(b.seat().locale).toBe('model')
+  })
+
+  it('selects, orders and stars catalog models from the inline argument without the popup', async () => {
+    onTestFinished(() => { favoriteStore.set([]); recentStore.set([]) })
+    const b = await bench('en')
+    b.mint('s1')
+    const args = b.contribution().arguments!
+    const session = projection('s1')
+    const complete = (query: string) => args.complete(query, session, new AbortController().signal)
+    expect(await complete('pro')).toContainEqual({
+      value: 'tokamak-1-pro', label: 'Tokamak 1 Pro', group: 'Tokamak', starred: false,
+    })
+    await args.run('tokamak-1-pro', session)
+    expect(b.hostCurrent()).toEqual({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'high' })
+    // `/effort` keeps the model and changes only its level, by id or by name.
+    const effort = b.command('effort').arguments!
+    expect((await effort.complete('m', session, new AbortController().signal)).map(option => option.value)).toEqual(['max'])
+    await effort.run('Max', session)
+    expect(b.hostCurrent()).toEqual({ provider: 'example', model: 'tokamak-1-pro', reasoningEffort: 'max' })
+    await expect(effort.run('turbo', session)).rejects.toThrow('Unknown effort "turbo"')
+    expect(await complete('')).toContainEqual({
+      value: 'external/tokamak-1-preview', label: 'External Flash', group: 'External Provider', starred: false,
+    })
+    await args.run('external/tokamak-1-preview', session)
+    expect(b.hostCurrent()).toEqual({ provider: 'external', model: 'tokamak-1-preview' })
+    // The models used last lead, most recent first.
+    expect((await complete('')).slice(0, 2).map(option => [option.value, option.group]))
+      .toEqual([['external/tokamak-1-preview', 'Recent'], ['tokamak-1-pro', 'Recent']])
+    // A starred model moves above them into Favorites.
+    await args.star!('tokamak-1-pro', session)
+    expect((await complete('')).slice(0, 2).map(option => [option.value, option.group, option.starred]))
+      .toEqual([['tokamak-1-pro', 'Favorites', true], ['external/tokamak-1-preview', 'Recent', false]])
+    await expect(args.run('missing-model', session)).rejects.toThrow('No matching models.')
   })
 
   it.each([['zh', '新'], ['en', 'New']] as const)('resolves seat badge text for the active %s locale', async (locale, expected) => {

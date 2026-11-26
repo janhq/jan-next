@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises'
 import { createWriteStream } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@janhq/cordis'
+import type { DownloadHandle } from '@janhq/jan-downloads/types'
 import type {} from '@janhq/jan-subprocess'
 import type { Config } from './config.ts'
 import type { SpeechPreparationState } from '@janhq/jan-experimental-speech-to-text/types'
@@ -99,10 +100,11 @@ export async function inspectRuntime(config: Config, signal: AbortSignal): Promi
  * @param root - provider-owned cache directory.
  * @param signal - preparation cancellation.
  * @param report - Host-owned progress publisher.
+ * @param onTransfer - called before fetching, never when a verified cache entry is used.
  * @returns verified local file path; failures carry localized-UI diagnostics through SpeechDownloadError.
  */
 export async function downloadAsset(asset: Asset, root: string, signal: AbortSignal,
-  report: (state: SpeechPreparationState) => void = () => {}): Promise<string> {
+  report: (state: SpeechPreparationState) => void = () => {}, onTransfer?: () => void): Promise<string> {
   signal.throwIfAborted()
   const destination = join(root, asset.name)
   const partial = `${destination}.${randomUUID()}.part`
@@ -111,6 +113,8 @@ export async function downloadAsset(asset: Asset, root: string, signal: AbortSig
     await mkdir(root, { recursive: true })
     if (await matchesAsset(destination, asset, signal)) return destination
     try {
+      signal.throwIfAborted()
+      onTransfer?.()
       const response = await fetch(asset.url, { signal })
       source = new URL(response.url || asset.url).origin
       if (!response.ok || !response.body) {
@@ -149,27 +153,50 @@ export async function downloadAsset(asset: Asset, root: string, signal: AbortSig
 
 /**
  * Resolve the bundled native runtime and prepare verified ONNX models on demand.
- * @param _ctx - Host context owning the preparation task.
+ * @param ctx - Host context owning the preparation task.
  * @param config - model paths, precision, and download source policy.
  * @param signal - preparation cancellation or deadline.
  * @param report - Host-owned progress publisher.
+ * @param cancel - cancel the owning worker preparation, or omit to leave inbox cancellation unavailable.
  * @returns verified model and worker paths.
  */
-export async function prepareRuntime(_ctx: Context, config: Config, signal: AbortSignal,
-  report: (state: SpeechPreparationState) => void = () => {}): Promise<RuntimePaths> {
+export async function prepareRuntime(ctx: Context, config: Config, signal: AbortSignal,
+  report: (state: SpeechPreparationState) => void = () => {}, cancel?: () => Promise<void>): Promise<RuntimePaths> {
   const { lock, modelRoot, paths } = resolveRuntime(config)
   const download = async (asset: Asset, root: string, step: 'model' | 'vad'): Promise<void> => {
     if (await matchesAsset(join(root, asset.name), asset, signal)) return
-    const origins = config.modelOrigin === undefined ? config.modelOrigins : [config.modelOrigin]
-    const urls = await orderModelSources(asset.url, origins, config.modelProbeTimeoutMs, signal)
-    for (const [index, url] of urls.entries()) {
-      try {
-        await downloadAsset({ ...asset, url }, root, signal, (state) => { report({ ...state, step }) })
-        return
-      } catch (error) {
-        if (signal.aborted || !(error instanceof SpeechDownloadError) || error.download.reason === 'storage'
-          || error.download.reason === 'unknown' || index === urls.length - 1) throw error
+    const store = ctx.get('downloads')
+    let transfer: DownloadHandle | undefined
+    try {
+      const origins = config.modelOrigin === undefined ? config.modelOrigins : [config.modelOrigin]
+      const urls = await orderModelSources(asset.url, origins, config.modelProbeTimeoutMs, signal)
+      const reportAsset = (state: SpeechPreparationState): void => {
+        if (state.phase === 'downloading') transfer?.update({ receivedBytes: state.completedBytes })
+        report({ ...state, step })
       }
+      for (const [index, url] of urls.entries()) {
+        const attempt = { fetched: false }
+        try {
+          await downloadAsset({ ...asset, url }, root, signal, reportAsset, () => {
+            attempt.fetched = true
+            transfer ??= store?.start({
+              id: `voice:${config.providerId}:${asset.name}`, kind: 'voice', name: asset.name, totalBytes: asset.bytes,
+              ...cancel === undefined ? {} : { actions: { cancel } },
+            })
+            transfer?.update({ state: 'downloading', receivedBytes: 0 })
+          })
+          // Another writer may have filled the cache before the next mirror attempt.
+          transfer?.finish(attempt.fetched ? 'done' : 'cancelled')
+          return
+        } catch (error) {
+          if (signal.aborted || !(error instanceof SpeechDownloadError) || error.download.reason === 'storage'
+            || error.download.reason === 'unknown' || index === urls.length - 1) throw error
+        }
+      }
+    } catch (error) {
+      if (signal.aborted && !timeoutOf(signal)) transfer?.finish('cancelled')
+      else transfer?.finish('failed', error instanceof Error ? error.message : String(error))
+      throw error
     }
   }
   if (config.modelDirectory === undefined) {

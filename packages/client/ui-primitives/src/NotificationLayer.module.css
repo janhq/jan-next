@@ -28,7 +28,7 @@
   /* The item box takes the pointer so hovering any notice fans the pile out. */
   pointer-events: auto;
   transform-origin: bottom right;
-  transition: translate 220ms ease-out, scale 220ms ease-out, opacity 220ms ease-out;
+  transition: translate var(--ds-transition-duration) var(--ds-ease-out), scale var(--ds-transition-duration) var(--ds-ease-out), opacity var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 .item:nth-last-child(2) { translate: -10px -10px; scale: 0.97; z-index: 3; }

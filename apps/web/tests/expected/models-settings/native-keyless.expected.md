@@ -1,64 +1,36 @@
 - dialog "设置":
   - text: 设置
+  - combobox "搜索设置"
   - navigation:
     - button "通用设置"
-    - button "模型"
+    - button "AI 模型"
     - button "智能体循环"
     - button "内置插件"
     - button "Agent 预设"
+    - button "智能体"
   - button "打开配置文件"
   - button "关闭"
-  - heading "模型" [level=2]
-  - paragraph: 填入各提供商的 API 密钥即可使用其模型。
-  - list
-  - tablist "添加方式":
-    - tab "第三方模型提供商" [selected]
-    - tab "自定义模型 API"
-  - paragraph: 从内置目录中选择 OpenAI、Anthropic、Kimi 等提供商，填入其 API 密钥即可使用。
-  - tabpanel "第三方模型提供商":
-    - text: 提供商
-    - combobox "提供商":
-      - option "amazon-bedrock"
-      - option "ant-ling"
-      - option "anthropic"
-      - option "azure"
-      - option "baseten"
-      - option "cerebras"
-      - option "cloudflare-ai-gateway"
-      - option "cloudflare-workers-ai"
-      - option "deepseek"
-      - option "fireworks"
-      - option "github-copilot"
-      - option "google"
-      - option "google-vertex"
-      - option "groq"
-      - option "huggingface"
-      - option "kimi-coding"
-      - option "meta"
-      - option "minimax"
-      - option "minimax-cn"
-      - option "mistral"
-      - option "moonshotai"
-      - option "moonshotai-cn"
-      - option "nvidia"
-      - option "openai"
-      - option "openai-codex" [selected]
-      - option "opencode"
-      - option "opencode-go"
-      - option "openrouter"
-      - option "qwen-token-plan"
-      - option "qwen-token-plan-cn"
-      - option "qwen-token-plan-individual"
-      - option "radius"
-      - option "together"
-      - option "vercel-ai-gateway"
-      - option "xai"
-      - option "xiaomi"
-      - option "xiaomi-token-plan-ams"
-      - option "xiaomi-token-plan-cn"
-      - option "xiaomi-token-plan-sgp"
-      - option "zai"
-      - option "zai-coding-cn"
-    - group: 自定义设置
-    - button "取消"
-    - button "保存"
+  - region "AI 模型":
+    - heading "选择模型的使用方式" [level=2]
+    - button "本地模型"
+    - button "OpenAI 兼容 API"
+    - tablist "添加方式":
+      - tab "第三方模型提供商" [selected]
+      - tab "自定义模型 API"
+    - paragraph: 从内置目录中选择 OpenAI、Anthropic、Kimi 等提供商，填入其 API 密钥即可使用。
+    - tabpanel "第三方模型提供商":
+      - text: 提供商
+      - button "提供商": openai-codex
+      - group: 自定义设置
+      - button "取消"
+      - button "保存"
+    - paragraph: 填入各提供商的 API 密钥即可使用其模型。
+    - list:
+      - listitem:
+        - text: Tokamak 自定义
+        - img "API 密钥缺失"
+        - button "编辑 Tokamak (tokamak)": 编辑
+      - listitem:
+        - text: Local (llama.cpp) 自定义
+        - img "API 密钥缺失"
+        - button "编辑 Local (llama.cpp) (local)": 编辑

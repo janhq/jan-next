@@ -411,6 +411,23 @@ describe('sidebar keyboard commands', () => {
     expect(refresh).not.toHaveBeenCalled()
   })
 
+  it('routes split and close to the focused chat before closing the window', () => {
+    const h = harness(), commands = new Map<string, ShortcutCommand>(), closeWindow = vi.fn(), run = vi.fn()
+    const chat = document.createElement('button')
+    releases.push(registerSidebarShortcuts({ runtime: 'desktop', register: (command) => {
+      commands.set(command.id, command); return () => { commands.delete(command.id) }
+    } }, h.controller, makeTranslate(en), closeWindow, (kind, target) => target === chat
+      ? { status: 'handled', run: () => { run(kind) } } : undefined))
+    const context = { target: chat, region: 'page', modal: null } as const
+    for (const id of ['pane.split', 'page.close']) {
+      const command = commands.get(id)!.resolve(context)
+      if (command.status !== 'handled') throw new Error(`Expected ${id} to handle chat focus`)
+      command.run()
+    }
+    expect(run.mock.calls).toEqual([['split'], ['close']])
+    expect(closeWindow).not.toHaveBeenCalled()
+  })
+
   it('closes the Desktop window only while its captured empty pane remains current', () => {
     const h = harness(), commands = new Map<string, ShortcutCommand>(), closeWindow = vi.fn()
     releases.push(registerSidebarShortcuts({ runtime: 'desktop', register: (command) => {

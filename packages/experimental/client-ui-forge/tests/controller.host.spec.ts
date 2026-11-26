@@ -163,6 +163,21 @@ describe('forgePanel.follow', () => {
     expect(opened.provider.probes).toEqual(['fake.test'])
   })
 
+  it('keeps a bound change request live in a detached linked worktree', async () => {
+    const { root, repo } = await project()
+    const worktree = join(root, 'detached')
+    await git(repo, 'worktree', 'add', '--detach', worktree, 'HEAD')
+    const opened = await open(worktree)
+    shellTurn(opened.session, 1, [{ callId: 'create', command: 'gh pr create --fill', output: `${pullUrl(7)}\n` }])
+    const follower = reader(opened)
+    const active = await follower.until(state => ready(state) && polled(state, pullUrl(7)))
+    expect(active.checkout).toMatchObject({ state: 'ready', checkout: { branch: null, linked: true, commit: COMMIT } })
+    expect(opened.provider.lookups).toEqual([])
+    await opened.ctx.forgePanel.refresh(opened.session, signal)
+    const refreshed = await follower.next(state => ready(state) && polled(state, pullUrl(7)))
+    expect(refreshed.checkout).toEqual(active.checkout)
+  })
+
   it('reinspects after tool results and lists bound change requests with their polling results', async () => {
     const { repo } = await project()
     const opened = await open(repo)

@@ -123,7 +123,7 @@ const COMMANDS: FakeCommand[] = [
 const PNG: SubmitAttachment = { type: 'image', mediaType: 'image/png', data: 'AA==' }
 
 /** Real scope bench: a Controller-owned Session scope + InputTriggerController + shell listeners. */
-async function scopedBench(register?: (inputTriggers: InputTriggerService) => void) {
+async function scopedBench(register?: (inputTriggers: InputTriggerService) => void, running = false) {
   const runtime = await SlotTestRuntime.create()
   onTestFinished(() => runtime.dispose())
   const ctx = runtime.ctx
@@ -149,8 +149,9 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   actx.on('slash/input-begin-command', req => shell.beginCommand(req.claim, req.span) ? true : undefined)
   actx.on('slash/input-insert-reference', req => shell.insertReference(req.reference, req.span) ? true : undefined)
   actx.on('slash/input-consume-token', req => shell.consumeToken(req.guard) ? true : undefined)
+  actx.on('slash/input-insert-text', req => shell.insertText(req.text, req.span, req.continue === true, req.submit === true) ? true : undefined)
   const wiring = shell
-  const sessionStore = createSnapshotStore<SessionSnapshot>(sessionSnapshot(sessionId))
+  const sessionStore = createSnapshotStore<SessionSnapshot>({ ...sessionSnapshot(sessionId), running })
   const barProps: InputBarProps = {
     usePanelInfo: selector => selector({ activePanelId: null }),
     sessionId,
@@ -249,6 +250,56 @@ async function bench(executeImpl?: (line: string) => Promise<SubmitOutcome>) {
   const base = await scopedBench((inputTriggers) => { inputTriggers.registerSource(source) })
   return { ...base, execute, executed, envelopes }
 }
+
+describe('inline command completion', () => {
+  it.each(['Tab', 'Enter'])('%s fills the highlight and Enter runs the committed argument', async (key) => {
+    const line = '/model anthropic/claude-haiku-5-5[1m]'
+    const run = vi.fn(async (): Promise<SubmitOutcome> => ({ kind: 'success' }))
+    const b = await scopedBench((inputTriggers) => {
+      inputTriggers.registerSource({
+        trigger: '/', name: 'command',
+        matchesArguments: (_session, name) => name === 'model',
+        candidates: async () => [{ name: 'Claude Haiku', complete: true }],
+        onPick: pick => ({ text: line, ...(pick.completeOnly === true ? {} : { submit: true }) }),
+        matchEnter: async (_session, draft) => draft === line
+          ? { claim: { name: 'model', token: '/model ', submit: run } }
+          : undefined,
+      })
+    })
+    b.type('/model hai')
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().highlight).toMatchObject({ source: 'command', index: 0 })
+    })
+
+    await act(async () => { fireEvent.keyDown(b.textarea, { key }) })
+    if (key === 'Tab') {
+      expect(b.shell.snapshot.draft).toBe(line)
+      expect(b.controller.menu.getSnapshot().open).toBe(false)
+      expect(run).not.toHaveBeenCalled()
+      await act(async () => { fireEvent.keyDown(b.textarea, { key: 'Enter' }) })
+    }
+    expect(run).toHaveBeenCalledExactlyOnceWith('anthropic/claude-haiku-5-5[1m]', expect.anything(), [])
+    expect(b.shell.snapshot.draft).toBe('')
+    expect(b.sink).not.toHaveBeenCalled()
+  })
+})
+
+it('runs a side command without queueing or stopping the busy main conversation', async () => {
+  const run = vi.fn(async (): Promise<SubmitOutcome> => ({ kind: 'success' }))
+  const b = await scopedBench((inputTriggers) => {
+    inputTriggers.registerSource({
+      trigger: '/', name: 'command', candidates: async () => [], onPick: () => undefined,
+      matchEnter: async (_session, line) => line.startsWith('/btw ')
+        ? { claim: { name: 'btw', token: '/btw ', submit: run } }
+        : undefined,
+    })
+  }, true)
+  b.type('/btw What changed?')
+  await act(async () => { fireEvent.keyDown(b.textarea, { key: 'Enter' }) })
+  expect(run).toHaveBeenCalledExactlyOnceWith('What changed?', expect.anything(), [])
+  expect(b.sink).not.toHaveBeenCalled()
+  expect(b.shell.snapshot.draft).toBe('')
+})
 
 describe('scenario A: menu-pick /goal, type args, enter submits', () => {
   it('runs the whole claim chain through the real pipeline', async () => {

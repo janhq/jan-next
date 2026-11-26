@@ -9,6 +9,8 @@ kind: "package-reference"
 
 Open a Session’s directory through **Open in** in its Header More menu or its row/title context menu. The submenu lists installed, localized applications in Host order with icons and names, without a default marker. File-tree, document-preview, and delivery controls also open files or directories through native applications. Availability, icons, and launches come from [`jan-host-open-in-app`](../../host/open-in-app/README.md); mount both packages together. A Session without a known directory or eligible application has no Open in item.
 
+Failed native gestures keep the Host or transport error for the shared toast's **Copy details** and **Show log** actions.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

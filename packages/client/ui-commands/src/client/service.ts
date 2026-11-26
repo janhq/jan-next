@@ -28,7 +28,7 @@ import type {
   CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerPick,
   SubmitAttachment, SubmitEnvelope, SubmitOutcome,
 } from '@janhq/jan-client-ui-input-trigger/client'
-import type { CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
+import type { CommandArguments, CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
 import type { CommandDescriptor } from './directory.ts'
 import { CommandDirectory } from './directory.ts'
 import { PopupSelectController } from './popup.ts'
@@ -117,6 +117,8 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
       name: 'command',
       candidates: (session, req) => this.candidates(session, req),
       onPick: pick => this.dispatch(pick),
+      matchesArguments: (session, name) => this.argumentsOf(session, name) !== undefined,
+      onStar: (session, candidate) => this.star(session, candidate),
       matchSpace: (session, token) => this.matchSpace(session, token),
       matchClaim: (session, token, signal) => this.matchClaim(session, token, signal),
       matchEnter: (session, line, signal, envelope) => this.matchEnter(session, line, signal, envelope),
@@ -137,6 +139,9 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * @returns the disposer removing the registration.
    */
   register(contribution: CommandContribution): () => void {
+    if (contribution.ui === undefined && contribution.arguments?.inputHint === undefined) {
+      throw new Error(`ui-commands: /${contribution.name} must declare a bare UI or a free-text input`)
+    }
     const dispose = this.ctx.effect(() => {
       const { contributions } = this.live
       if (contributions.has(contribution.name)) {
@@ -222,6 +227,25 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * shared name-and-label ranking for a typed one.
    */
   private async candidates(session: ClientSessionContext, req: CandidateRequest): Promise<readonly InputTriggerCandidate[]> {
+    const separator = req.query.search(/[ \t]/u)
+    if (separator !== -1) {
+      if (req.position !== 'leading') return []
+      const name = req.query.slice(0, separator)
+      const args = this.argumentsOf(session, name)
+      if (args === undefined) return []
+      const query = req.query.slice(separator + 1).trim()
+      const options = await args.complete(query, session, req.signal)
+      const rows = options.map(option => ({
+        name: option.value,
+        label: option.label,
+        ...(option.description === undefined ? {} : { description: option.description }),
+        ...(option.group === undefined ? {} : { section: option.group }),
+        ...(option.starred === undefined || args.star === undefined ? {} : { star: { on: option.starred } }),
+        value: `/${name} ${option.value}`,
+        complete: true as const,
+      }))
+      return args.ordered === true ? rows : rankByName(rows, query)
+    }
     const list = await this.directory.ensureReady(session.sessionId, req.signal)
     const rows: InputTriggerCandidate[] = []
     const seen = new Set<string>()
@@ -238,10 +262,12 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
       if (seen.has(contribution.name)) {
         throw new Error(`ui-commands: contribution /${contribution.name} collides with a host command`)
       }
+      const hint = contribution.arguments?.inputHint?.()
       rows.push({
         name: contribution.name,
         ...(contribution.label === undefined ? {} : { label: contribution.label() }),
         ...(contribution.description === undefined ? {} : { description: contribution.description() }),
+        ...hint === undefined ? {} : { hint },
         ...(contribution.icon === undefined ? {} : { icon: contribution.icon }),
       })
     }
@@ -249,11 +275,38 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     return req.query === '' ? sectionRows(visible, this.t) : rankByName(visible, req.query)
   }
 
+  private argumentsOf(session: ClientSessionContext, name: string): Pick<CommandArguments, 'complete' | 'ordered' | 'star'> | undefined {
+    const contribution = this.live.contributions.get(name)
+    if (contribution?.available(session) === true) return contribution.arguments
+    const descriptor = this.directory.resolve(session.sessionId, name)
+    if (descriptor?.input === undefined) return undefined
+    const decoration = this.live.decorations.get(descriptor.name)
+    if (decoration?.available(session) === true && decoration.completeArguments !== undefined) {
+      return { complete: decoration.completeArguments }
+    }
+    return undefined
+  }
+
+  /** Star toggle on an argument row: the row's value is `/<command> <option value>`. */
+  private star(session: ClientSessionContext, candidate: InputTriggerCandidate): void | Promise<void> {
+    const value = candidate.value
+    if (value === undefined || !value.startsWith('/')) return
+    const separator = value.indexOf(' ')
+    if (separator === -1) return
+    return this.argumentsOf(session, value.slice(1, separator))?.star?.(candidate.name, session)
+  }
+
   /** Decision table, menu column: contribution/decorated-host → popup or action; host input → claim; host bare → detached execute. */
   private dispatch(pick: InputTriggerPick): PickOutcome {
+    if (pick.candidate.complete === true && pick.candidate.value !== undefined) {
+      return { text: pick.candidate.value, ...(pick.completeOnly === true ? {} : { submit: true }) }
+    }
     const name = pick.candidate.name
     const contribution = this.live.contributions.get(name)
     if (contribution !== undefined && contribution.available(pick.session)) {
+      const claim = this.clientInputClaim(contribution, pick.session)
+      if (claim !== undefined) return { claim }
+      if (contribution.ui === undefined) return undefined
       this.invoke(name, contribution.ui, pick.session, { via: 'menu', span: pick.span })
       return 'handled'
     }
@@ -275,8 +328,11 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     return 'handled'
   }
 
-  /** Decision table, space column: hot-key sync check; only host leadingInput claims. */
+  /** Decision table, space column: hot-key sync check for leading claims. */
   private matchSpace(session: ClientSessionContext, token: string): PickOutcome {
+    const client = this.clientClaimOf(session, token)
+    if (client !== undefined) return { claim: client }
+    if (token.startsWith('/') && this.argumentsOf(session, token.slice(1)) !== undefined) return undefined
     const claim = this.claimOf(session, token)
     return claim === undefined ? undefined : { claim }
   }
@@ -287,6 +343,8 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * executed.
    */
   private async matchClaim(session: ClientSessionContext, token: string, signal: AbortSignal): Promise<CommandClaim | undefined> {
+    const client = this.clientClaimOf(session, token)
+    if (client !== undefined) return client
     await this.directory.ensureReady(session.sessionId, signal)
     return this.claimOf(session, token)
   }
@@ -298,6 +356,32 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const desc = this.directory.resolve(session.sessionId, token.slice(1))
     if (desc === undefined || desc.input === undefined) return undefined
     return this.leadingClaim(desc, session, token.slice(1))
+  }
+
+  private clientClaimOf(session: ClientSessionContext, token: string): CommandClaim | undefined {
+    if (!token.startsWith('/')) return undefined
+    const contribution = this.live.contributions.get(token.slice(1))
+    if (contribution?.available(session) !== true) return undefined
+    return this.clientInputClaim(contribution, session)
+  }
+
+  private clientInputClaim(contribution: CommandContribution, session: ClientSessionContext): CommandClaim | undefined {
+    const args = contribution.arguments
+    if (args?.inputHint === undefined) return undefined
+    return this.clientArgumentClaim(contribution.name, args, session)
+  }
+
+  private clientArgumentClaim(name: string, args: CommandArguments, session: ClientSessionContext): CommandClaim {
+    const hint = args.inputHint?.()
+    return {
+      name,
+      token: `/${name} `,
+      ...hint === undefined ? {} : { hint },
+      submit: async (argument) => {
+        await args.run(argument.trim(), session)
+        return { kind: 'success' }
+      },
+    }
   }
 
   /**
@@ -334,7 +418,18 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     }
     const contribution = this.live.contributions.get(typedName)
     if (contribution !== undefined && contribution.available(session)) {
-      if (!bare) return undefined
+      if (!bare) {
+        const args = contribution.arguments
+        if (args === undefined) return undefined
+        if (envelope.attachments > 0) refuseAttachments()
+        return { claim: this.clientArgumentClaim(typedName, args, session) }
+      }
+      const claim = this.clientInputClaim(contribution, session)
+      if (claim !== undefined) {
+        if (envelope.attachments > 0) refuseAttachments()
+        return { claim }
+      }
+      if (contribution.ui === undefined) return undefined
       if (envelope.attachments > 0 && contribution.ui.kind !== 'action') refuseAttachments()
       this.invoke(typedName, contribution.ui, session, { via: 'enter', token })
       return 'handled'
@@ -371,7 +466,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    */
   private invoke(
     name: string,
-    ui: CommandContribution['ui'],
+    ui: NonNullable<CommandContribution['ui']>,
     session: ClientSessionContext,
     segment: TokenSegment,
   ): void {

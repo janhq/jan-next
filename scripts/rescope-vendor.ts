@@ -95,6 +95,7 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   { file: 'packages/client/ui-agent-preset/src/client/AgentPresetSection.tsx', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/src/client/PresetGuideDialog.tsx', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/src/client/index.ts', upstream: ['cordis'] },
+  { file: 'packages/client/ui-agent-preset/src/client/mode-actions.tsx', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/tests/apply.client.spec.ts', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/tests/locales.client.spec.ts', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/tests/section.client.spec.tsx', upstream: ['cordis'] },
@@ -102,6 +103,9 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   { file: 'apps/cli/tests/profiles/web/tests/fixtures/creator-plugin-manager.mjs', upstream: ['cordis'] },
   { file: 'apps/web/tests/agent-preset-authoring.e2e.ts', upstream: ['cordis'] },
   { file: 'packages/preset/agent-preset-registry/tests/session.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/preset/agent-preset-registry/tests/registry.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/api/session-controller/tests/session-presets.host.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/settings/scoped-settings/tests/entrypoints.client.spec.tsx', upstream: ['cordis'] },
   { file: 'packages/experimental/creation-recommendations/src/index.ts', upstream: ['cordis'] },
   { file: 'packages/experimental/creation-recommendations/tests/creation.spec.ts', upstream: ['cordis'] },
   { file: 'packages/experimental/creation-recommendations/tests/loader-composition.spec.ts', upstream: ['cordis'] },
@@ -264,8 +268,8 @@ const EXACT_EDITS: readonly ExactEdit[] = [
   {
     id: 'vendor-readme-table-head',
     file: 'vendor/README.md',
-    find: '| Directory | npm name | Version | Upstream repo | Commit |\n|---|---|---|---|---|',
-    replace: '| Directory | npm name | Upstream name | Version | Upstream repo | Commit |\n|---|---|---|---|---|---|',
+    find: 'Upstream workspace: `cordis-workspace` (local checkout: `~/repos/cordis-workspace`).\n\n| Directory | npm name | Version | Upstream repo | Commit |\n|---|---|---|---|---|',
+    replace: 'Upstream workspace: `cordis-workspace` (local checkout: `~/repos/cordis-workspace`).\n\n| Directory | npm name | Upstream name | Version | Upstream repo | Commit |\n|---|---|---|---|---|---|',
     expect: 1,
   },
   {
@@ -370,7 +374,7 @@ const VENDORED_LIBRARY = /^@janhq\\/(?:(?:cosmokit|schemastery)(?:\\/|$)|cordis-
     id: 'notices-vendored-section',
     file: 'scripts/gen-third-party-notices.ts',
     find: 'The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm. All are MIT-licensed',
-    replace: 'The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm, and republished under the \\`@janhq\\` scope. All are MIT-licensed',
+    replace: 'The Cordis framework, its foundation libraries, and the DeepSeek Harness bundles listed below are source-vendored into this repository rather than consumed from npm, and republished under the \\`@janhq\\` scope. All are MIT-licensed',
     expect: 1,
   },
   {

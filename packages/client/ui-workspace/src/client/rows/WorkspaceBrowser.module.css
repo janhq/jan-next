@@ -1,12 +1,22 @@
 .root {
   --workspace-toolbar-height: 36px;
   --workspace-toolbar-gap: 0px;
+  --workspace-leading-inset: var(--jan-sidebar-row-padding);
+  --workspace-leading-cell: 16px;
+  --workspace-label-gap: var(--jan-sidebar-label-gap);
+  --workspace-trailing-inset: calc(8px + var(--jan-sidebar-paint-inset));
   position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+}
+
+/* Match the icon edge and label gap of the themed Chats heading and navigation. */
+:global(html[data-jan-theme]) .root {
+  --workspace-leading-inset: 8px;
+  --workspace-label-gap: 8px;
 }
 
 /* The expanded section is at most one shell viewport tall: once the shell has
@@ -70,7 +80,7 @@
   justify-content: flex-end;
   gap: 4px;
   height: var(--workspace-toolbar-height);
-  padding-left: var(--jan-sidebar-row-padding);
+  padding-inline-start: var(--workspace-leading-inset);
   margin-bottom: var(--workspace-toolbar-gap);
   box-sizing: border-box;
   border-radius: var(--dsw-radius-md);
@@ -80,19 +90,16 @@
 
 .root:not(.rail) .sectionHeader.searchSpacingMotion {
   transition:
-    margin-right 180ms var(--ds-ease-in-out),
-    padding-inline 180ms var(--ds-ease-in-out),
-    gap 180ms var(--ds-ease-in-out);
+    padding-inline var(--ds-transition-duration) var(--ds-ease-in-out),
+    gap var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
 .root:not(.rail) .sectionHeader:not(:has(.searchExpanded)) {
-  margin-right: -4px;
-  padding-right: 1px;
+  /* The 16px glyph is inset 6px in its 28px button. */
+  padding-inline-end: calc(var(--workspace-trailing-inset) - 6px);
 }
 
 .sectionLabel {
-  position: relative;
-  left: -1px;
   flex: none;
   max-width: 45%;
   min-width: 0;
@@ -102,11 +109,11 @@
   opacity: 1;
   visibility: visible;
   transition:
-    max-width 180ms var(--ds-ease-in-out),
-    margin-right 180ms var(--ds-ease-in-out),
-    opacity 120ms var(--ds-ease-in-out),
-    transform 180ms var(--ds-ease-in-out),
-    visibility 0s linear;
+    max-width var(--ds-transition-duration) var(--ds-ease-in-out),
+    margin-right var(--ds-transition-duration) var(--ds-ease-in-out),
+    opacity var(--ds-transition-duration) var(--ds-ease-in-out),
+    transform var(--ds-transition-duration) var(--ds-ease-in-out),
+    visibility 0s;
 }
 
 .sectionLabelHidden {
@@ -115,7 +122,7 @@
   opacity: 0;
   transform: translateX(-4px);
   visibility: hidden;
-  transition-delay: 0s, 0s, 0s, 0s, 180ms;
+  transition-delay: 0s, 0s, 0s, 0s, var(--ds-transition-duration);
 }
 
 .searchSlot {
@@ -128,8 +135,8 @@
   padding-left: 0;
   box-sizing: border-box;
   transition:
-    max-width 180ms var(--ds-ease-in-out),
-    padding-left 180ms var(--ds-ease-in-out);
+    max-width var(--ds-transition-duration) var(--ds-ease-in-out),
+    padding-left var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
 .searchSlotExpanded {
@@ -147,10 +154,10 @@
   overflow: hidden;
   visibility: visible;
   transition:
-    max-width 180ms var(--ds-ease-in-out),
-    opacity 120ms var(--ds-ease-in-out),
-    transform 180ms var(--ds-ease-in-out),
-    visibility 0s linear;
+    max-width var(--ds-transition-duration) var(--ds-ease-in-out),
+    opacity var(--ds-transition-duration) var(--ds-ease-in-out),
+    transform var(--ds-transition-duration) var(--ds-ease-in-out),
+    visibility 0s;
 }
 
 .headerActionsHidden {
@@ -159,7 +166,7 @@
   transform: translateX(4px);
   visibility: hidden;
   pointer-events: none;
-  transition-delay: 0s, 0s, 0s, 180ms;
+  transition-delay: 0s, 0s, 0s, var(--ds-transition-duration);
 }
 
 /* Inline search always fills the room between the title and trailing actions;
@@ -181,14 +188,13 @@
   color: var(--dsw-alias-label-secondary);
   overflow: hidden;
   transition:
-    width 180ms var(--ds-ease-in-out),
-    padding 180ms var(--ds-ease-in-out),
-    border-color 180ms var(--ds-ease-in-out),
-    background-color 180ms var(--ds-ease-in-out);
+    width var(--ds-transition-duration) var(--ds-ease-in-out),
+    padding var(--ds-transition-duration) var(--ds-ease-in-out),
+    border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .root:not(.rail) .sectionHeader:has(.searchExpanded) {
-  margin-right: 0;
   padding-inline: calc(var(--jan-sidebar-paint-inset) + 1px);
   gap: 0;
 }
@@ -250,7 +256,7 @@
   font-size: 13px;
   line-height: 18px;
   color: var(--dsw-alias-label-primary);
-  transition: opacity 120ms var(--ds-ease-in-out);
+  transition: opacity var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
 .searchExpanded .searchInput {
@@ -377,11 +383,24 @@
 
 /* Wide-only content fades back in on expand remount (mirrors the shell). */
 .wide {
-  animation: wide-in 200ms var(--ds-ease-in-out);
+  animation: wide-in var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 @keyframes wide-in {
   from { opacity: 0; }
+}
+
+/* The Working heading belongs on the same leading edge as the sidebar heading. */
+.working {
+  flex: none;
+  margin-bottom: 12px;
+}
+
+.workingLabel {
+  padding-inline-start: var(--workspace-leading-inset);
+  margin-bottom: 2px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 /* Rows keep their natural height inside the list seat's scroller. */
@@ -394,6 +413,7 @@
 }
 
 .flatList > * + *,
+.workingList > * + *,
 .searchTree > [role='treeitem'] + [role='treeitem'],
 .groupSection > * + * {
   margin-top: 2px;
@@ -402,12 +422,9 @@
 /* No workspace heading sits above a flat list, so a row with no marker
    (only empty seat wrappers in its lead) drops the folder-width lead and its
    title lines up with the section heading. */
-.flatList [data-session-leading]:not(:has(:not([data-slot]))) {
-  display: none;
-}
-
-.flatList [data-session-leading]:not(:has(:not([data-slot]))) + * {
-  margin-inline-start: 0;
+.flatList [data-row-key^='session:']:not(:has([data-session-leading] :not([data-slot]))) {
+  --workspace-leading-cell: 0px;
+  --workspace-label-gap: 0px;
 }
 
 .searchStatus {
@@ -450,7 +467,7 @@
 .skeletonDot,
 .skeletonBar {
   background: var(--dsw-alias-bg-skeleton);
-  animation: search-skeleton 2s cubic-bezier(0.36, 0, 0.64, 1) infinite;
+  animation: search-skeleton var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite;
 }
 
 .skeletonBar {
@@ -547,7 +564,7 @@
   background-clip: padding-box;
   box-sizing: border-box;
   padding: 0 8px;
-  padding-inline-start: calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
+  padding-inline-start: calc(var(--workspace-leading-inset) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -555,9 +572,15 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* The theme's overflow action follows the same row tracks as its project and chats. */
+:global(html[data-jan-theme] [data-sidebar-list-area]) .sessionOverflowButton[data-row-key] {
+  padding-inline-start: calc(var(--workspace-leading-inset) - var(--jan-sidebar-paint-inset) + var(--jan-workspace-indent, 0px));
+  gap: 0;
+}
+
 .sessionOverflowSlot {
   flex: none;
-  width: 16px;
+  width: var(--workspace-leading-cell);
   height: 20px;
   display: inline-flex;
   align-items: center;
@@ -565,7 +588,7 @@
 }
 
 .sessionOverflowLabel {
-  margin-inline-start: var(--jan-sidebar-label-gap);
+  margin-inline-start: var(--workspace-label-gap);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

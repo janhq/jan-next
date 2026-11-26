@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -13,12 +13,16 @@ import { TokamakAccountProvider } from '../src/index.ts'
 import { startMockTokamak, type MockTokamak } from './mock-tokamak.ts'
 
 const cleanups: Array<() => Promise<unknown>> = []
-afterEach(async () => { while (cleanups.length) await cleanups.pop()!() })
+afterEach(async () => {
+  vi.unstubAllEnvs()
+  while (cleanups.length) await cleanups.pop()!()
+})
 
 const client: AccountClientMetadata = { version: '1.0.0', locale: 'en', timezoneOffsetSeconds: 0 }
 
 async function fixture(configure?: (mock: MockTokamak) => void, config: Record<string, unknown> = {},
   seed?: (ctx: Context, mock: MockTokamak) => Promise<void>) {
+  vi.stubEnv('TOKAMAK_API_KEY', undefined)
   const mock = await startMockTokamak()
   configure?.(mock)
   cleanups.push(() => mock.close())
@@ -185,6 +189,27 @@ it('restores a hand-saved TOKAMAK_API_KEY on sign-out instead of deleting it', a
   expect((await f.ctx.credentials.resolve(ref))?.value).toBe(f.mock.key)
   await f.account.signOut(client)
   expect((await f.ctx.credentials.resolve(ref))?.value).toBe('sk_live_hand_pasted')
+})
+
+it('preserves the password-manager reference, not its resolved value, across sign-in and sign-out', async () => {
+  const f = await fixture((mock) => { mock.autoApprove = true })
+  const ref = credentialRef('TOKAMAK_API_KEY')
+  const pointer = 'op://Private/Tokamak/credential'
+  const resolveRaw = f.ctx.credentials.resolve.bind(f.ctx.credentials)
+  const dereference = vi.fn(() => 'mock-resolved-secret')
+  vi.spyOn(f.ctx.credentials, 'resolve').mockImplementation(async (target, options) => {
+    const hit = await resolveRaw(target, { dereference: false })
+    return hit?.value === pointer && options?.dereference !== false ? { ...hit, value: dereference() } : hit
+  })
+  await f.ctx.credentials.set(ref, pointer)
+  await f.account.startSignIn(client, f.callbackOrigin, 'web')
+  await f.until(s => s.attempt?.phase === 'succeeded')
+  const document = await readFile(join(f.home, 'credentials.yaml'), 'utf8')
+  expect(document).toContain(pointer)
+  expect(document).not.toContain('mock-resolved-secret')
+  await f.account.signOut(client)
+  expect(await f.ctx.credentials.resolve(ref, { dereference: false })).toEqual({ value: pointer, source: 'file' })
+  expect(dereference).not.toHaveBeenCalled()
 })
 
 it('signing in again while signed in revokes the old key and still restores the original hand-saved key', async () => {

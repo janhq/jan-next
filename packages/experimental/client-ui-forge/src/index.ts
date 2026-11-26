@@ -5,7 +5,10 @@ import z from '@janhq/schemastery'
 import type { Agent } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-api-remote-access'
 import { changeRequestKey } from '@janhq/jan-experimental-forge'
-import type { ChangeRequestSnapshot, ForgeActionFailure, ForgeFailure, ForgeReviewRequest, ForgeReviewResult, MergeMethod } from '@janhq/jan-experimental-forge'
+import type {
+  ChangeRequestAssets, ChangeRequestFailureContext, ChangeRequestFailureSelection, ChangeRequestSnapshot,
+  ForgeActionFailure, ForgeFailure, ForgeReviewRequest, ForgeReviewResult, MergeMethod,
+} from '@janhq/jan-experimental-forge'
 import type { SessionChangeRequest } from '@janhq/jan-experimental-forge-session'
 import type {} from '@janhq/jan-experimental-worktree'
 import { appendPluginRecord } from '@janhq/jan-session'
@@ -64,7 +67,7 @@ export class ForgePanelController extends TypertRemoteService {
     'forge', 'forgeSession', 'sessionProjections', 'workingDirectory', 'fs', 'subprocess', 'sandbox', 'sandboxPolicy', 'agents',
   ]
 
-  static Config: z<Config> = z.object({
+  static Config = z.object({
     gitCommand: z.string().default('git'),
     gitTimeoutMs: z.number().default(10_000),
     graceMs: z.number().default(1_000),
@@ -75,6 +78,7 @@ export class ForgePanelController extends TypertRemoteService {
     maxDiffBytes: z.number().default(8_388_608),
     maxUntrackedFiles: z.number().default(100),
     maxCachedDiffBytes: z.number().default(16_777_216),
+    sidebarStatus: z.boolean().default(true).description('Show pull request status on chat rows.').volatile(),
   })
 
   private readonly home: Context
@@ -310,6 +314,49 @@ export class ForgePanelController extends TypertRemoteService {
     this.bound(session, url)
     if ('code' in result) throw new RemoteError('forgePanel/checks-failed', result.message, {})
     if (result.headSha !== headSha) throw new RemoteError('forgePanel/stale-head', 'The change request head changed; refresh its status', {})
+    return result
+  }
+
+  /**
+   * Read previews and artifacts for a visible change request at the displayed head.
+   * @param session - Session retaining the visible binding.
+   * @param url - binding URL.
+   * @param headSha - commit displayed by the card.
+   * @param signal - cancellation when the card closes.
+   * @returns previews, artifacts, and any individual read failures.
+   */
+  @Remote
+  async changeRequestAssets(session: Session, url: string, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets> {
+    signal.throwIfAborted()
+    const { ref, update } = this.bound(session, url)
+    if (update === null || !('snapshot' in update) || update.snapshot.headSha !== headSha) {
+      throw new RemoteError('forgePanel/stale-head', 'The change request status changed; refresh its status', {})
+    }
+    const result = await this.home.forge.fetchAssets(ref, headSha, signal)
+    const latest = this.bound(session, url).update
+    if (latest !== null && 'snapshot' in latest && latest.snapshot.headSha !== headSha) {
+      throw new RemoteError('forgePanel/stale-head', 'The change request head changed; refresh its status', {})
+    }
+    return result
+  }
+
+  /**
+   * Read diagnostics for a fix-context action of a visible change request.
+   * @param session - Session retaining the visible binding.
+   * @param url - binding URL.
+   * @param headSha - commit displayed by the card.
+   * @param selection - which failures to include.
+   * @param signal - cancellation when the card closes.
+   * @returns head-verified failure context, or throws if status could not be read.
+   */
+  @Remote
+  async changeRequestFailureContext(session: Session, url: string, headSha: string, selection: ChangeRequestFailureSelection,
+    signal: AbortSignal): Promise<ChangeRequestFailureContext> {
+    signal.throwIfAborted()
+    const result = await this.home.forge.fetchFailureContext(this.bound(session, url).ref, headSha, selection, signal)
+    this.bound(session, url)
+    if ('code' in result) throw new RemoteError('forgePanel/checks-failed', result.message, {})
+    if (result.snapshot.headSha !== headSha) throw new RemoteError('forgePanel/stale-head', 'The change request head changed; refresh its status', {})
     return result
   }
 

@@ -26,6 +26,12 @@ declare module '@janhq/jan-client-ui-slots' {
     }
     /** Compact thumbnails of a settled tool result, owned by the common call tree. */
     'tool.call.images': { kind: 'single'; scope: 'session'; owner: ToolImagesOwnerProps }
+    /**
+     * Live status beside one call row's duration: a plugin that knows work
+     * behind the call (a job's progress or last output line) renders it here.
+     * Rendered for every root and nested call; render nothing when unrelated.
+     */
+    'tool.call.status': { kind: 'single'; scope: 'session'; owner: ToolStatusOwnerProps }
   }
 }
 
@@ -41,6 +47,23 @@ export interface ToolImagesOwnerProps {
   thumbnail?: boolean
   lazy?: boolean
 }
+
+/** Owner currency of the call status slot. */
+export interface ToolStatusOwnerProps {
+  /** Call identity, stable across all stages. */
+  callId: string
+  /** Wire Tool name. */
+  toolName: string
+  /** Epoch ms the call settled; absent while it runs. Work that outlives it was backgrounded. */
+  settledAt?: number | undefined
+}
+
+/**
+ * Attribute a `tool.call.status` entry sets on an element it renders when that
+ * element shows its own clock for the call's work; the row then hides its call
+ * duration so one row never shows two clocks.
+ */
+export const TOOL_STATUS_CLOCK_ATTRIBUTE = 'data-tool-status-clock'
 
 /** Standard owner currency supplied to every atomic Tool view. */
 export interface ToolCallCommonProps {
@@ -143,6 +166,6 @@ export type ToolHostInfoInjected = {
 
 /** Full props of the Tool call-tree renderer registered as a tool-call Chat Node. */
 export type ToolTreeProps = PropsRuntime<'conversation.chat.node', 'tool-call'>
-  & PropsRenderSlots<'tool.call.toolview' | 'tool.call.images'>
+  & PropsRenderSlots<'tool.call.toolview' | 'tool.call.images' | 'tool.call.status'>
   & PropsLocale<'conversation'>
   & InjectFace<ToolHostInfoInjected & ToolFileInjected>

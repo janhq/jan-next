@@ -13,17 +13,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast, captureFailure, type FailureDetails,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
-import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import { modeMenuItems, modePickerOptions, runModeAction } from './mode-actions.tsx'
 import type { AgentPresetModeAction } from './index.ts'
 import { PresetIcon } from './PresetIcon.tsx'
 
@@ -74,6 +73,7 @@ function introStaggerMs(count: number): number {
 /** Full component props. */
 export type AgentPresetSeatProps =
   PropsRuntime<'conversation.hero.agentPreset'>
+  & PropsRenderFactories
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetSeatInjected>
 
@@ -83,23 +83,25 @@ export type AgentPresetSeatProps =
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
 export function AgentPresetSeat({
-  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, useModeActions, t,
+  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced,
+  useAgentPresetSeat, useDeveloperTools, useModeActions, renderFactorySlot, t,
 }: AgentPresetSeatProps) {
   const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
   const modeActions = useModeActions(value => value)
+  // The main view and the project page each host the one composer that starts a chat; panes and sidebars do not.
   const main = useSessionRetainInfo(info => sessionId === undefined
-    || (info?.retainedBy.mainView ?? 0) > 0)
+    || (info?.retainedBy.mainView ?? 0) > 0 || (info?.retainedBy.projectHome ?? 0) > 0)
   const [open, setOpen] = useState(false)
   // The seq keys the banner, so picking the same broken preset twice replays
   // it rather than leaving the first one silently in place.
   const toastSeq = useRef(0)
-  const [toast, setToast] = useState<{ seq: number; error: Exclude<AgentPresetSeatState['error'], string | null> } | null>(null)
+  const [toast, setToast] = useState<{ seq: number; error: Exclude<AgentPresetSeatState['error'], string | null>; failure: FailureDetails } | null>(null)
 
   useEffect(() => {
     if (state.error !== null && typeof state.error === 'object') {
       toastSeq.current += 1
-      setToast({ seq: toastSeq.current, error: state.error })
+      setToast({ seq: toastSeq.current, error: state.error, failure: captureFailure('agentPreset.select', new Error(state.error.reason)) })
     } else setToast(null)
   }, [state.error])
 
@@ -108,7 +110,7 @@ export function AgentPresetSeat({
   }, [load])
 
   const options = useMemo(
-    () => state.options.filter(option => developerTools || !requiresCodingTools(option)),
+    () => modePickerOptions(state.options, developerTools),
     [state.options, developerTools],
   )
   const hasItems = options.length > 0 || modeActions.length > 0
@@ -170,21 +172,7 @@ export function AgentPresetSeat({
       {ready && <Menu
         open={open && hasItems}
         onClose={() => { setOpen(false) }}
-        items={[...options.map((option) => {
-          const text = presetDisplayText(option, t)
-          return {
-            id: option.id,
-            icon: <PresetIcon icon={option.icon} size={14} />,
-            // Name and description together: the id alone never says what a
-            // preset does, which is why the roster carries display copy.
-            label: (
-              <span className={css.item}>
-                <span className={css.itemName}>{text.name}</span>
-                <span className={css.itemDesc}>{text.description ?? t('noDescription')}</span>
-              </span>
-            ),
-          }
-        }), ...modeActionItems(modeActions)]}
+        items={modeMenuItems(options, modeActions, t, state.current, renderFactorySlot)}
         selectedId={state.current}
         onSelect={(id) => {
           setOpen(false)
@@ -214,6 +202,7 @@ export function AgentPresetSeat({
           key={toast.seq}
           text={t('switchRefused', { name: presetDisplayText(toast.error.preset, t).name, reason: toast.error.reason })}
           icon={<IconWarningOutlineRegular />}
+          failure={toast.failure}
           holdMs={REFUSAL_HOLD_MS}
           onDone={() => { dismissRefusal(toast.error) }}
         />

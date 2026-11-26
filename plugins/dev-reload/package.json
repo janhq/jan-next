@@ -1,0 +1,25 @@
+{
+  "name": "@janhq/jan-dev-reload",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "While Jan develops itself, hold Host code reloads until chats finish and continue the chats a reload or restart interrupted.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "client.js", "client.locale.js", "README.md"],
+  "dependencies": {
+    "@janhq/jan-home-paths": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

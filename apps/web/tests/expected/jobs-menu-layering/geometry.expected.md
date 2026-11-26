@@ -7,6 +7,7 @@
     "bodyMounted": true,
     "fixed": true,
     "anchored": true,
+    "aboveTrigger": true,
     "viewportBounded": true,
     "overlapsBrowser": true,
     "aboveBrowser": true
@@ -16,6 +17,7 @@
     "bodyMounted": true,
     "fixed": true,
     "anchored": true,
+    "aboveTrigger": true,
     "viewportBounded": true,
     "overlapsBrowser": true,
     "aboveBrowser": true
@@ -25,6 +27,7 @@
     "bodyMounted": true,
     "fixed": true,
     "anchored": true,
+    "aboveTrigger": true,
     "viewportBounded": true,
     "overlapsBrowser": true,
     "aboveBrowser": true

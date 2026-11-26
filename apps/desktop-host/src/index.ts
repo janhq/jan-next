@@ -10,7 +10,7 @@ import type {} from '@janhq/jan-client-connection'
 import type {} from '@janhq/jan-host-webserver'
 import type {} from '@janhq/jan-tokamak-account'
 import { resolveJanHome } from '@janhq/jan-home-paths'
-import * as desktopOffice from './office.ts'
+import { officeEnvironment } from './office.ts'
 import { localDragResource } from './file-drag.ts'
 
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
@@ -18,6 +18,7 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
 import { installPlatformSessionPublisher } from './platform-session.ts'
 import { installOfficeEngineResolution } from './office-engine.ts'
 import { installOperationDiagnostics } from './operation-diagnostics.ts'
+import { installNativeDownloads } from './native-downloads.ts'
 
 async function main(): Promise<void> {
   const runId = randomUUID() as PluginOperationRunId
@@ -25,6 +26,12 @@ async function main(): Promise<void> {
   const runtimeDir = process.argv[2] as string
   const projectDir = process.argv[3] as string
   installOfficeEngineResolution(runtimeDir)
+  // Office is an ordinary bundle row (switchable in Plugins); the carrier only names its bundled payload.
+  Object.assign(process.env, officeEnvironment({
+    runtimeDir,
+    source: process.argv[4] ?? join(runtimeDir, '..', 'runtime', 'primary-runtime'),
+    root: join(resolveJanHome(), 'jan-runtimes', 'jan-primary-runtime'),
+  }))
   // The Desktop runtime carries bundles outside the CLI's dependency graph.
   const installAnchor = join(runtimeDir, 'package.json')
   const profile = loadProfileDirectory('jan', projectDir, installAnchor)
@@ -33,7 +40,8 @@ async function main(): Promise<void> {
     environment: loadLayeredEnv('jan'),
     profile: 'desktop',
     resolvedProfile: { profile, installAnchor },
-    patchFiles: [],
+    // `dev:desktop --watch` names its HMR and dev-reload overlay here.
+    patchFiles: process.env.JAN_DESKTOP_DEV_PATCH ? [process.env.JAN_DESKTOP_DEV_PATCH] : [],
     args: ['--no-open', '--host', '127.0.0.1', '--port', '0'],
     ...(process.argv[5] === undefined ? {} : {
       packageManager: {
@@ -147,11 +155,7 @@ async function main(): Promise<void> {
   installOperationDiagnostics(ctx, record => send({ type: 'plugin-operation', record }), 32, runId)
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
   control.quitInspection = installDesktopQuitInspection(ctx)
-  await ctx.plugin(desktopOffice, {
-    runtimeDir,
-    source: process.argv[4] ?? join(runtimeDir, '..', 'runtime', 'primary-runtime'),
-    root: join(resolveJanHome(), 'jan-runtimes', 'jan-primary-runtime'),
-  })
+  installNativeDownloads(ctx, send)
   installPlatformSessionPublisher(ctx, (session) => {
     if (process.connected) process.send?.({ type: 'platform-session', session })
   })

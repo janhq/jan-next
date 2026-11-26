@@ -412,12 +412,14 @@ describe('loadProfile', () => {
 
   const webBundles = ['@janhq/jan-base', '@janhq/jan-web-app']
   const desktopBundles = [...webBundles, '@janhq/jan-desktop-app']
+  const forge = '@janhq/jan-experimental-forge-bundle'
   const customBundles = [...webBundles, 'custom-bundle']
   it.each([
-    { profile: 'legacy', initial: webBundles, expected: desktopBundles },
-    { profile: 'current', initial: desktopBundles, expected: desktopBundles },
-    { profile: 'custom', initial: customBundles, expected: customBundles },
-  ])('preserves a desktop bundle opt-out after first opening a $profile profile', ({ initial, expected }) => {
+    { profile: 'legacy', initial: webBundles, expected: [...desktopBundles, forge] },
+    { profile: 'pre-Forge', initial: desktopBundles, expected: [...desktopBundles, forge] },
+    { profile: 'current', initial: [...desktopBundles, forge], expected: [...desktopBundles, forge] },
+    { profile: 'custom', initial: customBundles, expected: [...customBundles, forge] },
+  ])('adds Forge once and preserves a desktop bundle opt-out after first opening a $profile profile', ({ initial, expected }) => {
     const anchor = stageInstallation({
       '@janhq/jan-base': { patch: '[]\n' },
       '@janhq/jan-web-app': { patch: '[]\n' },
@@ -431,6 +433,7 @@ describe('loadProfile', () => {
     normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
     const manifest = readProfileManifest('t', dir)
     expect(manifest.jan?.profile?.bundles).toEqual(expected)
+    expect(existsSync(join(dir, '.bundle-addition-2026-11-forge'))).toBe(true)
 
     writeProfileManifest(dir, {
       ...manifest, jan: { ...manifest.jan, profile: { ...manifest.jan?.profile, bundles: webBundles } },

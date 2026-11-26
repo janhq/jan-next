@@ -1,13 +1,15 @@
 /** Trusted-window Chromium downloads and clipboard fallback reads. */
-import { app, ipcMain, session } from 'electron'
+import { app, ipcMain, session, shell } from 'electron'
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron'
 import { closeSync, openSync, rmSync } from 'node:fs'
+import { access } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { resolveDragFileName } from '@janhq/jan-util-file-drag'
 import { randomUUID } from 'node:crypto'
 import type { FileSaveResult } from '@janhq/jan-client-ui-file-actions/types'
-import { DESKTOP_IPC } from './ipc.ts'
+import { DESKTOP_IPC, SCHEME } from './ipc.ts'
 import { resolveDurationMs } from './duration-env.ts'
+import { nativeDownloadBytes, type DesktopDownloads, type NativeDownloadHandle } from './native-downloads.ts'
 
 /** @param value - untrusted IPC input. @returns captured URL and destination policy. */
 function saveRequest(value: unknown): { url: URL; name?: string; mediaType?: string; mode: 'download' | 'saveAs' } {
@@ -24,13 +26,17 @@ function saveRequest(value: unknown): { url: URL; name?: string; mediaType?: str
   }
 }
 
+const FILE_DOWNLOAD_FRAGMENT = '#jan-download='
+
 /**
  * Install trusted-window original-file operations.
  * @param assertOwner - rejects shell pages, subframes, and unowned windows.
  * @param hostUrl - current application Host excluded from image reads.
+ * @param downloads - Optional reporting for native saves; receives no save paths.
  */
 export function installFileActions(
   assertOwner: (event: IpcMainInvokeEvent) => BrowserWindow, hostUrl: () => string | undefined = () => undefined,
+  downloads?: DesktopDownloads,
 ): void {
   const timeoutMs = resolveDurationMs(process.env, 'JAN_DESKTOP_IMAGE_READ_TIMEOUT_MS', 30_000)
   const maxBytes = Number(process.env.JAN_DESKTOP_IMAGE_READ_MAX_BYTES ?? 64 * 1024 * 1024)
@@ -41,11 +47,26 @@ export function installFileActions(
     request: ReturnType<typeof saveRequest>
     finish: (result: FileSaveResult | Error) => void
     started: () => void
+    transfer: NativeDownloadHandle | undefined
     item?: Electron.DownloadItem
   }>()
   session.defaultSession.on('will-download', (_event, item, contents) => {
     const url = item.getURLChain()[0]
-    if (url === undefined || !new URL(url).hash.startsWith('#jan-download=')) return
+    const fragment = url === undefined ? '' : new URL(url).hash
+    if (url === undefined || !fragment.startsWith(FILE_DOWNLOAD_FRAGMENT)) {
+      if (downloads === undefined || item.getInitiatorOrigin() !== `${SCHEME}://app`) return
+      const transfer = downloads.start({ id: `desktop-file:${randomUUID()}`, kind: 'file',
+        name: resolveDragFileName({ name: item.getFilename(), mediaType: item.getMimeType() }),
+        actions: { cancel: () => { item.cancel() } } })
+      const stopProgress = watchFileProgress(item, transfer)
+      item.once('done', (_event, state) => {
+        stopProgress(state === 'completed')
+        if (state === 'completed') finishSavedFile(transfer, item.getSavePath())
+        else if (state === 'cancelled') transfer.finish('cancelled')
+        else transfer.finish('failed')
+      })
+      return
+    }
     const entry = pending.get(url)
     if (entry === undefined || entry.owner.webContents !== contents) { item.cancel(); return }
     entry.started()
@@ -74,8 +95,10 @@ export function installFileActions(
         reserved = destination
         item.setSavePath(destination)
       }
+      const stopProgress = entry.transfer === undefined ? undefined : watchFileProgress(item, entry.transfer)
       item.once('done', (_event, state) => {
         try {
+          stopProgress?.(state === 'completed' && pending.has(url))
           if (state !== 'completed') {
             if (reserved !== undefined) rmSync(reserved, { force: true })
             entry.finish(state === 'cancelled' ? { status: 'cancelled' } : new Error('File download interrupted'))
@@ -101,17 +124,26 @@ export function installFileActions(
     const owner = assertOwner(event)
     const request = saveRequest(value)
     // Fragments do not change the fetched resource; each native request has its own completion identity.
-    request.url.hash = `jan-download=${randomUUID()}`
+    const token = randomUUID()
+    request.url.hash = `${FILE_DOWNLOAD_FRAGMENT}${token}`
     const url = request.url.href
     return new Promise((resolve, reject) => {
       const contents = owner.webContents
       const finish = (result: FileSaveResult | Error): void => {
-        if (!pending.delete(url)) return
+        const entry = pending.get(url)
+        if (entry === undefined) return
+        pending.delete(url)
         clearTimeout(timer)
         owner.removeListener('closed', cancel)
         contents.removeListener('did-start-navigation', navigate)
-        if (result instanceof Error) reject(result)
-        else resolve(result)
+        if (result instanceof Error) {
+          entry.transfer?.finish('failed')
+          reject(result)
+        } else {
+          if (result.status === 'saved') finishSavedFile(entry.transfer, result.path)
+          else entry.transfer?.finish('cancelled')
+          resolve(result)
+        }
       }
       const cancel = (): void => {
         const item = pending.get(url)?.item
@@ -126,7 +158,9 @@ export function installFileActions(
         finish(new Error('File download timed out'))
         item?.cancel()
       }, downloadTimeoutMs)
-      pending.set(url, { event, owner, request, finish, started: () => { clearTimeout(timer) } })
+      const transfer = downloads?.start({ id: `desktop-file:${token}`, kind: 'file',
+        name: resolveDragFileName({ name: request.name, mediaType: request.mediaType ?? '' }), actions: { cancel } })
+      pending.set(url, { event, owner, request, finish, transfer, started: () => { clearTimeout(timer) } })
       owner.once('closed', cancel)
       contents.on('did-start-navigation', navigate)
       try { contents.downloadURL(url) }
@@ -188,5 +222,30 @@ export function installFileActions(
       owner.removeListener('closed', abort)
       contents.removeListener('did-start-navigation', navigate)
     }
+  })
+}
+
+function watchFileProgress(item: Electron.DownloadItem, transfer: NativeDownloadHandle): (completed: boolean) => void {
+  const report = (state: 'queued' | 'downloading' | 'paused'): void => {
+    transfer.update({ state, ...nativeDownloadBytes(item.getReceivedBytes(), item.getTotalBytes()) })
+  }
+  const updated = (_event: Electron.Event, state: 'progressing' | 'interrupted'): void => {
+    report(state === 'interrupted' || item.isPaused() ? 'paused' : 'downloading')
+  }
+  report(item.getSavePath() === '' ? 'queued' : 'downloading')
+  item.on('updated', updated)
+  return (completed) => {
+    item.off('updated', updated)
+    if (completed) report('downloading')
+  }
+}
+
+function finishSavedFile(transfer: NativeDownloadHandle | undefined, path: string): void {
+  if (transfer === undefined) return
+  transfer.finish('done', undefined, path === '' ? undefined : {
+    open: async () => {
+      if (await shell.openPath(path) !== '') throw new Error('Could not open the downloaded file')
+    },
+    reveal: async () => { await access(path); shell.showItemInFolder(path) },
   })
 }

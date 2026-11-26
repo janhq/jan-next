@@ -3,6 +3,9 @@ import { Button } from './Button.tsx'
 import { MarkdownText, type MarkdownLabels, type MarkdownPathImages } from './markdown/MarkdownText.tsx'
 import { StateDot } from './StateDot.tsx'
 import css from './DetailDocument.module.css'
+import { FailureActions } from './FailureActions.tsx'
+import { redactFailureText, type FailureDetails } from './failure-details.ts'
+import { TOAST_CLOSE_LABELS } from './locales/toast.ts'
 
 /** One read of a long Markdown description, such as a plugin's detail document. */
 export type DetailDocumentState =
@@ -11,22 +14,25 @@ export type DetailDocumentState =
   | { readonly status: 'none' }
   | { readonly status: 'error'; readonly message: string }
 
-/** A read as owners track it: in flight, settled with a document or none, or failed with a localized message. */
-export type DetailDocumentRead =
+/** A read as owners track it: in flight, settled with a document or none, or failed with the owner's failure kind. */
+export type DetailDocumentRead<Failure> =
   | undefined
   | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly markdown: string | undefined }
-  | { readonly status: 'error'; readonly message: string }
+  | { readonly status: 'ready'; readonly detail: { readonly status: 'found'; readonly markdown: string } | { readonly status: 'none' } }
+  | { readonly status: 'error'; readonly failure: Failure }
 
 /**
  * The state {@link DetailDocument} shows for an owner's read: loading until it settles, then the document, none, or the
  * failure.
  * @param read - the owner's read; undefined before it starts.
+ * @param message - localized message for the owner's failure kind.
  * @returns the state to show.
  */
-export function detailDocumentState(read: DetailDocumentRead): DetailDocumentState {
-  if (read?.status === 'ready') return read.markdown === undefined ? { status: 'none' } : { status: 'found', markdown: read.markdown }
-  return read?.status === 'error' ? read : { status: 'loading' }
+export function detailDocumentState<Failure>(
+  read: DetailDocumentRead<Failure>, message: (failure: Failure) => string,
+): DetailDocumentState {
+  if (read?.status === 'ready') return read.detail.status === 'found' ? { status: 'found', markdown: read.detail.markdown } : { status: 'none' }
+  return read?.status === 'error' ? { status: 'error', message: message(read.failure) } : { status: 'loading' }
 }
 
 /** Translated strings of a detail document's chrome, as an owner's dictionary supplies them. */
@@ -76,13 +82,15 @@ export interface DetailDocumentLabels {
  * @param props.labels - localized region name, placeholder name, retry text, and Markdown chrome; keep `markdown` reference-stable.
  * @param props.images - resolves the document's relative image destinations to displayable URLs.
  * @param props.onRetry - reads the document again after a failure.
+ * @param props.failure - Optional captured read failure, offering the shared Details dialog beside Retry.
  * @returns the section, or null.
  */
-export function DetailDocument({ state, labels, images, onRetry }: {
+export function DetailDocument({ state, labels, images, onRetry, failure }: {
   readonly state: DetailDocumentState
   readonly labels: DetailDocumentLabels
   readonly images?: MarkdownPathImages | undefined
   readonly onRetry: () => void
+  readonly failure?: FailureDetails | undefined
 }): ReactNode {
   if (state.status === 'none') return null
   let body: ReactNode
@@ -97,8 +105,10 @@ export function DetailDocument({ state, labels, images, onRetry }: {
     case 'error':
       body = (
         <div className={css.failure}>
-          <p className={css.error} role="alert"><StateDot state="error" />{state.message}</p>
+          <p className={css.error} role="alert"><StateDot state="error" />{redactFailureText(state.message)}</p>
           <Button variant="outline" size="sm" onClick={onRetry}>{labels.retry}</Button>
+          {failure !== undefined && <FailureActions kind="inline" failure={failure}
+            closeLabel={TOAST_CLOSE_LABELS[document.documentElement.lang.toLowerCase().split('-')[0] ?? ''] ?? TOAST_CLOSE_LABELS.en} />}
         </div>
       )
       break

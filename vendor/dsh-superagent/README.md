@@ -10,7 +10,7 @@ It is also a way of working with an agent: **take as little human attention as p
 
 ## Setup
 
-The Superagent bundle supports Jan Hosts on macOS and Linux. Native Windows setup is unavailable because its workers require POSIX shell scripts.
+The Superagent bundle requires a Jan Host with scoped shell environment support on macOS or Linux. Native Windows setup is unavailable because its workers require POSIX shell scripts.
 
 Setup has many steps, so an agent does it with you. Ask your coding agent:
 

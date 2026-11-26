@@ -5,20 +5,12 @@
  * @module @janhq/jan-jobs/types
  */
 
-import type { SessionEventMap, SessionId } from '@janhq/jan-session'
+import type { SessionId } from '@janhq/jan-session'
 import type { JobId } from './brand.ts'
-import type { JobChannel, JobChunk, JobKind, JobView } from './view.ts'
+import type { JobChannel, JobChunk, JobKind, JobToolCall, JobView } from './view.ts'
 
 export { JobId } from './brand.ts'
-export type { JobChannel, JobChunk, JobKind, JobKindMap, JobStatus, JobView } from './view.ts'
-
-/** Tool dispatch that created a job; nested calls retain their root invocation. */
-export interface JobToolCall {
-  /** Exact invocation, including a PTC sub-call when applicable. */
-  readonly callId: SessionEventMap['tool/call']['callId']
-  /** Root model-requested invocation owning this execution. */
-  readonly rootCallId: SessionEventMap['tool/call']['callId']
-}
+export type { JobChannel, JobChunk, JobKind, JobKindMap, JobStatus, JobToolCall, JobView } from './view.ts'
 
 /** Durable identity and registration time of one owned job execution. */
 export interface JobRegisteredData {

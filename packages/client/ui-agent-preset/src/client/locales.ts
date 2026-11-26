@@ -39,28 +39,28 @@ export type AgentPresetSettingsKey =
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
   builtInGroup: 'Built-in', customGroup: 'Custom',
-  sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to Jan.',
+  sectionIntro: 'Choose the agent’s tools and how it works. Use Code mode for everyday tasks, or Creator mode to add capabilities to Jan.',
 
-  seatHint: 'Choose the agent preset for your new task',
-  headerHint: 'Switch the agent preset for this task',
+  seatHint: 'Choose the mode for your new task',
+  headerHint: 'Switch the mode for this task',
   switchBusy: 'Finish the current reply before switching',
-  nav: 'Agent presets',
+  nav: 'Modes',
 
   setDefault: 'Set as new task default',
   view: 'View configuration',
 
-  presetStandardName: 'Standard mode',
+  presetStandardName: 'Code mode',
   presetStandardDescription:
     'Work with code, files, and information. Suitable for most tasks, with search, editing, terminal commands, and other tools available as needed.',
   presetPtcName: 'PTC mode',
   presetPtcDescription:
-    'Includes all Standard mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
+    'Includes all Code mode capabilities. Better suited to tasks that call tools in batches and then filter, organize, deduplicate, count, or summarize the results.',
   presetMinimalName: 'Minimal mode',
   presetMinimalDescription:
     'The agent uses a terminal and image reading, with context compaction. Useful for testing and comparing its basic performance.',
   presetCordisName: 'Creator mode',
   presetCordisDescription:
-    'Customize Jan through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
+    'Customize the Jan app you use. Add plugins or connectors, create your own modes and agents, or save reusable skills.',
 
   inUse: 'New task default',
 
@@ -68,11 +68,11 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: 'Failed to load',
 
   switchRefused: 'Could not switch to {name}: {reason}',
-  standardUnavailable: 'Standard mode is unavailable. Restore it or choose another available mode.',
+  standardUnavailable: 'Code mode is unavailable. Restore it or choose another available mode.',
 
   close: 'Close',
 
-  creatorDraft: 'Let the agent help me create a preset',
+  creatorDraft: 'Let the agent help me create a mode',
   createPlugin: 'Let the agent create a plugin',
   createPluginDescription: 'Enter Creator mode and make your own Jan plugin',
   createPluginChecking: 'Checking whether Creator mode is available',
@@ -85,24 +85,24 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
   builtInGroup: '内置', customGroup: '自定义',
-  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 Jan 的能力用「创造模式」。',
+  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「代码模式」，扩展 Jan 的能力用「创造模式」。',
 
-  seatHint: '选择新任务使用的 Agent 预设',
-  headerHint: '切换本任务使用的 Agent 预设',
+  seatHint: '选择新任务使用的模式',
+  headerHint: '切换本任务使用的模式',
   switchBusy: '请等当前回复结束后再切换',
-  nav: 'Agent 预设',
+  nav: '模式',
 
   setDefault: '设为新任务默认',
   view: '查看配置',
 
-  presetStandardName: '标准模式',
+  presetStandardName: '代码模式',
   presetStandardDescription: '处理代码、文件和资料，适合大多数任务。Agent 会按需使用检索、编辑和终端等工具。',
   presetPtcName: 'PTC 模式',
-  presetPtcDescription: '包含标准模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
+  presetPtcDescription: '包含代码模式的所有能力，更适合批量调用工具，并对结果进行筛选、整理、去重、统计或汇总的任务。',
   presetMinimalName: '极简模式',
   presetMinimalDescription: 'Agent 使用终端和图片读取工具，并支持上下文压缩，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
-  presetCordisDescription: '用对话定制 Jan：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
+  presetCordisDescription: '定制你正在使用的 Jan：添加插件或连接器，创建自己的模式和智能体，或保存可复用的技能。',
 
   inUse: '新任务默认',
 
@@ -110,11 +110,11 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: '加载失败',
 
   switchRefused: '无法切换到「{name}」：{reason}',
-  standardUnavailable: '标准模式不可用，请恢复该模式或选择其他可用模式。',
+  standardUnavailable: '代码模式不可用，请恢复该模式或选择其他可用模式。',
 
   close: '关闭',
 
-  creatorDraft: '让 Agent 帮我创建预设模式',
+  creatorDraft: '让 Agent 帮我创建模式',
   createPlugin: '让 Agent 创建插件',
   createPluginDescription: '进入创造模式，制作属于你的 Jan 插件',
   createPluginChecking: '正在确认创造模式是否可用',
@@ -126,7 +126,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
 // The resolution itself is the shared fold in `jan-agent-preset-registry/display`,
 // re-exported here so every surface in this plugin reads one path; the
 // Settings plugin list inlines the same fold over this plugin's dictionaries.
-export { isBuiltInPreset, presetDisplayText } from '@janhq/jan-agent-preset-registry/display'
+export { isBuiltInPreset, presetDisplayText, requiresCodingTools } from '@janhq/jan-agent-preset-registry/display'
 export type { PresetDisplaySource, PresetDisplayText } from '@janhq/jan-agent-preset-registry/display'
 
 /** Japanese copy, checked against the English keys. */
@@ -134,28 +134,28 @@ export const ja = {
   ...guideJa,
   'builtInGroup': '組み込み',
   'customGroup': 'カスタム',
-  'sectionIntro': 'エージェントのツールと動作を選択します。日々のタスクには標準モードを、Jan に機能を追加するにはクリエイターモードを使用してください。',
-  'seatHint': '新しいタスクで使用するエージェントプリセットを選択',
-  'headerHint': 'このタスクで使用するエージェントプリセットを切り替え',
+  'sectionIntro': 'エージェントのツールと動作を選択します。日々のタスクにはコードモードを、Jan に機能を追加するにはクリエイターモードを使用してください。',
+  'seatHint': '新しいタスクで使用するモードを選択',
+  'headerHint': 'このタスクで使用するモードを切り替え',
   'switchBusy': '現在の応答が終わってから切り替えてください',
-  'nav': 'エージェントプリセット',
+  'nav': 'モード',
   'setDefault': '新しいタスクの既定に設定',
   'view': '設定を表示',
-  'presetStandardName': '標準モード',
+  'presetStandardName': 'コードモード',
   'presetStandardDescription': 'コード、ファイル、情報を扱います。検索、編集、ターミナルコマンドなどのツールを必要に応じて利用でき、ほとんどのタスクに適しています。',
-  'presetPtcName': 'PTC モード',
-  'presetPtcDescription': '標準モードのすべての機能を含みます。ツールを一括で呼び出し、その結果を絞り込み、整理、重複排除、集計、要約するタスクに適しています。',
+  'presetPtcName': 'PTCモード',
+  'presetPtcDescription': 'コードモードのすべての機能を含みます。ツールを一括で呼び出し、その結果を絞り込み、整理、重複排除、集計、要約するタスクに適しています。',
   'presetMinimalName': '最小モード',
   'presetMinimalDescription': 'エージェントはターミナルと画像読み取りを使用し、コンテキスト圧縮にも対応します。基本的な性能のテストや比較に役立ちます。',
   'presetCordisName': 'クリエイターモード',
-  'presetCordisDescription': '会話を通じて Jan をカスタマイズします。機能や UI を追加するプラグインをエージェントに書かせたり、ツールとプロンプトを組み合わせて独自のモードを作成したりできます。',
+  'presetCordisDescription': 'お使いの Jan をカスタマイズします。プラグインやコネクターを追加したり、独自のモードやエージェントを作成したり、再利用できるスキルを保存したりできます。',
   'inUse': '新しいタスクの既定',
   'noDescription': '説明はありません。',
   'brokenBadge': '読み込みに失敗',
   'switchRefused': '{name} に切り替えられませんでした: {reason}',
-  'standardUnavailable': '標準モードは利用できません。復元するか、利用可能な別のモードを選択してください。',
+  'standardUnavailable': 'コードモードは利用できません。復元するか、利用可能な別のモードを選択してください。',
   'close': '閉じる',
-  'creatorDraft': 'エージェントにプリセット作成を手伝ってもらう',
+  'creatorDraft': 'エージェントにモード作成を手伝ってもらう',
   'createPlugin': 'エージェントにプラグインを作成してもらう',
   'createPluginDescription': 'クリエイターモードに入り、独自の Jan プラグインを作成',
   'createPluginChecking': 'クリエイターモードが利用可能か確認中',
@@ -167,28 +167,28 @@ export const ja = {
 export const es = {
   ...guideEs,
   builtInGroup: 'Incorporado', customGroup: 'personalizado',
-  sectionIntro: 'Elija las herramientas del agente y cómo funciona. Utilice el modo Estándar para las tareas diarias o el modo Creador para agregar capacidades a Jan.',
+  sectionIntro: 'Elija las herramientas del agente y cómo funciona. Utilice el modo de código para las tareas diarias o el modo Creador para agregar capacidades a Jan.',
 
-  seatHint: 'Elige el agente preestablecido para tu nueva tarea',
-  headerHint: 'Cambia el agente preestablecido de esta tarea',
+  seatHint: 'Elige el modo para tu nueva tarea',
+  headerHint: 'Cambia el modo de esta tarea',
   switchBusy: 'Espera a que termine la respuesta actual para cambiar',
-  nav: 'Ajustes preestablecidos del agente',
+  nav: 'Modos',
 
   setDefault: 'Establecer como nueva tarea predeterminada',
   view: 'Ver configuración',
 
-  presetStandardName: 'Modo estándar',
+  presetStandardName: 'Modo de código',
   presetStandardDescription:
     'Trabaje con código, archivos e información. Adecuado para la mayoría de las tareas, con búsqueda, edición, comandos de terminal y otras herramientas disponibles según sea necesario.',
   presetPtcName: 'Modo PTC',
   presetPtcDescription:
-    'Incluye todas las capacidades del modo Estándar. Más adecuado para tareas que llaman a herramientas en lotes y luego filtran, organizan, deduplican, cuentan o resumen los resultados.',
+    'Incluye todas las capacidades del modo de código. Más adecuado para tareas que llaman a herramientas en lotes y luego filtran, organizan, deduplican, cuentan o resumen los resultados.',
   presetMinimalName: 'modo mínimo',
   presetMinimalDescription:
     'El agente utiliza un terminal y lectura de imágenes, con compactación de contexto. Útil para probar y comparar su rendimiento básico.',
   presetCordisName: 'Modo creador',
   presetCordisDescription:
-    'Personaliza Jan a través de la conversación. Deje que el agente escriba complementos que agreguen funciones o interfaz de usuario, o combine herramientas e indicaciones para crear su propio modo.',
+    'Personaliza el Jan que usas. Añade complementos o conectores, crea tus propios modos y agentes, o guarda habilidades reutilizables.',
 
   inUse: 'Nueva tarea predeterminada',
 
@@ -196,11 +196,11 @@ export const es = {
   brokenBadge: 'No se pudo cargar',
 
   switchRefused: 'No se pudo cambiar a {name}: {reason}',
-  standardUnavailable: 'El modo estándar no está disponible. Restáuralo o elige otro modo disponible.',
+  standardUnavailable: 'El modo de código no está disponible. Restáuralo o elige otro modo disponible.',
 
   close: 'Cerrar',
 
-  creatorDraft: 'Deja que el agente me ayude a crear un preset',
+  creatorDraft: 'Deja que el agente me ayude a crear un modo',
   createPlugin: 'Deje que el agente cree un complemento',
   createPluginDescription: 'Ingrese al modo Creador y cree su propio complemento Jan',
   createPluginChecking: 'Comprobando si el modo Creador está disponible',
@@ -213,28 +213,28 @@ export const es = {
 export const fr = {
   ...guideFr,
   builtInGroup: 'Intégré', customGroup: 'Personnalisé',
-  sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Utilisez le mode Standard pour les tâches quotidiennes ou le mode Créateur pour ajouter des fonctionnalités à Jan.',
+  sectionIntro: 'Choisissez les outils de l’agent et son fonctionnement. Utilisez le mode code pour les tâches quotidiennes ou le mode Créateur pour ajouter des fonctionnalités à Jan.',
 
-  seatHint: 'Choisissez le préréglage d’agent pour votre nouvelle tâche',
-  headerHint: 'Changer le préréglage d’agent de cette tâche',
+  seatHint: 'Choisissez le mode pour votre nouvelle tâche',
+  headerHint: 'Changer le mode de cette tâche',
   switchBusy: 'Attendez la fin de la réponse en cours pour changer',
-  nav: "Préréglages d'agent",
+  nav: 'Modes',
 
   setDefault: 'Définir comme nouvelle tâche par défaut',
   view: 'Afficher la configuration',
 
-  presetStandardName: 'Mode standard',
+  presetStandardName: 'Mode code',
   presetStandardDescription:
     'Travaillez avec du code, des fichiers et des informations. Convient à la plupart des tâches, avec recherche, édition, commandes de terminal et autres outils disponibles selon les besoins.',
   presetPtcName: 'Mode PTC',
   presetPtcDescription:
-    'Inclut toutes les fonctionnalités du mode Standard. Mieux adapté aux tâches qui appellent des outils par lots, puis filtrent, organisent, dédupliquent, comptent ou résument les résultats.',
+    'Inclut toutes les fonctionnalités du mode code. Mieux adapté aux tâches qui appellent des outils par lots, puis filtrent, organisent, dédupliquent, comptent ou résument les résultats.',
   presetMinimalName: 'Mode minimal',
   presetMinimalDescription:
     "L'agent utilise un terminal et une lecture d'image, avec compactage du contexte. Utile pour tester et comparer ses performances de base.",
   presetCordisName: 'Mode Créateur',
   presetCordisDescription:
-    "Personnalisez Jan via la conversation. Laissez l'agent écrire des plugins qui ajoutent des fonctionnalités ou une interface utilisateur, ou combinez des outils et des invites pour créer votre propre mode.",
+    'Personnalisez votre application Jan. Ajoutez des plugins ou des connecteurs, créez vos propres modes et agents, ou enregistrez des compétences réutilisables.',
 
   inUse: 'Nouvelle tâche par défaut',
 
@@ -242,11 +242,11 @@ export const fr = {
   brokenBadge: 'Échec du chargement',
 
   switchRefused: 'Impossible de passer à {name} : {reason}',
-  standardUnavailable: "Le mode standard n'est pas disponible. Restaurez-le ou choisissez un autre mode disponible.",
+  standardUnavailable: "Le mode code n'est pas disponible. Restaurez-le ou choisissez un autre mode disponible.",
 
   close: 'Fermer',
 
-  creatorDraft: "Laissez l'agent m'aider à créer un préréglage",
+  creatorDraft: "Laissez l'agent m'aider à créer un mode",
   createPlugin: "Laissez l'agent créer un plugin",
   createPluginDescription: 'Entrez en mode Créateur et créez votre propre plugin Jan',
   createPluginChecking: 'Vérifier si le mode Créateur est disponible',
@@ -259,28 +259,28 @@ export const fr = {
 export const de = {
   ...guideDe,
   builtInGroup: 'Eingebaut', customGroup: 'Benutzerdefiniert',
-  sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise aus. Verwenden Sie den Standardmodus für alltägliche Aufgaben oder den Creator-Modus, um Jan Funktionen hinzuzufügen.',
+  sectionIntro: 'Wählen Sie die Tools des Agenten und deren Funktionsweise aus. Verwenden Sie den Code-Modus für alltägliche Aufgaben oder den Creator-Modus, um Jan Funktionen hinzuzufügen.',
 
-  seatHint: 'Wählen Sie die Agentenvoreinstellung für Ihre neue Aufgabe',
-  headerHint: 'Agentenvoreinstellung dieser Aufgabe wechseln',
+  seatHint: 'Wählen Sie den Modus für Ihre neue Aufgabe aus',
+  headerHint: 'Modus für diese Aufgabe wechseln',
   switchBusy: 'Warten Sie, bis die laufende Antwort beendet ist',
-  nav: 'Agentenvoreinstellungen',
+  nav: 'Modi',
 
   setDefault: 'Als Standard für neue Aufgabe festlegen',
   view: 'Konfiguration anzeigen',
 
-  presetStandardName: 'Standardmodus',
+  presetStandardName: 'Code-Modus',
   presetStandardDescription:
     'Arbeiten Sie mit Code, Dateien und Informationen. Geeignet für die meisten Aufgaben, da bei Bedarf Suche, Bearbeitung, Terminalbefehle und andere Tools verfügbar sind.',
   presetPtcName: 'PTC-Modus',
   presetPtcDescription:
-    'Beinhaltet alle Funktionen des Standardmodus. Besser geeignet für Aufgaben, bei denen Tools stapelweise aufgerufen und die Ergebnisse dann gefiltert, organisiert, dedupliziert, gezählt oder zusammengefasst werden.',
+    'Beinhaltet alle Funktionen des Code-Modus. Besser geeignet für Aufgaben, bei denen Tools stapelweise aufgerufen und die Ergebnisse dann gefiltert, organisiert, dedupliziert, gezählt oder zusammengefasst werden.',
   presetMinimalName: 'Minimalmodus',
   presetMinimalDescription:
     'Der Agent verwendet ein Terminal und das Lesen von Bildern mit Kontextkomprimierung. Nützlich zum Testen und Vergleichen der Grundleistung.',
   presetCordisName: 'Erstellermodus',
   presetCordisDescription:
-    'Passen Sie Jan durch Gespräche an. Lassen Sie den Agenten Plugins schreiben, die Funktionen oder Benutzeroberflächen hinzufügen, oder kombinieren Sie Tools und Eingabeaufforderungen, um Ihren eigenen Modus zu erstellen.',
+    'Passen Sie Ihre Jan-App an. Fügen Sie Plugins oder Konnektoren hinzu, erstellen Sie eigene Modi und Agenten oder speichern Sie wiederverwendbare Skills.',
 
   inUse: 'Neuer Aufgabenstandard',
 
@@ -288,11 +288,11 @@ export const de = {
   brokenBadge: 'Laden fehlgeschlagen',
 
   switchRefused: 'Konnte nicht zu {name} wechseln: {reason}',
-  standardUnavailable: 'Der Standardmodus ist nicht verfügbar. Stellen Sie es wieder her oder wählen Sie einen anderen verfügbaren Modus.',
+  standardUnavailable: 'Der Code-Modus ist nicht verfügbar. Stellen Sie ihn wieder her oder wählen Sie einen anderen verfügbaren Modus.',
 
   close: 'Schließen',
 
-  creatorDraft: 'Lassen Sie sich vom Agenten beim Erstellen einer Voreinstellung helfen',
+  creatorDraft: 'Lassen Sie sich vom Agenten beim Erstellen eines Modus helfen',
   createPlugin: 'Lassen Sie den Agenten ein Plugin erstellen',
   createPluginDescription: 'Wechseln Sie in den Erstellermodus und erstellen Sie Ihr eigenes Jan-Plugin',
   createPluginChecking: 'Prüfen, ob der Creator-Modus verfügbar ist',
@@ -305,28 +305,28 @@ export const de = {
 export const ru = {
   ...guideRu,
   builtInGroup: 'Встроенный', customGroup: 'Пользовательский',
-  sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Используйте стандартный режим для повседневных задач или режим Creator, чтобы расширить возможности Jan.',
+  sectionIntro: 'Выбирайте инструменты агента и то, как они работают. Используйте режим кода для повседневных задач или режим Creator, чтобы расширить возможности Jan.',
 
-  seatHint: 'Выберите предустановку агента для вашей новой задачи',
-  headerHint: 'Сменить предустановку агента для этой задачи',
+  seatHint: 'Выберите режим для новой задачи',
+  headerHint: 'Сменить режим для этой задачи',
   switchBusy: 'Дождитесь окончания текущего ответа, чтобы сменить настройку',
-  nav: 'Настройки агента',
+  nav: 'Режимы',
 
   setDefault: 'Установить в качестве новой задачи по умолчанию',
   view: 'Посмотреть конфигурацию',
 
-  presetStandardName: 'Стандартный режим',
+  presetStandardName: 'Режим кода',
   presetStandardDescription:
     'Работайте с кодом, файлами и информацией. Подходит для большинства задач, с поиском, редактированием, командами терминала и другими инструментами, доступными по мере необходимости.',
   presetPtcName: 'Режим PTC',
   presetPtcDescription:
-    'Включает все возможности стандартного режима. Лучше подходит для задач, которые вызывают инструменты в пакетном режиме, а затем фильтруют, организуют, дедуплицируют, подсчитывают или суммируют результаты.',
+    'Включает все возможности режима кода. Лучше подходит для задач, которые вызывают инструменты в пакетном режиме, а затем фильтруют, организуют, дедуплицируют, подсчитывают или суммируют результаты.',
   presetMinimalName: 'Минимальный режим',
   presetMinimalDescription:
     'Агент использует терминал и чтение изображений со сжатием контекста. Полезно для тестирования и сравнения его базовой производительности.',
   presetCordisName: 'Режим автора',
   presetCordisDescription:
-    'Настройте Jan через разговор. Позвольте агенту писать плагины, которые добавляют функции или пользовательский интерфейс, или комбинируйте инструменты и подсказки для создания собственного режима.',
+    'Настройте своё приложение Jan. Добавляйте плагины и коннекторы, создавайте свои режимы и агентов или сохраняйте навыки для повторного использования.',
 
   inUse: 'Новая задача по умолчанию',
 
@@ -334,11 +334,11 @@ export const ru = {
   brokenBadge: 'Не удалось загрузить',
 
   switchRefused: 'Не удалось переключиться на {name}: {reason}',
-  standardUnavailable: 'Стандартный режим недоступен. Восстановите его или выберите другой доступный режим.',
+  standardUnavailable: 'Режим кода недоступен. Восстановите его или выберите другой доступный режим.',
 
   close: 'Закрыть',
 
-  creatorDraft: 'Позвольте агенту помочь мне создать пресет',
+  creatorDraft: 'Позвольте агенту помочь мне создать режим',
   createPlugin: 'Позвольте агенту создать плагин',
   createPluginDescription: 'Войдите в режим Creator и создайте свой собственный плагин Jan.',
   createPluginChecking: 'Проверка доступности режима Creator',
@@ -351,28 +351,28 @@ export const ru = {
 export const pt = {
   ...guidePt,
   builtInGroup: 'Integrado', customGroup: 'Personalizado',
-  sectionIntro: 'Escolha as ferramentas do agente e como funciona. Use o modo Padrão para tarefas diárias ou o modo Criador para adicionar recursos ao Jan.',
+  sectionIntro: 'Escolha as ferramentas do agente e como funciona. Use o modo de código para tarefas diárias ou o modo Criador para adicionar recursos ao Jan.',
 
-  seatHint: 'Escolha a predefinição de agente para sua nova tarefa',
-  headerHint: 'Trocar a predefinição de agente desta tarefa',
+  seatHint: 'Escolha o modo para sua nova tarefa',
+  headerHint: 'Trocar o modo desta tarefa',
   switchBusy: 'Aguarde a resposta atual terminar para trocar',
-  nav: 'Predefinições de agente',
+  nav: 'Modos',
 
   setDefault: 'Definir como nova tarefa padrão',
   view: 'Ver configuração',
 
-  presetStandardName: 'Modo padrão',
+  presetStandardName: 'Modo de código',
   presetStandardDescription:
     'Trabalhe com código, arquivos e informações. Adequado para a maioria das tarefas, com pesquisa, edição, comandos de terminal e outras ferramentas disponíveis conforme necessário.',
-  presetPtcName: 'modo PTC',
+  presetPtcName: 'Modo PTC',
   presetPtcDescription:
-    'Inclui todos os recursos do modo Padrão. Mais adequado para tarefas que chamam ferramentas em lotes e depois filtram, organizam, desduplicam, contam ou resumem os resultados.',
+    'Inclui todos os recursos do modo de código. Mais adequado para tarefas que chamam ferramentas em lotes e depois filtram, organizam, desduplicam, contam ou resumem os resultados.',
   presetMinimalName: 'Modo mínimo',
   presetMinimalDescription:
     'O agente utiliza terminal e leitura de imagens, com compactação de contexto. Útil para testar e comparar seu desempenho básico.',
   presetCordisName: 'Modo criador',
   presetCordisDescription:
-    'Personalize Jan por meio de conversa. Deixe o agente escrever plug-ins que adicionem recursos ou UI, ou combine ferramentas e prompts para criar seu próprio modo.',
+    'Personalize o Jan que você usa. Adicione plugins ou conectores, crie seus próprios modos e agentes ou salve habilidades reutilizáveis.',
 
   inUse: 'Novo padrão de tarefa',
 
@@ -380,11 +380,11 @@ export const pt = {
   brokenBadge: 'Falha ao carregar',
 
   switchRefused: 'Não foi possível mudar para {name}: {reason}',
-  standardUnavailable: 'O modo padrão não está disponível. Restaure-o ou escolha outro modo disponível.',
+  standardUnavailable: 'O modo de código não está disponível. Restaure-o ou escolha outro modo disponível.',
 
   close: 'Fechar',
 
-  creatorDraft: 'Deixe o agente me ajudar a criar uma predefinição',
+  creatorDraft: 'Deixe o agente me ajudar a criar um modo',
   createPlugin: 'Deixe o agente criar um plugin',
   createPluginDescription: 'Entre no modo Criador e crie seu próprio plug-in Jan',
   createPluginChecking: 'Verificando se o modo Criador está disponível',

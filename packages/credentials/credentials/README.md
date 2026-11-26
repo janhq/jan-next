@@ -58,6 +58,8 @@ await ctx.credentials.unset(ref)                       // no-op when absent; an 
 
 Store a key with `set`, remove it with `unset`, check its status with `describe`, and read the current value with `resolve` when an operation needs it. `describe` reports whether the key is set, where it comes from, and whether you can write to it — it never returns the value.
 
+When preserving a value for later restoration, use `resolve(ref, { dereference: false })` to retain a password-manager pointer instead of materializing its secret. For normal requests, use `resolve(ref)`.
+
 ### Storing, updating, and removing records
 
 A plugin addresses each record by `<scope>/<id>` — its own registered name plus an id it chooses, such as a provider route key — and reads, modifies, or removes what it holds:
@@ -183,6 +185,6 @@ These limits define when this package is a poor fit or needs special care. They 
 
 This Dev Note is working context for maintainers: open questions and undecided directions. It is explicitly non-authoritative — shipped behavior and limits live in the sections above and in the package code.
 
-The seam shape leaves room for keyring-, helper-command-, and KMS-backed providers; a remote settings provider never needs to carry secrets. None is shipped, and no current consumer requires one.
+The local provider supports OS keychain storage and password-manager references. The seam leaves room for other deployment-specific stores, such as a managed KMS; a remote settings provider never needs to carry secrets.
 
 </details>

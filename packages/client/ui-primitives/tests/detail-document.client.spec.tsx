@@ -38,11 +38,13 @@ it('shows a placeholder, the document with resolved images, or a failure with a 
 })
 
 it('maps owner reads to shown states', () => {
-  expect(detailDocumentState(undefined)).toEqual({ status: 'loading' })
-  expect(detailDocumentState({ status: 'loading' })).toEqual({ status: 'loading' })
-  expect(detailDocumentState({ status: 'ready', markdown: '# A' })).toEqual({ status: 'found', markdown: '# A' })
-  expect(detailDocumentState({ status: 'ready', markdown: undefined })).toEqual({ status: 'none' })
-  expect(detailDocumentState({ status: 'error', message: 'm' })).toEqual({ status: 'error', message: 'm' })
+  const message = (failure: string) => `failed: ${failure}`
+  expect(detailDocumentState(undefined, message)).toEqual({ status: 'loading' })
+  expect(detailDocumentState({ status: 'loading' }, message)).toEqual({ status: 'loading' })
+  expect(detailDocumentState({ status: 'ready', detail: { status: 'found', markdown: '# A' } }, message))
+    .toEqual({ status: 'found', markdown: '# A' })
+  expect(detailDocumentState({ status: 'ready', detail: { status: 'none' } }, message)).toEqual({ status: 'none' })
+  expect(detailDocumentState({ status: 'error', failure: 'network' }, message)).toEqual({ status: 'error', message: 'failed: network' })
 })
 
 it('keeps label identity while the translated strings stay equal', () => {

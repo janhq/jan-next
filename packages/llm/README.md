@@ -22,6 +22,7 @@ The llm group provides the harness's model-call capability: one provider-neutral
 
 | Package | Role | ctx key |
 |---|---|---|
+| [`context-usage/`](context-usage/README.md) | The `/context` command: one chat's context window by prompt section, tool, message kind and file | `ctx.contextUsage` |
 | [`llm/`](llm/README.md) | Streams one model call through a registered provider adapter and shares the harness message, block, and chunk vocabulary | `ctx.llm` |
 | [`llm-pi-ai/`](llm-pi-ai/README.md) | Serves configured provider routes through pi-ai catalogs and wire protocols, including hand-declared gateways | registers on `ctx.llm` |
 | [`llama-cpp/`](llama-cpp) | Downloads, verifies, and supervises a local llama.cpp server and the GGUF models it runs | `ctx.llamaCpp` |

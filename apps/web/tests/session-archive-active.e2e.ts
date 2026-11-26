@@ -108,9 +108,14 @@ describe.skipIf(MODE === 'record')('web e2e: archiving a running Session stops i
     await button.click()
   }
 
-  /** The one Session row of the fresh workspace group (the group row carries no actions). */
+  /**
+   * The one Session row of the fresh workspace group (the group row carries no
+   * actions). A running Session is also repeated in Working; the project tree's
+   * row is the one these steps act on.
+   */
   function sessionRow(): Locator {
-    return page.locator('[role="treeitem"]').filter({ has: page.locator('button[aria-label^="Session actions for "]') })
+    return page.getByRole('tree', { name: 'Sessions', exact: true }).locator('[role="treeitem"]')
+      .filter({ has: page.locator('button[aria-label^="Session actions for "]') })
   }
 
   beforeAll(async () => {

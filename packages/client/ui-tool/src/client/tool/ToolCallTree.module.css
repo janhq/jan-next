@@ -2,6 +2,31 @@
   border-radius: var(--dsw-radius-sm);
 }
 
+.cardLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card {
+  flex: 1;
+  min-width: 0;
+}
+
+.duration {
+  flex: none;
+  margin-top: 4px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A status entry that shows the work's own clock (TOOL_STATUS_CLOCK_ATTRIBUTE) replaces the call duration. */
+.cardLine:has([data-tool-status-clock]) > .duration {
+  display: none;
+}
+
 .subCalls {
   display: flex;
   flex-direction: column;

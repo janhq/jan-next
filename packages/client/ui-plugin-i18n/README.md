@@ -41,7 +41,7 @@ A stored table registers through `ctx.locale.registerGenerated`, below every reg
 
 The `MutationObserver` in `screen.ts` watches the slot renderer's `data-plugin-owner` marker and the Plugins page's `data-plugin-package`, `data-plugin-detail`, and `data-plugin-row-detail` markers. It samples visible text nodes and `title`, `placeholder`, and `aria-label` attributes locally, skipping input values, editable or code regions, and anything marked `translate="no"`. `ctx.pluginI18n.suggestions` publishes one suggested source language per package. Installed package metadata and attributed dictionary locales can also supply evidence.
 
-The shell offers one plugin at a time. **Not now** hides the offer for this app start; **Never for this plugin** saves the choice in this browser. Neither choice prevents manual translation. The Host receives screen text only with that package's own consent; the global tool-title switch does not cover it. Translations replace text in place, and **Show original** clears the translation and restores the plugin's own text. Clearing consent or changing the UI language also restores the originals.
+The shell offers one plugin at a time. **Not now** hides the offer until Jan restarts. **Don't show again** stops automated offers for that plugin in this browser across restarts. To reset the choice, manually translate the plugin from its card, its details, or **Settings > Built-in plugins > Translations**. The Host receives screen text only with that package's own consent; the global tool-title switch does not cover it. Translations replace text in place, and **Show original** clears the translation and restores the plugin's own text. Clearing consent or changing the UI language also restores the originals.
 
 ### Settings
 

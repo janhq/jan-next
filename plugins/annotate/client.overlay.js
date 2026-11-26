@@ -15,8 +15,8 @@ window.__ModuleLoader__.load({
     const ink = { ...textStyle, color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere' }
     const titleStyle = { fontSize: '16px', lineHeight: '24px', letterSpacing: '-0.32px', fontWeight: 500,
       color: 'var(--dsw-alias-label-primary)', margin: 0 }
-    // The Draw dialog's title, tools, stage padding, note and buttons take about 500px; the picture gets what the viewport leaves.
-    const FRAME_HEIGHT = 'min(53dvh, 620px, calc(100dvh - 500px))'
+    // Let the dialog scroll in a short viewport instead of squeezing out the picture.
+    const FRAME_HEIGHT = 'max(180px, min(53dvh, 620px, calc(100dvh - 500px)))'
     const frameStyle = { position: 'relative', maxHeight: FRAME_HEIGHT, maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: '8px' }
     const HIGHLIGHT = 'var(--dsw-alias-state-business-primary)'
     const elevation = '0 1px 2px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 8%, transparent), '
@@ -331,16 +331,18 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Scale a mark from the corner opposite `corner` to the pointer. A mark turns about its box centre, which
-     * resizing moves, so the result shifts back until the anchor corner keeps its place on screen.
+     * Move the dragged corner by the pointer's displacement, retaining its initial grab offset.
+     * Resizing moves the rotation centre, so shift the result to keep the opposite corner still.
      */
-    function resized(mark, b, corner, p, measure) {
+    function resized(mark, b, corner, delta, measure) {
+      if (delta.x === 0 && delta.y === 0) return mark
       const angle = mark.angle ?? 0
       const c0 = centerOf(b)
       const corners = [{ x: b.x, y: b.y }, { x: b.x + b.width, y: b.y }, { x: b.x + b.width, y: b.y + b.height }, { x: b.x, y: b.y + b.height }]
       const anchor = corners[(corner + 2) % 4]
       const dragged = corners[corner]
-      const q = turn(p, c0, -angle)
+      const local = turn(delta, { x: 0, y: 0 }, -angle)
+      const q = { x: dragged.x + local.x, y: dragged.y + local.y }
       const factor = (to, from, at) => (from === at ? 1 : (to - at) / (from - at))
       let next
       if (mark.tool === 'text') {
@@ -614,9 +616,10 @@ window.__ModuleLoader__.load({
           // Shift turns in 15-degree steps.
           next = { ...mark, angle: snap ? Math.round(angle / (Math.PI / 12)) * (Math.PI / 12) : angle }
         } else {
-          next = resized(mark, active.bounds, active.corner, p, measure)
+          next = resized(mark, active.bounds, active.corner, { x: p.x - active.origin.x, y: p.y - active.origin.y }, measure)
         }
-        update({ marks: active.before.map(item => (item.id === mark.id ? next : item)) })
+        const marks = next === mark ? active.before : active.before.map(item => (item.id === mark.id ? next : item))
+        if (marks !== doc.current.marks) update({ marks })
       }
       const move = (event) => {
         const active = gesture.current

@@ -102,7 +102,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     expect(beforeReload).not.toBeNull()
     await page.reload({ waitUntil: 'load' })
     await page.locator('[data-composer-input]').first().waitFor({ timeout: 15_000 })
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Code mode', exact: true }).waitFor({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Select model, current Tokamak 1 Preview' }).waitFor({ timeout: 15_000 })
     await expect.poll(() => page.evaluate(() => localStorage.getItem('jan.sessions.current'))).toBe(beforeReload)
     if (MODE !== 'record') {

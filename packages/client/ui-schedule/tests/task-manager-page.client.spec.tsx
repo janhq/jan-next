@@ -6,6 +6,7 @@ import { act, cleanup, fireEvent, isInaccessible, render, screen, within } from 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate, RemoteError } from '@janhq/jan-client-test-runtime'
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 import type { SessionListState } from '@janhq/jan-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
 import type {
@@ -2165,7 +2166,7 @@ describe('Task manager deletion', () => {
     h.remove.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}) })
     openDelete()
     fireEvent.click(screen.getByRole('button', { name: en['delete.confirm'] }))
-    await act(async () => { await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('failed') })
+    await act(async () => { await expect(h.onDelete.mock.results[0]!.value).resolves.toHaveProperty('failure') })
     // The failure raises no in-place alert: the app-wide toast announces it,
     // and the detail stays open for another attempt.
     expect(screen.queryByRole('alert')).toBeNull()
@@ -2203,7 +2204,9 @@ describe('Task manager deletion', () => {
   })
 
   it('keeps the detail on its rule when the confirmed deletion reaches no authoritative removal', async () => {
-    const h = mount({ records: [ended] }, en, { onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => 'failed') })
+    const h = mount({ records: [ended] }, en, { onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => ({
+      failure: captureFailure('schedule.delete', new Error('unavailable')),
+    })) })
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     chooseDelete()
     fireEvent.click(screen.getByRole('button', { name: en['delete.confirm'] }))

@@ -25,6 +25,7 @@
 
 .failure {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
@@ -50,7 +51,7 @@
   height: 12px;
   border-radius: var(--dsw-radius-xs);
   background: var(--dsw-alias-bg-skeleton);
-  animation: jan-plugin-detail-skeleton 2s cubic-bezier(0.36, 0, 0.64, 1) infinite;
+  animation: jan-plugin-detail-skeleton var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite;
 }
 
 .long { width: min(480px, 90%); }

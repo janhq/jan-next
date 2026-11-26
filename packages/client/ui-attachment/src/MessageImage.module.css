@@ -87,7 +87,7 @@
 }
 
 .spinner {
-  animation: spinner-rotate 0.9s linear infinite;
+  animation: spinner-rotate var(--ds-transition-duration-loop) linear infinite;
 }
 
 @keyframes spinner-rotate {

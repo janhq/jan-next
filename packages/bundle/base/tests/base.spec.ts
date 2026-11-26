@@ -22,6 +22,18 @@ describe('jan-base bundle', () => {
       .not.toContain('wake_after')
   })
 
+  it('enables OS keychain writes only for the desktop profile', () => {
+    const parsed = yaml.load(readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), { schema: entryListSchema })
+    const rows = (parsed as { insert?: { id?: string; config?: { keychain?: { __jsExpr: string } } }[] }[])
+      .flatMap(patch => patch.insert ?? [])
+    const expression = rows.find(row => row.id === 'credentials')?.config?.keychain?.__jsExpr
+    if (expression === undefined) throw new Error('credentials must configure keychain writes')
+    for (const name of [undefined, 'cli', 'web', 'desktop']) {
+      const ctx = { get: () => name === undefined ? undefined : { name } }
+      expect(evaluate({ ctx }, expression)).toBe(name === 'desktop')
+    }
+  })
+
   it('declares a parseable patch list through the jan.bundle.patch manifest field', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(
@@ -71,14 +83,13 @@ describe('jan-base bundle', () => {
       apiKeyEnv: 'TOKAMAK_API_KEY',
       modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] },
     })
-    // Undeclared router models read images; entries only mark the text-only ones and the router still decides the served set.
+    // Only the text-only exceptions override input; reasoning-only rows must inherit text + image.
     expect(tokamak?.['defaultInput']).toEqual(['text', 'image'])
-    const models = tokamak?.['models'] as Array<Record<string, unknown>>
-    expect(models.filter(model => 'input' in model)).toEqual(['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })))
-    // The listing reports no reasoning metadata, so entries declare the router's effort levels.
-    const reasoning = models.filter(model => !('input' in model))
-    expect(reasoning.map(model => model['id'])).toContain('tokamak/auto')
-    for (const model of reasoning) expect(model).toEqual({ id: model['id'], reasoningEfforts: { low: 'low', medium: 'medium', high: 'high' } })
+    const models = tokamak?.['models'] as { id: string; input?: string[]; reasoningEfforts?: Record<string, string> }[]
+    expect(models.filter(model => model.input !== undefined)).toEqual(
+      ['deepseek-flash', 'deepseek-v4-pro', 'openai/gpt-oss-120b-medium'].map(id => ({ id, input: ['text'] })),
+    )
+    expect(models.find(model => model.id === 'tokamak/auto')?.reasoningEfforts).toEqual({ low: 'low', medium: 'medium', high: 'high' })
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
     expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')

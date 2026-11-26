@@ -52,8 +52,10 @@ export interface SessionNode {
   running: boolean
   /** Running direct children in the loaded subagent catalog. */
   runningSubagentCount: number
-  /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
+  /** Finished running while not selected and not yet opened (the "done" reminder dot). */
   completed: boolean
+  /** The latest finished turn ended in an error; the reminder dot shows red instead of green. */
+  failed: boolean
   /** In the registry-global pin set: leads its section, reorderable only among pinned rows. */
   pinned: boolean
   /** In the registry-global archive set: shown grayed in place and not openable. */
@@ -81,6 +83,8 @@ export interface GroupNode extends Pick<WorkspaceView, 'avatar' | 'color' | 'git
   expanded: boolean
   /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */
   containsCurrent: boolean
+  /** A visible member Session or one of its subagents is running, whether or not the group is folded. */
+  working: boolean
   /** Visible session rows (empty while the group is folded). */
   sessions: readonly SessionNode[]
 }
@@ -95,8 +99,10 @@ export interface SearchResultNode {
   running: boolean
   /** Running direct children in the loaded subagent catalog. */
   runningSubagentCount: number
-  /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
+  /** Finished running while not selected and not yet opened (the "done" reminder dot). */
   completed: boolean
+  /** The latest finished turn ended in an error; the reminder dot shows red instead of green. */
+  failed: boolean
   /** In the registry-global archive set: shown grayed and not openable. */
   archived: boolean
   snippet?: string
@@ -396,6 +402,22 @@ function runningChildCount(list: SessionListState, parentId: SessionId, statuses
   ) ?? 0
 }
 
+/** A Session or one of its subagents runs; archived Sessions never count. */
+function sessionWorking(
+  session: SessionSummary,
+  list: SessionListState,
+  statuses: SessionStatuses,
+  archived: ReadonlySet<SessionId>,
+): boolean {
+  if (session.blank || archived.has(session.id)) return false
+  return (statuses.get(session.id)?.running ?? session.running) || runningChildCount(list, session.id, statuses) > 0
+}
+
+/** The `lastTurnFailed` summary projection, from the live store first, then the list row. */
+function lastTurnFailed(list: SessionListState, id: SessionId): boolean {
+  return (list.projectionsBySession[id]?.values.lastTurnFailed ?? list.byId[id]?.projectionValues?.lastTurnFailed) === true
+}
+
 function sessionNode(
   s: SessionSummary,
   list: SessionListState,
@@ -412,6 +434,7 @@ function sessionNode(
     running: status?.running ?? s.running,
     runningSubagentCount: runningChildCount(list, s.id, statuses),
     completed: status?.completionUnread === true,
+    failed: lastTurnFailed(list, s.id),
     pinned: !archived.has(s.id) && pinned.has(s.id),
     archived: archived.has(s.id),
     updatedAt: s.updatedAt,
@@ -467,6 +490,7 @@ export function deriveGroups(
       sessionCount: g.sessions.length,
       expanded,
       containsCurrent: g.key === currentGroup,
+      working: g.sessions.some(session => sessionWorking(session, list, statuses, archived)),
       sessions: expanded
         ? sectionMembers(g.sessions, pinned, archived)
           .map(session => sessionNode(session, list, statuses, pinned, archived))
@@ -531,6 +555,33 @@ export function deriveFlat(
   })
   return sectionMembers(members, pinned, archived)
     .map(session => sessionNode(session, list, statuses, pinned, archived))
+}
+
+/**
+ * Top-level Sessions for the Working section, newest first. A Session counts
+ * while its own turn or one of its subagents runs, and after it stops until the
+ * user opens it (the done or failed reminder); waiting on the user is not
+ * working. Blank and archived Sessions never count. Each row also keeps its
+ * usual place in the main list.
+ * @param list - sessions list snapshot.
+ * @param rowState - registry-global pin and archive sets plus the archived filter.
+ * @param statuses - unified UI status by Session.
+ * @returns the running and unread finished rows.
+ */
+export function deriveWorking(list: SessionListState, rowState: SessionRowState, statuses: SessionStatuses): SessionNode[] {
+  const archived = new Set(rowState.archivedSessionIds)
+  const pinned = new Set(rowState.pinnedSessionIds)
+  const nodes: SessionNode[] = []
+  for (const id of list.ids) {
+    const session = list.byId[id]
+    if (session === undefined || session.blank || archived.has(id)) continue
+    if (!sessionVisible(session, undefined, archived, rowState.archivedFilter, rowState.hiddenSessionIds)) continue
+    if (sessionWorking(session, list, statuses, archived) || statuses.get(id)?.completionUnread === true) {
+      nodes.push(sessionNode(session, list, statuses, pinned, archived))
+    }
+  }
+  // The order of orderByRecency: newest first, then Session identity.
+  return nodes.sort((a, b) => a.updatedAt !== b.updatedAt ? b.updatedAt - a.updatedAt : a.id < b.id ? -1 : 1)
 }
 
 /**
@@ -623,12 +674,74 @@ export function deriveSearchResults(
           ? {}
           : { pendingInteraction }),
         completed: status?.completionUnread === true,
+        failed: lastTurnFailed(list, summary.id),
         archived: archived.has(summary.id),
         ...match === undefined ? {} : { snippet: match.snippet },
       }
     }),
     hasMore: content.hasMore || ordered.length > limit,
   }
+}
+
+/**
+ * Group registered checkout roots by repository, then optionally nest folders by path.
+ * @param workspaces - registered Workspaces in display order.
+ * @param nestFolders - whether to also nest by folder ancestry.
+ * @returns parent ids and the labels for repository children.
+ */
+export function workspaceHierarchy(workspaces: readonly WorkspaceView[], nestFolders: boolean): {
+  parents: Map<string, WorkspaceId>
+  branchLabels: Map<string, string>
+} {
+  const byHost = new Map<string | undefined, WorkspaceView[]>()
+  const parents = new Map<string, WorkspaceId>()
+  const branchLabels = new Map<string, string>()
+  const mainCheckout = (workspace: WorkspaceView) => workspace.repository !== undefined
+    && `${folderPath(workspace.path)}/.git` === folderPath(workspace.repository)
+  for (const workspace of workspaces) {
+    const host = byHost.get(workspace.hostId)
+    if (host === undefined) byHost.set(workspace.hostId, [workspace])
+    else host.push(workspace)
+  }
+  for (const host of byHost.values()) {
+    const groups = new Map<string, { head: WorkspaceView; roots: WorkspaceView[] }>()
+    for (const workspace of host) {
+      if (workspace.repository === undefined || workspace.checkoutRoot === undefined
+        || folderPath(workspace.path) !== folderPath(workspace.checkoutRoot)) continue
+      const group = groups.get(workspace.repository)
+      if (group === undefined) {
+        groups.set(workspace.repository, { head: workspace, roots: [workspace] })
+        continue
+      }
+      group.roots.push(workspace)
+      const head = group.head
+      if (!mainCheckout(head) && (mainCheckout(workspace) || workspace.createdAt < head.createdAt
+        || (workspace.createdAt === head.createdAt && workspace.workspaceId < head.workspaceId))) {
+        group.head = workspace
+      }
+    }
+    for (const { head, roots } of groups.values()) {
+      for (const workspace of roots) {
+        if (head === workspace) continue
+        parents.set(workspace.workspaceId, head.workspaceId)
+        branchLabels.set(workspace.workspaceId, workspace.branch ?? workspaceLabel(workspace.path))
+      }
+    }
+    if (!nestFolders) continue
+    const byPath = new Map(host.map(workspace => [workspace.path, workspace.workspaceId]))
+    const paths = [...byPath.keys()]
+    for (const workspace of host) {
+      if (parents.has(workspace.workspaceId)) continue
+      const path = owningParentFolder(workspace.path, paths)
+      const parent = path === undefined ? undefined : byPath.get(path)
+      if (parent === undefined) continue
+      // An external checkout can contain the folder that owns its repository group.
+      let ancestor: WorkspaceId | undefined = parent
+      while (ancestor !== undefined && ancestor !== workspace.workspaceId) ancestor = parents.get(ancestor)
+      if (ancestor === undefined) parents.set(workspace.workspaceId, parent)
+    }
+  }
+  return { parents, branchLabels }
 }
 
 /** Normalize separators for comparison without interpreting POSIX backslashes as separators. */

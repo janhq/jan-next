@@ -15,11 +15,11 @@
   line-height: 18px;
   white-space: nowrap;
   transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out,
-    border-color 160ms ease-out,
-    opacity 150ms ease-out;
-  animation: indicator-enter 150ms ease-out;
+    background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
+    opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  animation: indicator-enter var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 .leaving {
@@ -90,11 +90,11 @@
 }
 
 .secondDot {
-  animation: reveal-second-dot 1.5s step-end infinite;
+  animation: reveal-second-dot var(--ds-transition-duration-ambient) step-end infinite;
 }
 
 .thirdDot {
-  animation: reveal-third-dot 1.5s step-end infinite;
+  animation: reveal-third-dot var(--ds-transition-duration-ambient) step-end infinite;
 }
 
 @keyframes reveal-second-dot {

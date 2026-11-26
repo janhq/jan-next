@@ -59,6 +59,30 @@ interface PendingModule {
 }
 ```
 
+## Reload gate
+
+<a id="reload-gate"></a>
+
+`ctx.hmr.setGate` installs the one `ReloadGate`; [jan-hmr](../../packages/boot/hmr/README.md#reload-gate) describes when held changes apply and when `hmr/restart-required` replaces an exit.
+
+```ts type-equiv
+/** Decides whether changed Host modules apply now. */
+interface ReloadGate {
+  /** @returns why changes wait, or `undefined` to apply them now. */
+  hold(): string | undefined
+}
+```
+
+```ts type-equiv
+/** Module changes waiting for the reload gate. */
+interface HeldReload {
+  /** Canonical file URLs of held modules and include files. */
+  readonly modules: readonly string[]
+  /** The gate's latest reason. */
+  readonly reason: string
+}
+```
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -141,6 +165,56 @@ async edit( entry: Entry, change: (current: Record<string, unknown>, inherited: 
 
 Source: [`packages/boot/config-editor/src/index.ts`](../../packages/boot/config-editor/src/index.ts)
 
+<a id="ctxdownloads--downloadstore"></a>
+
+### `ctx.downloads` — `DownloadStore`
+
+Session-local Host service used by download producers.
+
+```ts cordis-catalog
+/**
+ * Report a new transfer attempt.
+ * @param initial - Transfer identity and optional actions.
+ * @returns Attempt-specific reporting handle.
+ */
+start(initial: DownloadStart): DownloadHandle
+
+/**
+ * Read the transfer list and badge state.
+ * @returns Current immutable transfer list and badge state.
+ */
+snapshot(): DownloadSnapshot
+
+/**
+ * Observe changes to the transfer list.
+ * @param listener - Called on changes; byte-only changes are coalesced.
+ * @returns Removal callback.
+ */
+subscribe(listener: () => void): () => void
+
+/**
+ * Clear the unseen dot for finishes up to a sequence.
+ * @param sequence - Acknowledge finishes seen up to this sequence.
+ */
+markSeen(sequence: number): void
+
+/** Remove terminal rows, never an active or paused transfer. */
+clearFinished(): void
+
+/**
+ * Run one producer action that the transfer currently offers.
+ * @param id - Transfer to operate on.
+ * @param action - Current producer callback to run.
+ * @returns Settles when the producer callback settles.
+ */
+act(id: string, action: DownloadAction): Promise<void>
+
+/** Withdraw subscriptions and scheduled publications. */
+dispose(): void
+```
+
+Source: [`packages/host/downloads/src/types.ts`](../../packages/host/downloads/src/types.ts)
+
 <a id="ctxheadlessstartup--headlessstartupvalues"></a>
 
 ### `ctx.headlessStartup` — `HeadlessStartupValues`
@@ -161,6 +235,20 @@ Hot reload service with Cordis-compatible module configuration and events.
  * @returns The operation result after its asynchronous work completes.
  */
 runExclusive<T>(operation: () => Promise<T>): Promise<T>
+
+/** Install the gate that decides whether changed Host modules apply now; one gate at a time.
+ * An external module change no longer exits the process while a gate is installed: `hmr/restart-required` reports it.
+ * @param gate Holds changes while it returns a reason.
+ * @returns Disposer removing the gate and applying anything it held.
+ */
+setGate(gate: ReloadGate): () => void
+
+/** Apply held changes in the reload queue.
+ * @param options - By default bypass the gate. With `respectGate`, recheck it after entering the queue.
+ * `beforeApply` is called synchronously just before a held batch is attempted, even if every refresh then fails.
+ * @returns Whether any changes applied successfully.
+ */
+applyHeld(options?: { readonly respectGate?: boolean; readonly beforeApply?: () => void }): Promise<boolean>
 
 /** Watch a configuration path through the same queue as module replacement.
  * @param filename Absolute path, which may not exist yet.
@@ -579,6 +667,22 @@ Source: [`packages/boot/app-boot/src/index.ts`](../../packages/boot/app-boot/src
 
 ### `hmr/*` events
 
+<a id="hmrapplied--emit"></a>
+
+#### `hmr/applied` — emit
+
+Changed modules and include files were applied.
+
+```ts cordis-catalog
+/** Changed modules and include files were applied.
+ * @mode emit
+ * @param modules Canonical file URLs that were applied.
+ */
+'hmr/applied'(modules: readonly string[]): void
+```
+
+Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
 <a id="hmrchange--emit"></a>
 
 #### `hmr/change` — emit
@@ -595,6 +699,22 @@ A watched file has no module or configuration handler.
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
 
+<a id="hmrheld--emit"></a>
+
+#### `hmr/held` — emit
+
+The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.
+
+```ts cordis-catalog
+/** The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.
+ * @mode emit
+ * @param held Every held module and include file, and the gate's reason.
+ */
+'hmr/held'(held: HeldReload): void
+```
+
+Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
 <a id="hmrreload--emit"></a>
 
 #### `hmr/reload` — emit
@@ -607,6 +727,23 @@ Module replacements have finished loading.
  * @param reloads Replaced plugins and their module locations.
  */
 'hmr/reload'(reloads: Map<Plugin, Reload>): void
+```
+
+Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
+<a id="hmrrestart-required--emit"></a>
+
+#### `hmr/restart-required` — emit
+
+A change can load only after the process restarts. Without a reload gate, an external module change also exits.
+
+```ts cordis-catalog
+/** A change can load only after the process restarts. Without a reload gate, an external module change also exits.
+ * @mode emit
+ * @param reason `external-module` for a change in the process entry point's static graph, or the profile reconciliation reason.
+ * @param modules Canonical file URLs that wait for the restart.
+ */
+'hmr/restart-required'(reason: string, modules: readonly string[]): void
 ```
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)

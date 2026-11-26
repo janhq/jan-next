@@ -18,6 +18,8 @@ export interface TriggerHit {
   readonly position: TriggerPosition
   /** Token span; draftRev injected by the caller. */
   readonly span: TokenSpan
+  /** True when the query includes a slash command and its argument separator. */
+  readonly arguments?: true
 }
 
 /**

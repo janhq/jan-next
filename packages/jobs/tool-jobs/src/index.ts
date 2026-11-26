@@ -48,11 +48,21 @@ export const inject = ['tools', 'jobs', 'systemPrompt']
  */
 export type CompletionDelivery = 'quiet' | 'wakeup'
 
+/**
+ * Default cap on one `job_output` wait. Providers drop the prompt cache after
+ * about five minutes idle; waking at 4.5 minutes and checking again keeps the
+ * next request reading from cache instead of re-reading the conversation.
+ */
+const MAX_WAIT_DEFAULT_MS = 270_000
+
 /** Configures bounded `job_output` waits and background-notice delivery. */
 export interface Config {
   /** Wait duration applied when `job_output` sets `wait` without `timeout_ms` (default 30s). */
   waitTimeoutMs?: number
-  /** Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it (default 10min). */
+  /**
+   * Hard cap on any single wait; a larger model-supplied `timeout_ms` is clamped down to it
+   * (default 270s, inside the five-minute prompt-cache window).
+   */
   maxWaitTimeoutMs?: number
   /** Whether a background notice opens a turn on an idle owner (default `wakeup`). */
   completionDelivery?: CompletionDelivery
@@ -76,7 +86,7 @@ export interface Config {
 
 export const Config: z<Config> = z.object({
   waitTimeoutMs: z.number().min(1).default(30_000),
-  maxWaitTimeoutMs: z.number().min(1).default(600_000),
+  maxWaitTimeoutMs: z.number().min(1).default(MAX_WAIT_DEFAULT_MS),
   completionDelivery: z.union(['quiet', 'wakeup'] as const).default('wakeup'),
   maxConsecutiveWakes: z.number().min(1),
   inlineOutputBytes: z.natural().default(2048),
@@ -107,6 +117,8 @@ const DEFAULT_WATCH_DEBOUNCE_MS = 1_000
 const MAX_WATCH_DEBOUNCE_MS = 60_000
 const MAX_WATCH_PREVIEW_BYTES = 2_048
 const MAX_WAKE_SECONDS = 86_400
+/** Longest wake delay that still lands inside the five-minute provider prompt-cache window. */
+const CACHE_WARM_SECONDS = 270
 const MAX_WAKE_NOTE_BYTES = 1_024
 
 const encoder = new TextEncoder()
@@ -276,7 +288,7 @@ function readBody(read: JobRead): { text: string; job: PublicJobSnapshot } {
 
 export function apply(ctx: Context, config: Config): void {
   const waitDefault = config.waitTimeoutMs ?? 30_000
-  const waitCap = config.maxWaitTimeoutMs ?? 600_000
+  const waitCap = config.maxWaitTimeoutMs ?? MAX_WAIT_DEFAULT_MS
   const delivery = config.completionDelivery ?? 'wakeup'
   const wakeBudget = config.maxConsecutiveWakes
   const inlineBytes = config.inlineOutputBytes ?? 2048
@@ -516,7 +528,7 @@ export function apply(ctx: Context, config: Config): void {
     parameters: {
       job_id: { type: 'string', required: true, description: 'Job id returned by the tool that started the background work.' },
       wait: { type: 'boolean', description: 'Block until the job finishes or the timeout expires; a timed-out wait leaves the job running. Defaults to false.' },
-      timeout_ms: { type: 'number', description: 'Max wait in milliseconds with wait: true. Defaults to and is capped by configuration.' },
+      timeout_ms: { type: 'number', description: 'Max wait in milliseconds with wait: true. Defaults to and is capped by configuration (270000 unless configured, inside the provider prompt-cache window); wait again to keep waiting.' },
     },
     finalizeContent: finalizeJobContent,
     output: {
@@ -683,7 +695,7 @@ export function apply(ctx: Context, config: Config): void {
     name: 'wake_after',
     description: 'Schedule a one-time reminder to resume work later without polling or blocking. Returns a timer job ID you can list or cancel with job_kill. Completion wakes you if enabled.',
     parameters: {
-      seconds: { type: 'number', required: true, description: `Delay in seconds, from 1 to ${MAX_WAKE_SECONDS}.` },
+      seconds: { type: 'number', required: true, description: `Delay in seconds, from 1 to ${MAX_WAKE_SECONDS}. Prefer ${CACHE_WARM_SECONDS} or less: the provider prompt cache expires after about five minutes idle, so a longer delay makes the next request re-read the whole conversation.` },
       note: { type: 'string', required: true, description: `Non-blank reminder to include in the completion notice (up to ${MAX_WAKE_NOTE_BYTES} UTF-8 bytes).` },
     },
     output: {

@@ -35,7 +35,7 @@ export function apply(ctx: Context): void {
   const t = ctx.locale.bind('fileDrag')
   ctx.effect(() => ctx.locale.register('fileDrag', { zh, en, ja, es, fr, de, ru, pt }))
   let sequence = 0
-  const reportFailure = (): void => { failure.set({ text: t('failed'), sequence: ++sequence }) }
+  const reportFailure: FileDragActions['reportFailure'] = (details) => { failure.set({ text: t('failed'), sequence: ++sequence, details }) }
   const transfers = new FileTransfers(desktop, reportFailure)
   const dismiss = (): void => { failure.set(null) }
   ctx.provide('fileDrag', {

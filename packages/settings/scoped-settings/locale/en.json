@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Chat and project settings",
+    "description": "Choose a default model and mode per project, and switch tools off for every chat, one project or one chat."
+  }
+}

@@ -1570,9 +1570,8 @@ function normalizeAria(snapshot: string, workspaceCwd: string, age: boolean): st
  * consecutive normalized captures are equal — a single-shot capture races the
  * last React commits. A foreground shell command is a job while it runs, and
  * its removal reaches the browser one coalesced roster frame after the tool
- * result, so by default the capture first waits for the session header's
- * running-job control to leave; a scenario whose milestone is a running job
- * keeps it with `runningJobs: 'keep'`.
+ * result, so by default the capture waits for the running-jobs pill to leave
+ * the composer dock. A running-job milestone opts in with `runningJobs: 'keep'`.
  * @param page - the page under test.
  * @param selector - the region locator selector.
  * @param workspaceCwd - normalization input.
@@ -1593,7 +1592,7 @@ export async function captureStableAria(
   } = {},
 ): Promise<string> {
   if ((options.runningJobs ?? 'settle') === 'settle') {
-    await page.getByRole('button', { name: /background jobs? running/ })
+    await page.locator('[data-composer-dock]').getByRole('button', { name: /^\d+ running$/ })
       .waitFor({ state: 'detached', timeout: 10_000 })
   }
   const region = page.locator(selector).first()

@@ -39,9 +39,9 @@ export interface JobListInjected {
   killJob: (sessionId: SessionId, jobId: string) => Promise<boolean>
 }
 
-/** Full props for the session-header job-list action. */
+/** Full props for the composer dock job-list action. */
 export type JobListActionProps =
-  PropsRuntime<'conversation.session.header.actions'>
+  PropsRuntime<'conversation.composer.dock'>
   & PropsLocale<typeof NS>
   & InjectFace<JobListInjected>
 
@@ -85,7 +85,7 @@ function assertNever(value: never): never {
  * Status marker semantics. `stopping` and `killed` share the attention color:
  * both mean the work ended (or is ending) on request rather than on its own.
  */
-function dotState(status: JobView['status']): StateDotState {
+export function dotState(status: JobView['status']): StateDotState {
   switch (status) {
     case 'running': return 'ongoing'
     case 'stopping': return 'warning'
@@ -97,7 +97,7 @@ function dotState(status: JobView['status']): StateDotState {
   }
 }
 
-function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): string {
+export function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): string {
   switch (status) {
     case 'running': return t('status.running')
     case 'stopping': return t('status.stopping')
@@ -115,7 +115,7 @@ function statusLabel(status: JobView['status'], t: TranslateNS<typeof NS>): stri
  * stays in hours rather than growing a day/month vocabulary no producer
  * currently reaches.
  */
-function formatDuration(elapsedMs: number, t: TranslateNS<typeof NS>): string {
+export function formatDuration(elapsedMs: number, t: TranslateNS<typeof NS>): string {
   const total = Math.max(0, Math.floor(elapsedMs / 1_000))
   const seconds = total % 60
   const minutes = Math.floor(total / 60) % 60
@@ -314,23 +314,17 @@ function JobItem({ job, view, expanded, now, onToggle, kill, t }: {
 }
 
 /**
- * Session-header entry point for this session's background jobs. Mounting it
- * keeps the session's roster stream open; it renders nothing at all until the
- * session can see at least one job. Expanding an observable row (a live job,
- * or a settled one with retained output) starts its observation stream, and
- * collapsing (or closing the popover) stops it — output only flows while
- * someone is watching. A running row carries a two-press stop button that
- * requests a human kill through the job controller. Non-touch hover on a
- * text-visible trigger opens after 150ms and closes after 120ms outside both
- * trigger and portal. Compact triggers toggle on click; ArrowDown opens and
- * pins either layout. Interacting inside also pins the menu until explicit
- * dismissal; timers and the pin are local to the mounted session.
+ * Composer dock entry for background jobs. Mounting keeps the session's roster
+ * stream open, even while there are no visible jobs. Expanding a live job or a
+ * settled job with retained output opens its observation stream until the row
+ * or list closes. Stopping a running job takes two presses. Non-touch hover
+ * opens a preview; clicking, pressing ArrowDown, or interacting inside pins it.
  * @param props - runtime slot currency, the jobs snapshot hook, the roster,
  *   observation, and kill controls, and the namespace translator.
  * @returns the trigger and its popover list, or null when there is nothing to show.
  */
 export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob, t }: JobListActionProps) {
-  const activityId = useId()
+  const descriptionId = useId()
   const jobs = useJobs(state => state.rows[sessionId]) ?? NO_JOBS
   const observedViews = useJobs(state => state.observed)
   const [menuState, setMenuState] = useState<{ sessionId: SessionId; mode: 'closed' | 'hover' | 'pinned' }>(
@@ -351,7 +345,6 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
   const [killPhase, setKillPhase] = useState<{ key: string; state: Exclude<KillState, 'idle'> } | undefined>(undefined)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const countRef = useRef<HTMLSpanElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const rows = useMemo(() => ordered(jobs), [jobs])
@@ -378,17 +371,12 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
     setMenuState({ sessionId, mode: next ? 'pinned' : 'closed' })
   }, [cancelHover, sessionId])
 
-  // CSS owns the compact breakpoint; read its result only for pointer gestures.
-  const allowsHoverOpen = (): boolean => countRef.current !== null
-    && getComputedStyle(countRef.current).display !== 'none'
-
   const hoverEnter = (event: PointerEvent<HTMLElement>): void => {
     if (event.pointerType === 'touch') return
     cancelHover()
-    if (open || !allowsHoverOpen()) return
+    if (open) return
     hoverOpenTimer.current = setTimeout(() => {
       hoverOpenTimer.current = undefined
-      if (!allowsHoverOpen()) return
       setNow(Date.now())
       setMenuState({ sessionId, mode: 'hover' })
     }, 150)
@@ -499,8 +487,11 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
 
   if (visibleCount === 0) return null
 
-  const count = liveRows.length > 0 ? liveRows.length : visibleCount
-  const countLabel = t(count === 1 ? 'count.idle.one' : 'count.idle.other', { count })
+  const liveCount = liveRows.length
+  const count = liveCount || visibleCount
+  const countLabel = liveCount > 0
+    ? t('count.live', { count })
+    : t(count === 1 ? 'count.idle.one' : 'count.idle.other', { count })
 
   const clearSettled = (): void => {
     setClearedKeys((current) => {
@@ -565,18 +556,18 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
   )
 
   return (
-    <div ref={rootRef} style={{ anchorName }} onKeyDown={onKeyDown}>
-      <Tooltip label={countLabel} disabled={open} delayMs={500} portal side="bottom">
+    <div ref={rootRef} className={css.anchor} style={{ anchorName }} onKeyDown={onKeyDown}>
+      <Tooltip label={countLabel} disabled={open} delayMs={200} portal side="top" onlyWhenClipped>
         <button
           ref={triggerRef}
           type="button"
           className={css.trigger}
           aria-expanded={open}
           aria-label={countLabel}
-          aria-describedby={liveRows.length > 0 ? activityId : undefined}
+          aria-describedby={liveCount > 0 ? descriptionId : undefined}
           onPointerEnter={hoverEnter}
           onPointerLeave={hoverLeave}
-          onClick={() => { changeOpen(!open || (allowsHoverOpen() && menuState.mode !== 'pinned')) }}
+          onClick={() => { changeOpen(menuState.mode !== 'pinned') }}
           onKeyDown={(event) => {
             if (event.key !== 'ArrowDown') return
             event.preventDefault()
@@ -584,14 +575,11 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
             queueMicrotask(() => { menuRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus() })
           }}
         >
-          <span className={css.activitySlot} aria-hidden>
-            <IconLayersOutlineRegular size={14} className={liveRows.length > 0 ? css.compactIcon : undefined} />
-            {liveRows.length > 0 && <StateDot state="ongoing" className={css.textModeActivity} />}
-          </span>
-          <span ref={countRef} className={css.count} data-job-count>{countLabel}</span>
+          {liveCount > 0 ? <StateDot state="ongoing" /> : <IconLayersOutlineRegular size={14} />}
+          <span className={css.count}>{liveCount > 0 ? countLabel : count}</span>
         </button>
       </Tooltip>
-      {liveRows.length > 0 && <span id={activityId} hidden>{t('section.live')}</span>}
+      {liveCount > 0 && <span id={descriptionId} hidden>{t('list.aria')}</span>}
       {open
         ? createPortal(
           <MenuSurface

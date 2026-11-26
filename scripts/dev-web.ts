@@ -19,7 +19,7 @@
  * MUST NOT run beside `pnpm run build` or `build:artifacts`: they write the same `lib/` and
  * `apps/web/dist/` trees. The build stage here finishes before any watcher starts.
  *
- * Usage: `pnpm run dev:web [--skip-build] [--no-serve] [--poll[=ms]] [jan web arguments]`.
+ * Usage: `pnpm run dev:web [--skip-build] [--no-serve] [--host] [--poll[=ms]] [jan web arguments]`.
  * `--skip-build` requires the artifact tree from a prior `build` or `build:artifacts`: every
  * watcher is incremental over the previous stage's output and none of them
  * bootstraps a missing tree. `--no-serve` keeps only the watchers, for a
@@ -27,7 +27,10 @@
  * (default 500ms): network mounts (weka) deliver no inotify events, so native
  * watching sees the initial build only and never a source change. Polling has
  * to reach tsc too — a native-watching tsc never re-emits `lib/types`, which
- * strands the other two stages on stale input.
+ * strands the other two stages on stale input. `--host` (only with `--no-serve`)
+ * also rebuilds Host-only packages: tsc builds `tsconfig.host.json` in the same
+ * watch program, so projects both graphs share compile once, and tsdown watches
+ * every Host package's `lib/index.js`, for a Host whose HMR reloads them.
  *
  * Shutdown: Ctrl+C reaches every stage through the terminal's process group, so
  * the script only waits for them and escalates survivors; SIGTERM is addressed
@@ -55,6 +58,9 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Client-face type emit feeding every tsdown lib entry in the watch set. */
 const CLIENT_TYPE_PROGRAM = 'tsconfig.client.json'
+
+/** Host-face type emit feeding every Host-only tsdown lib entry, watched with `--host`. */
+const HOST_TYPE_PROGRAM = 'tsconfig.host.json'
 
 /** Compile-shell workspace whose dist `jan web` serves. */
 const SHELL_PACKAGE = '@janhq/jan-web-frontend'
@@ -86,6 +92,8 @@ export interface DevWebArguments {
   readonly serve: boolean
   /** Source-watcher polling interval in milliseconds; undefined selects native watching. */
   readonly pollInterval: number | undefined
+  /** Also rebuild Host-only packages; requires `serve: false`. */
+  readonly host: boolean
   /** Arguments forwarded verbatim to `jan web`, in order. */
   readonly appArgs: readonly string[]
 }
@@ -94,17 +102,19 @@ export interface DevWebArguments {
 const DEFAULT_POLL_INTERVAL = 500
 
 /**
- * Parse the script's command line. `--skip-build`, `--no-serve`, and `--poll[=ms]`
+ * Parse the script's command line. `--skip-build`, `--no-serve`, `--host`, and `--poll[=ms]`
  * belong to this script; a bare `--` is dropped; every other token is forwarded
  * to `jan web`.
  * @param argv - arguments after the script path.
  * @returns the resolved flags and forwarded arguments.
- * @throws Error when `--poll` carries a non-positive or non-integer interval, or
- * when `--no-serve` leaves forwarded arguments without a `jan web` process.
+ * @throws Error when `--poll` carries a non-positive or non-integer interval,
+ * when `--no-serve` leaves forwarded arguments without a `jan web` process, or
+ * when `--host` is given without `--no-serve`.
  */
 export function parseDevWebArguments(argv: readonly string[]): DevWebArguments {
   let skipBuild = false
   let serve = true
+  let host = false
   let pollInterval: number | undefined
   const appArgs: string[] = []
   for (const arg of argv) {
@@ -112,6 +122,7 @@ export function parseDevWebArguments(argv: readonly string[]): DevWebArguments {
     if (arg === '--') continue
     if (arg === '--skip-build') skipBuild = true
     else if (arg === '--no-serve') serve = false
+    else if (arg === '--host') host = true
     else if (arg === '--poll' || arg.startsWith('--poll=')) {
       pollInterval = arg === '--poll' ? DEFAULT_POLL_INTERVAL : Number(arg.slice('--poll='.length))
       if (!Number.isInteger(pollInterval) || pollInterval <= 0) throw new Error(`dev-web: invalid --poll interval "${arg}"`)
@@ -120,7 +131,9 @@ export function parseDevWebArguments(argv: readonly string[]): DevWebArguments {
   if (!serve && appArgs.length > 0) {
     throw new Error(`dev-web: --no-serve leaves no jan web process for ${appArgs[0] ?? ''}`)
   }
-  return { skipBuild, serve, pollInterval, appArgs }
+  // The served `jan web` watches no module roots, so rebuilt Host bundles would wait for its restart anyway.
+  if (host && serve) throw new Error('dev-web: --host requires --no-serve')
+  return { skipBuild, serve, host, pollInterval, appArgs }
 }
 
 /**
@@ -164,6 +177,23 @@ export function discoverLibraryDirs(root = repoRoot): string[] {
       jan?: { client?: unknown }
     }
     if (manifest.jan?.client === undefined) dirs.push(dir)
+  }
+  return dirs
+}
+
+/**
+ * Discover the Host-only packages: every packages/<group>/<name> whose tsdown
+ * config does not use the client preset. Their `lib/index.js` bundles
+ * `lib/types/index.js`, which `tsconfig.host.json` emits.
+ * @param root - repository root containing the grouped package directories.
+ * @returns workspace-relative Host package directories.
+ */
+export function discoverHostLibraryDirs(root = repoRoot): string[] {
+  const dirs: string[] = []
+  for (const configPath of globSync('packages/*/*/tsdown.config.ts', { cwd: root }).sort()) {
+    const dir = dirname(configPath).split(sep).join('/')
+    if (dir.startsWith(TEST_INFRASTRUCTURE_PREFIX)) continue
+    if (!readFileSync(join(root, configPath), 'utf8').includes('tsdown.client.ts')) dirs.push(dir)
   }
   return dirs
 }
@@ -296,6 +326,7 @@ const STOP_GRACE_MS = 6_000
  * @param command - executable, resolved from the workspace bins when `local` is set.
  * @param args - command arguments.
  * @param local - whether to resolve `command` from the workspace's installed bins.
+ * @param heapMb - V8 old-space limit for a Node stage whose program outgrows the default heap.
  */
 function spawnStage(
   supervisor: StageSupervisor,
@@ -303,12 +334,16 @@ function spawnStage(
   command: string,
   args: readonly string[],
   local: boolean,
+  heapMb?: number,
 ): void {
+  const nodeOptions = [process.env.NODE_OPTIONS, heapMb === undefined ? undefined : `--max-old-space-size=${String(heapMb)}`]
+    .filter(Boolean).join(' ')
   const child = execa(command, [...args], {
     cwd: repoRoot,
     stdio: 'inherit',
     preferLocal: local,
     reject: false,
+    ...nodeOptions === '' ? {} : { env: { NODE_OPTIONS: nodeOptions } },
   })
   supervisor.add({
     name,
@@ -337,7 +372,7 @@ if (isMain) {
     options = parseDevWebArguments(process.argv.slice(2))
   } catch (error) {
     console.error(error instanceof Error ? error.message : error)
-    console.error('dev-web: usage: pnpm run dev:web [--skip-build] [--no-serve] [--poll[=ms]] [jan web arguments]')
+    console.error('dev-web: usage: pnpm run dev:web [--skip-build] [--no-serve] [--host] [--poll[=ms]] [jan web arguments]')
     process.exit(1)
   }
 
@@ -384,6 +419,7 @@ if (isMain) {
 
   const pluginDirs = discoverPluginDirs()
   const libraryDirs = discoverLibraryDirs()
+  const hostDirs = options.host ? discoverHostLibraryDirs() : []
   if (pluginDirs.length === 0) {
     console.error('dev-web: no jan.client (platform "web") packages found under packages/')
     process.exit(1)
@@ -398,18 +434,21 @@ if (isMain) {
   // natively watching on a network mount where inotify never fires: it stops
   // re-emitting lib/types, and the two later stages then rebuild forever from
   // stale input without printing anything.
-  spawnStage(supervisor, `tsc -b ${CLIENT_TYPE_PROGRAM} --watch`, 'tsc', [
-    '-b', CLIENT_TYPE_PROGRAM, '--watch', '--preserveWatchOutput',
+  // The client and Host programs together exceed Node's default 4 GB heap, like `build:lib:host`.
+  const typePrograms = options.host ? [CLIENT_TYPE_PROGRAM, HOST_TYPE_PROGRAM] : [CLIENT_TYPE_PROGRAM]
+  spawnStage(supervisor, `tsc -b ${typePrograms.join(' ')} --watch`, 'tsc', [
+    '-b', ...typePrograms, '--watch', '--preserveWatchOutput',
     ...options.pollInterval !== undefined
       ? ['--watchFile', 'fixedPollingInterval', '--watchDirectory', 'fixedPollingInterval']
       : [],
-  ], true)
+  ], true, options.host ? 8192 : undefined)
 
   // tsdown's initial builds are awaited before the dist watcher starts so vite's
   // first build reads current lib bundles rather than whatever the last full
   // build left. Its own watch then covers later lib rewrites — those files are
   // in its module graph.
-  const bundles = await watchClientPlugins(repoRoot, [...pluginDirs, ...libraryDirs], options.pollInterval)
+  const watched = [...new Set([...pluginDirs, ...libraryDirs, ...hostDirs])]
+  const bundles = await watchClientPlugins(repoRoot, watched, options.pollInterval)
   if (!shutdownRequested()) {
     // Through the shell's own `watch` script rather than vite's API: vite is not a
     // repository-root dependency, and more importantly the vite root is its
@@ -427,11 +466,12 @@ if (isMain) {
     console.log(
       `dev-web: watching ${String(pluginDirs.length)} jan.client plugin packages`
       + ` and ${String(libraryDirs.length)} statically linked library packages`
+      + (options.host ? ` and ${String(hostDirs.length)} Host packages` : '')
       + (options.pollInterval !== undefined ? ` (polling ${String(options.pollInterval)}ms)` : '')
-      + `, plus tsc -b ${CLIENT_TYPE_PROGRAM} and the ${SHELL_PACKAGE} dist build`
+      + `, plus tsc -b ${typePrograms.join(' ')} and the ${SHELL_PACKAGE} dist build`
       + (options.serve ? ', serving through jan web' : '')
       + ':\n  '
-      + [...pluginDirs, ...libraryDirs].join('\n  '),
+      + watched.join('\n  '),
     )
   }
 

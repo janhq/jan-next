@@ -9,7 +9,9 @@ Desktop product events use the optional [product analytics service](../product-a
 
 ## Summary
 
-Use the **Plugins** entry in the Web sidebar to manage the profile's installed bundles and the official bundles the installation ships switched off. Switch bundles and their rows on and off, install a bundle after the Host has read what the spec names, watch pnpm's output, stop a run, and enable what it added. Uninstalling asks for confirmation. A plugin that registers a configuration page is edited here, on its own page; Settings keeps the read-only inventory.
+In the Web sidebar, open **Plugins** to toggle installed bundles, their rows, and official bundles shipped off by default. Preview a bundle before installing, watch pnpm's output, cancel preparation or download, and switch on the new bundle after installation; uninstalling asks for confirmation. Edit plugin configuration on its own page, not in the read-only **Settings** inventory.
+
+Plugin operation and refresh failures offer **Copy details** and **Show log** in their toasts. Failed inventory and description reads offer **Details** beside **Retry**.
 
 ## Table of Contents
 
@@ -71,7 +73,7 @@ When the Host attributes a network failure or timeout to a GitHub address and of
 
 ### Translating a plugin
 
-When Jan detects an installed third-party plugin uses another language, its card and details offer translation into the current UI language. The chip names both languages when known; it shows progress while Jan translates. Choose **Show original** to clear the translation and return to the plugin's own text. Choosing **Not now** in the install dialog also hides suggestions for that plugin until Jan restarts.
+When Jan detects an installed third-party plugin uses another language, its card and details offer translation into the current UI language. The chip names both languages when known; it shows progress while Jan translates. Choose **Show original** to clear the translation and return to the plugin's own text. The install dialog offers the same [dismissal options](../ui-plugin-i18n/README.md#on-screen-text) as the on-screen notice.
 
 ### Updating a registry bundle
 

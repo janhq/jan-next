@@ -727,6 +727,119 @@ Types: [ScopeKey](scope.md) · [Session](session.md)
 
 Source: [`packages/preset/agent-preset-registry/src/index.ts`](../../packages/preset/agent-preset-registry/src/index.ts)
 
+<a id="ctxagentprofiles--agentprofiles"></a>
+
+### `ctx.agentProfiles` — `AgentProfiles`
+
+Reads, watches and writes agent profile files, records which profile each chat selected, and adds the selected profile's instructions to the chat's system prompt. Tool limits are applied by scoped settings through AgentProfiles.toolLimitsFor.
+
+```ts cordis-catalog
+/**
+ * List the profiles one project sees: its own folders first, then the global ones.
+ * @param request - the project, or none for global profiles only.
+ * @returns profiles in precedence order, shadowed ones marked, and files that could not be read.
+ */
+@Remote async list(request: AgentProfileListRequest): Promise<AgentProfileList>
+
+/**
+ * Follow catalog changes: a file change in any folder, a write, or a chat's selection change.
+ * @param signal - stream lifetime.
+ * @returns one tick per coalesced batch of changes since the previous read.
+ */
+@Remote({ mode: 'stream' }) async *watchChanges(signal: AbortSignal): AsyncIterable<number>
+
+/**
+ * Read one profile with its instructions.
+ * @param request - the id, the project it is resolved in, and optionally the exact listed file.
+ * @returns the precedence winner, or the named file.
+ */
+@Remote async get(request: AgentProfileGetRequest): Promise<AgentProfile>
+
+/**
+ * Write a Jan profile file, replacing a Jan file with the same id in that folder.
+ * @param request - the scope, its project, and the fields.
+ * @returns the profile as listed after the write.
+ */
+@Remote async save(request: AgentProfileSaveRequest): Promise<AgentProfileSummary>
+
+/**
+ * Delete a Jan profile file.
+ * @param request - the scope, its project, and the id.
+ */
+@Remote async deleteProfile(request: AgentProfileRemoveRequest): Promise<void>
+
+/**
+ * Select a profile for a chat at a turn boundary and switch the chat to the profile's model.
+ * The selection is logged; the model is applied on every call, the event only when the id changes.
+ * @param request - the chat and the profile id, or null for plain Jan.
+ */
+@Remote async select(request: AgentProfileSelectRequest): Promise<void>
+
+/**
+ * Profiles one project sees, from memory; empty for folders not read yet.
+ * @param workspaceId - the project, or none for global profiles only.
+ * @returns the same result {@link list} returns once every folder is read.
+ */
+snapshot(workspaceId?: WorkspaceId): AgentProfileList
+
+/**
+ * Profile id a chat selected.
+ * @param session - the chat's session.
+ * @returns the id, or null when the chat runs as plain Jan.
+ */
+profileForSession(session: Session): string | null
+
+/**
+ * Whether a chat ever recorded a profile choice, plain Jan included.
+ * @param session - the chat's session.
+ * @returns true once any selection was logged, so a project default must leave the chat alone.
+ */
+hasSelection(session: Session): boolean
+
+/**
+ * Project a chat belongs to.
+ * @param agent - the chat.
+ * @returns the project listing the chat, else the innermost project folder holding its folder.
+ */
+projectOf(agent: Agent): WorkspaceId | undefined
+
+/**
+ * Profile a live chat selected, pinned as first read for the chat's lifetime. Later edits to the file reach the
+ * chat only when the profile is picked again or the chat is reopened, so a hot edit never rewrites a running
+ * chat's system prompt or tool set and its cached prompt prefix stays reusable.
+ * @param agent - the chat.
+ * @returns the profile, or undefined for plain Jan or a selection no visible profile matches.
+ */
+selectedProfile(agent: Agent): AgentProfile | undefined
+
+/**
+ * Tool limits of a chat's selected profile.
+ * @param agent - the chat.
+ * @returns Jan tool names and `mcp:<server>` entries; an empty deny list without a profile.
+ */
+toolLimitsFor(agent: Agent): AgentToolLimits
+
+/**
+ * Tool restriction for a delegated agent running one profile. The child resolves `mcp:<server>` against its composed tools.
+ * @param profile - the profile.
+ * @returns the restriction, or undefined when the profile limits no tool.
+ */
+toolRestrictionOf(profile: AgentProfileSummary): ToolRestriction | undefined
+
+/**
+ * Resolve a profile's model against the current model catalog. A `provider/model` route must list the model;
+ * a bare id takes the first provider listing it; a Claude alias takes the highest `claude-<alias>-<version>` match,
+ * comparing from `claude-` on so route prefixes do not decide, with the earlier provider winning a tie.
+ * @param model - the profile's model.
+ * @returns the route, or undefined when no available model matches.
+ */
+async resolveModel(model: AgentProfileModel): Promise<ResolvedProfileModel | undefined>
+```
+
+Types: [Session](session.md) · [ToolRestriction](tools.md) · [WorkspaceId](workspace.md)
+
+Source: [`packages/preset/agent-profiles/src/index.ts`](../../packages/preset/agent-profiles/src/index.ts)
+
 <a id="ctxagents--agentregistry"></a>
 
 ### `ctx.agents` — `AgentRegistry`
@@ -1251,4 +1364,25 @@ One session committed a different agent preset to its durable log. Consumers inv
 ```
 
 Source: [`packages/preset/agent-preset-registry/src/types.ts`](../../packages/preset/agent-preset-registry/src/types.ts)
+
+<a id="agent-profiles-events"></a>
+
+### `agent-profiles/*` events
+
+<a id="agent-profileschanged--emit"></a>
+
+#### `agent-profiles/changed` — emit
+
+A profile file was added, changed or removed, or a chat's selected profile changed. Readers re-list profiles and re-apply tool limits.
+
+```ts cordis-catalog
+/**
+ * A profile file was added, changed or removed, or a chat's selected profile changed.
+ * Readers re-list profiles and re-apply tool limits.
+ * @mode emit
+ */
+'agent-profiles/changed'(): void
+```
+
+Source: [`packages/preset/agent-profiles/src/types.ts`](../../packages/preset/agent-profiles/src/types.ts)
 <!-- END GENERATED cordis-surface -->

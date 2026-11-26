@@ -135,7 +135,10 @@ describe('Assembled liveshare viewer page on a writable share', () => {
     // The Session's own verbs stay the owner's — the one this page may use there is the branch the
     // mode grants — so the row's menu is not a second way into the owner's Session management: it
     // opens on the branch verb and carries neither rename nor archive.
-    const sourceVerbs = screen.getByRole('button', { name: /^会话“/u })
+    // A running Session is repeated in the sidebar's Working section; use its row in the chat list.
+    const sourceVerbs = screen.getAllByRole('button', { name: /^会话“/u })
+      .find(button => button.closest('[data-sidebar-working]') === null)
+    if (sourceVerbs === undefined) throw new Error('the shared Session row is not listed')
     await act(async () => { fireEvent.click(sourceVerbs) })
     expect(await screen.findByRole('menuitem', { name: /^分叉会话/u })).toBeDefined()
     expect(screen.queryByRole('menuitem', { name: '重命名' })).toBeNull()

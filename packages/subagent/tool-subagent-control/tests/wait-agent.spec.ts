@@ -217,7 +217,9 @@ describe('wait_agent', () => {
   it.each([
     [{}, 30_000],
     [{ timeout_ms: 10_000 }, 10_000],
-    [{ timeout_ms: 3_600_000 }, 3_600_000],
+    [{ timeout_ms: 270_000 }, 270_000],
+    // Past the prompt-cache window the wait clamps instead of failing.
+    [{ timeout_ms: 3_600_000 }, 270_000],
   ])('expires at the resolved timeout %j', async (args, timeoutMs) => {
     const { ctx, agent } = await setup()
     vi.useFakeTimers()
@@ -231,7 +233,8 @@ describe('wait_agent', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each([9_999, 3_600_001])('rejects out-of-range timeout %s before checking pending input', async (timeoutMs) => {
+  it('rejects a timeout below 10000 before checking pending input', async () => {
+    const timeoutMs = 9_999
     const { ctx, agent } = await setup()
     agent.inject(input())
     const { result } = await startWait(ctx, agent, { timeout_ms: timeoutMs })

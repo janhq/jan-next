@@ -3,7 +3,7 @@
 }
 
 .glyph[data-turning] {
-  animation: forge-refresh-turn 1s linear infinite;
+  animation: forge-refresh-turn var(--ds-transition-duration-loop) linear infinite;
 }
 
 @keyframes forge-refresh-turn {
@@ -14,6 +14,8 @@
 @media (prefers-reduced-motion: reduce) {
   .glyph[data-turning] {
     animation-name: forge-refresh-dim;
+    animation-duration: 1s;
+    animation-timing-function: var(--ds-ease-pulse);
   }
 }
 

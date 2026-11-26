@@ -8,7 +8,8 @@ export const Config = Schema.object({
   enabled: Schema.boolean().default(true).volatile().description('Show desktop notifications.'),
   finished: Schema.boolean().default(true).volatile().description('Notify when a chat finishes.'),
   failed: Schema.boolean().default(true).volatile().description('Notify when a chat stops with an error.'),
-  waiting: Schema.boolean().default(true).volatile().description('Notify when a chat waits for your approval or answer.'),
+  waiting: Schema.boolean().default(true).volatile().description('Notify when a chat waits for your approval or plan review.'),
+  input: Schema.boolean().default(true).volatile().description('Notify when a chat asks you a question.'),
 })
 
 /** Notifications run in the client; the Host only owns the preferences and serves the client entry. */

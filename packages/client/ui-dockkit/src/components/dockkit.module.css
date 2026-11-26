@@ -7,11 +7,8 @@
  * Colours come from the embedder's token layer; the kit names no literal. Type
  * follows the embedder's content axis (`--jan-content-font-size` and its
  * secondary step) so a surface reads at the same size as the page around it.
- * Emphasis — the drop caret, the drop-zone hint — takes the platform's accent
- * (`--dsw-alias-brand-primary-new-colorprimary-new-color`), not
- * `--dsw-alias-brand-primary`, which this platform binds to its near-black
- * (light) or near-white (dark) foreground. A hovered divider takes the
- * caption label ink instead, reading as a handle rather than a highlight.
+ * Emphasis (drop feedback and active dividers) takes the platform accent,
+ * not `--dsw-alias-brand-primary`, which is the near-black or near-white ink.
  */
 
 .split {
@@ -36,18 +33,15 @@
   min-height: 0;
 }
 
-/* The divider owns no layout room (`SPLIT_MINIMUMS.divider` mirrors the 0):
-   the halves abut, so a rule a pane draws across its own edge — a header's
-   hairline — runs unbroken past the seam. The visible rule is a 0.5px hairline
-   centred on the seam, matching the embedder's other borders, and `::after`
-   widens the pointer target to 8px by reaching 4px over each neighbour.
-   `z-index` keeps that overhang above the later sibling, which would otherwise
-   take the hit. */
+/* Recursive panes use an actual 8px hit box, with negative margins so it
+   does not change the split fractions. A real box also subtracts the hit
+   area from the desktop's native window drag region. */
 .divider {
   position: relative;
   z-index: 1;
   flex: none;
   touch-action: none;
+  --divider-grip: var(--dsw-alias-label-caption);
 }
 
 .divider::before,
@@ -61,53 +55,57 @@
 }
 
 .splitRow > .divider {
-  width: 0;
+  width: 8px;
+  margin-inline: -4px;
   cursor: col-resize;
 }
 
 .splitRow > .divider::before {
   top: 0;
   bottom: 0;
-  left: -0.25px;
-  width: 0.5px;
+  left: calc(50% - 0.5px);
+  width: 1px;
 }
 
 .splitRow > .divider::after {
-  top: 0;
-  bottom: 0;
-  left: -4px;
-  right: -4px;
+  inset: 0;
+  background: linear-gradient(var(--divider-grip), var(--divider-grip)) center / 4px 32px no-repeat;
+  border-radius: var(--dsw-radius-sm);
 }
 
 .splitColumn > .divider {
-  height: 0;
+  height: 8px;
+  margin-block: -4px;
   cursor: row-resize;
 }
 
 .splitColumn > .divider::before {
   left: 0;
   right: 0;
-  top: -0.25px;
-  height: 0.5px;
+  top: calc(50% - 0.5px);
+  height: 1px;
 }
 
 .splitColumn > .divider::after {
-  left: 0;
-  right: 0;
-  top: -4px;
-  bottom: -4px;
+  inset: 0;
+  background: linear-gradient(var(--divider-grip), var(--divider-grip)) center / 32px 4px no-repeat;
+  border-radius: var(--dsw-radius-sm);
 }
 
-/* Hover: a 1px grip fades in over the hairline, its caption ink deepest at
-   its middle and fading toward both ends. The grip is painted on the `::after`
-   hit target, centred on the seam, and crossfaded through opacity, because a
-   gradient cannot transition from the hairline's solid colour. */
+/* The short center grip is visible before the pointer finds the seam. */
 .divider::after {
-  opacity: 0;
-  transition: opacity 120ms ease-out;
+  opacity: 0.65;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
-.divider:focus-visible::after { opacity: 1; }
+.divider:focus-visible,
+.divider[data-dockkit-resizing] {
+  --divider-grip: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
+  outline: none;
+}
+
+.divider:focus-visible::after,
+.divider[data-dockkit-resizing]::after { opacity: 1; }
 
 @media (hover: hover) {
   .divider:hover::after {
@@ -115,13 +113,6 @@
   }
 }
 
-.splitRow > .divider::after {
-  background: linear-gradient(to bottom, transparent, var(--dsw-alias-label-caption) 50%, transparent) center / 1px 100% no-repeat;
-}
-
-.splitColumn > .divider::after {
-  background: linear-gradient(to right, transparent, var(--dsw-alias-label-caption) 50%, transparent) center / 100% 1px no-repeat;
-}
 
 /* Both floors: a flex item's minimum is its content's, and a body's longest
    unwrapped line would widen the surface past the embedder's box, carrying the
@@ -207,6 +198,13 @@
   left: -4px;
   right: -4px;
   background: linear-gradient(to bottom, transparent, var(--dsw-alias-label-caption) 50%, transparent) center / 1px 100% no-repeat;
+}
+
+.tabLayoutDivider::after { opacity: 0; }
+.tabLayoutDivider[data-dockkit-resizing]::after { opacity: 1; }
+
+@media (hover: hover) {
+  .tabLayoutDivider:hover::after { opacity: 1; }
 }
 
 /* A body that overflows scrolls inside its pane; nothing escapes the pane. */
@@ -383,10 +381,12 @@
   line-height: 1;
   white-space: nowrap;
   border-radius: var(--dsw-radius-sm);
-  cursor: pointer;
+  cursor: grab;
   touch-action: none;
   user-select: none;
 }
+
+.tab.tabDragging { cursor: grabbing; }
 
 /* A flex row with a 5px gap, so an embedder's leading glyph (`renderTabTitle`)
    centres on the text's line rather than sitting on its baseline and keeps
@@ -661,7 +661,7 @@
      whole scrim away from the content beneath it. */
   background: color-mix(in srgb, var(--dsw-alias-bg-base) 72%, transparent);
   backdrop-filter: blur(6px);
-  animation: dockScrimIn 140ms ease-out;
+  animation: dockScrimIn var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
 .dockHint {
@@ -681,14 +681,14 @@
   top: 0;
   bottom: 0;
   left: 0;
-  width: 40%;
+  width: 50%;
 }
 
 .dockHint[data-dockkit-dock-zone='right'] {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 40%;
+  width: 50%;
 }
 
 [data-dockkit-drop-zones='horizontal'] .dockHint[data-dockkit-dock-zone='left'] {
@@ -715,8 +715,8 @@
   color: var(--dsw-alias-label-tertiary);
   border: 1.5px dashed var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-lg);
-  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
-  animation: dockHintIn 140ms ease-out;
+  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out), background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+  animation: dockHintIn var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 /* The card under the pointer takes the accent: a tinted ground over the scrim,
@@ -773,14 +773,23 @@
   top: 0;
   right: 0;
   left: 0;
-  height: 40%;
+  height: 50%;
 }
 
 .dockHint[data-dockkit-dock-zone='bottom'] {
   right: 0;
   bottom: 0;
   left: 0;
-  height: 40%;
+  height: 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .divider::after,
+  .dockScrim,
+  .dockHintCard {
+    transition: none;
+    animation: none;
+  }
 }
 
 :global(html[data-windows-titlebar]) .float {
@@ -880,7 +889,7 @@
   border-bottom: 1.5px solid var(--dsw-alias-label-caption);
   border-bottom-right-radius: calc(var(--dsw-radius-panel) - 4px);
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .floatResize:active::after {

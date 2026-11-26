@@ -3,18 +3,20 @@
 import type { Context } from '@janhq/cordis'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-api-session-controller/client'
+import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {} from '@janhq/jan-client-locale/client'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type {} from '@janhq/jan-client-ui-layout/client'
 import { IconBranchOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
 import type {} from '@janhq/jan-client-ui-sidebar-right/client'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import type {} from '@janhq/jan-client-ui-workspace/client'
 import type {} from '@janhq/jan-experimental-client-ui-forge/remote'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { RemoteResult, TypertRemoteContribution } from '@janhq/jan-typert-protocol'
-import type { ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgePanelChangeRequest } from '../types.ts'
+import type { Config, ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgePanelChangeRequest } from '../types.ts'
 import { ReviewQueue } from './review-queue.ts'
 import { formatReviewComment, type ReviewSelection } from './review.ts'
 import { ActionToast } from './ActionToast.tsx'
@@ -29,8 +31,10 @@ import { de, en, es, fr, ja, NS, pt, ru, zh, type ForgePanelKey } from './locale
 import type { SessionListInjected } from './session-list.ts'
 import { SessionHoverForge } from './SessionHoverForge.tsx'
 import { SessionRowForge } from './SessionRowForge.tsx'
+import { SidebarStatusRow, type SidebarStatusRowInjected } from './SidebarStatusRow.tsx'
 import {
-  createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, type PanelSource, type VisibilitySource,
+  createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, offersForge,
+  type PanelSource, type VisibilitySource,
 } from './source.ts'
 import { numberOf } from './status.ts'
 import { GitStrip, type GitStripInjected } from './GitStrip.tsx'
@@ -38,13 +42,16 @@ import { WorktreeProgress, type WorktreeProgressInjected } from './WorktreeProgr
 import { WorktreeToggle, type WorktreeToggleInjected } from './WorktreeToggle.tsx'
 
 /** Services required before the Remote contribution mounts. */
-export const inject = ['remote', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions']
+export const inject = ['remote', 'connection', 'slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions']
 
 /** Registry id of the forge tab type, also its slot key. */
 export const TAB_ID = '@janhq/jan-experimental-client-ui-forge'
 
 /** Kind of the forge tab. */
 export const TAB_KIND = 'forge-panel'
+
+/** Host Config entry of the forge panel in the forge bundle, whose form holds `sidebarStatus`. */
+export const CONFIG_ENTRY = 'forge-panel'
 
 /**
  * Open a URL in a new browsing context without giving it access to this page.
@@ -53,6 +60,9 @@ export const TAB_KIND = 'forge-panel'
 function openLink(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
+
+/** The answer for a Session this window no longer retains: it offers nothing Git. */
+const NEVER: HostObservable<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
 
 /** Per-Session stores shared by the tab, the header button, the New Session option, and the worktree card. */
 interface SessionStores {
@@ -71,6 +81,11 @@ function registerUi(ctx: Context): void {
     for (const store of [...stores.values()]) store.release()
     stores.clear()
   }, 'forge-panel: panel streams')
+  const generation = (ctx.get('connection') as ConnectionHandle).generation
+  const connection: HostObservable<boolean> = {
+    getSnapshot: () => generation.getSnapshot() !== undefined,
+    subscribe: listener => generation.subscribe(listener),
+  }
   const storesOf = (sessionId: SessionId): SessionStores => {
     let store = stores.get(sessionId)
     if (store === undefined) {
@@ -79,6 +94,7 @@ function registerUi(ctx: Context): void {
       const panel = createPanelSource({
         open: signal => ctx.remote.forgePanel.follow(sessionId, signal),
         subscribeReset: listener => ctx.on('connection/reset', listener),
+        connection,
       })
       const dispose = scope.effect(() => () => {
         panel.close()
@@ -91,13 +107,13 @@ function registerUi(ctx: Context): void {
   }
   const settled = (result: RemoteResult<unknown>, failure: ForgePanelKey, codes: Partial<Record<string, ForgePanelKey>> = {}): boolean => {
     if (result.ok) return true
-    notices.report(codes[result.error.code] ?? failure)
+    notices.report(codes[result.error.code] ?? failure, { error: { operation: `forge.${failure}`, cause: result.error } })
     return false
   }
   const copy = (text: string, copied: ForgePanelKey): void => {
     void navigator.clipboard.writeText(text).then(
       () => { notices.report(copied, { tone: 'success' }) },
-      () => { notices.report('toast.copyFailed') },
+      (error: unknown) => { notices.report('toast.copyFailed', { error: { operation: 'forge.copy', cause: error } }) },
     )
   }
   const copyText = (text: string): void => { copy(text, 'toast.copied') }
@@ -112,7 +128,7 @@ function registerUi(ctx: Context): void {
     }
     void conversation.send(text).then(
       () => { notices.report('toast.prompted', { tone: 'success', params: { text } }) },
-      () => { notices.report('toast.promptFailed') },
+      (error: unknown) => { notices.report('toast.promptFailed', { error: { operation: 'forge.prompt', cause: error } }) },
     )
   }
   const addReviewToInput = (sessionId: SessionId, selection: ReviewSelection): boolean => {
@@ -172,6 +188,22 @@ function registerUi(ctx: Context): void {
         const result = await ctx.remote.forgePanel.changeRequestChecks(sessionId, url, headSha, signal)
         if (!result.ok) throw new Error(result.error.message)
         return result.value
+      },
+      readAssets: async (url, headSha, signal) => {
+        const result = await ctx.remote.forgePanel.changeRequestAssets(sessionId, url, headSha, signal)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+      readFailureContext: async (url, headSha, selection, signal) => {
+        const result = await ctx.remote.forgePanel.changeRequestFailureContext(sessionId, url, headSha, selection, signal)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+      copyFailure: (text) => { copy(text, 'change.failure.copied') },
+      addFailureToChat: (text) => {
+        const conversation = ctx.sessions.scope(sessionId)?.get('conversation')
+        if (conversation?.appendDraft(sessionId, text) === 'added') notices.report('change.failure.added', { tone: 'success' })
+        else notices.report('change.failure.addFailed')
       },
       markReady: async (entry) => {
         const result = await ctx.remote.forgePanel.markReady(sessionId, entry.url)
@@ -271,6 +303,11 @@ function registerUi(ctx: Context): void {
     id: TAB_ID, kind: TAB_KIND, title: () => t('tab.title'),
     guide: [{
       id: 'review', order: 15, title: () => t('guide.title'), description: () => t('guide.description'), icon: IconBranchOutlineRegular,
+      offeredIn: (sessionId): HostObservable<boolean> => {
+        if (ctx.sessions.scope(sessionId) === undefined) return NEVER
+        const panel = storesOf(sessionId).panel.hooks.panel
+        return { getSnapshot: () => offersForge(panel.getSnapshot()), subscribe: listener => panel.subscribe(listener) }
+      },
     }],
   }), 'forge-panel: sidebar tab')
   ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
@@ -334,13 +371,44 @@ function registerUi(ctx: Context): void {
     subscribeReset: listener => ctx.on('connection/reset', listener),
   }, new Map(), foldStates)
   ctx.effect(() => () => { states.close() }, 'forge-panel: change request states')
-  const listFace = (): SessionListInjected => ({ hooks: { states: states.observable } })
+  const listFace = (): SessionListInjected => ({ hooks: { states: states.observable, sidebarStatus: sidebarStatusOf(ctx) } })
   ctx.slots.inject('sidebar.session.row.trailing', () => ctx.slots.register({
     name: 'sidebar.session.row.trailing', id: 'forge-panel.row', order: 10, locale: NS, inject: listFace,
   }, SessionRowForge))
   ctx.slots.inject('sidebar.session.row.hover', () => ctx.slots.register({
     name: 'sidebar.session.row.hover', id: 'forge-panel.row', order: 20, locale: NS, inject: listFace,
   }, SessionHoverForge))
+  // The switch writes the Host entry's volatile field, so every window follows it without a restart.
+  // It only governs chats with a pull request, so it stays out of Settings until one exists.
+  const anyChangeRequest: HostObservable<boolean> = {
+    getSnapshot: () => states.observable.getSnapshot().state.size > 0,
+    subscribe: listener => states.observable.subscribe(listener),
+  }
+  ctx.inject(['configForms'], (scope) => {
+    const form = scope.configForms.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
+    scope.slots.inject('settings.general.item', () => scope.slots.register({
+      name: 'settings.general.item', id: 'forge-sidebar-status', order: 16, locale: NS,
+      inject: (): SidebarStatusRowInjected => ({
+        hooks: { sidebarStatus: sidebarStatusOf(scope), relevant: anyChangeRequest },
+        setShown: shown => form.set('sidebarStatus', shown),
+      }),
+    }, SidebarStatusRow))
+  })
+}
+
+/**
+ * Read the General switch from the forge panel's Host Config entry. Rows show their icons until
+ * the Host form says otherwise, including while it loads or when no `configForms` is mounted.
+ * The service may arrive after this plugin, so every read and subscription looks it up again.
+ * @param ctx - a client context that may carry `configForms`.
+ * @returns whether rows show their forge icons.
+ */
+function sidebarStatusOf(ctx: Context): HostObservable<boolean> {
+  const form = () => ctx.get('configForms')?.get<Pick<Config, 'sidebarStatus'>>(CONFIG_ENTRY)
+  return {
+    getSnapshot: () => form()?.getSnapshot().value?.sidebarStatus !== false,
+    subscribe: listener => form()?.subscribe(listener) ?? (() => {}),
+  }
 }
 
 /**

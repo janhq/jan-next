@@ -783,6 +783,58 @@ describe('header / drilled descent', () => {
   })
 })
 
+describe('star', () => {
+  /** A source that lists starred rows first, like the model favorites section. */
+  function starSource() {
+    const starred = new Set<string>()
+    const picks: InputTriggerPick[] = []
+    const names = ['haiku', 'opus', 'sonnet']
+    const source: InputTriggerSource = {
+      trigger: '/',
+      name: 'command',
+      candidates: () => Promise.resolve([
+        ...names.filter(n => starred.has(n)),
+        ...names.filter(n => !starred.has(n)),
+      ].map(name => ({ name, star: { on: starred.has(name) } }))),
+      onPick: (pick) => {
+        picks.push(pick)
+        return undefined
+      },
+      onStar: (_session, candidate) => {
+        if (!starred.delete(candidate.name)) starred.add(candidate.name)
+      },
+    }
+    return { source, starred, picks }
+  }
+
+  it('toggles through the source, refetches, and keeps the highlight on the moved row without picking', async () => {
+    const { source, starred, picks } = starSource()
+    const { controller } = controllerBench([source])
+    controller.track('/', 1, { tier: 'plain' }, 1)
+    await tick()
+    controller.star('command', 2)
+    await tick()
+    await tick()
+    await tick()
+    expect([...starred]).toEqual(['sonnet'])
+    const state = controller.menu.getSnapshot()
+    expect(state.open).toBe(true)
+    expect(state.groups[0]?.status === 'ready' ? state.groups[0].items.map(i => i.name) : []).toEqual(['sonnet', 'haiku', 'opus'])
+    expect(state.highlight).toEqual({ source: 'command', index: 0 })
+    expect(picks).toEqual([])
+  })
+
+  it('ignores rows without a star', async () => {
+    const onStar = vi.fn()
+    const { source } = readySource('/', 'command', [{ name: 'goal' }])
+    const { controller } = controllerBench([{ ...source, onStar }])
+    controller.track('/', 1, { tier: 'plain' }, 1)
+    await tick()
+    controller.star('command', 0)
+    expect(onStar).not.toHaveBeenCalled()
+  })
+})
+
 describe('lexicon', () => {
   function lexSource(trigger: TriggerChar, name: string, roll?: readonly string[]  , hasHook = true): InputTriggerSource {
     return {

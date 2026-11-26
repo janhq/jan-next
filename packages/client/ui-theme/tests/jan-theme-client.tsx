@@ -13,6 +13,7 @@ type Component = React.ComponentType
 type ClientScope = {
   inject(services: string[], callback: (scope: ClientScope) => void): void
   effect(callback: () => undefined | (() => void)): void
+  provide(name: 'janSidebar', service: { setLayout(layout: string): void }): void
   slots: {
     inject(name: string, callback: () => void): void
     register(options: { id?: string }, component: Component): void
@@ -40,6 +41,7 @@ export function mountAppearance(theme: ThemeRuntime): () => void {
       const stop = callback()
       if (stop) dispose.push(stop)
     },
+    provide: vi.fn(),
     slots: {
       inject(name, callback) { if (name === 'settings.general.item') callback() },
       register(options, component) { if (options.id === 'jt-accent-color') Component = component },

@@ -3,6 +3,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 import {
   createDeleteToastSource, ScheduleDeleteToast,
   type DeleteToastState, type ScheduleDeleteToastProps,
@@ -35,8 +36,9 @@ describe('delete toast source', () => {
 
     source.report('deleted')
     expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'deleted', seq: 1 })
-    source.report('failed')
-    expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'deleteFailed', seq: 2 })
+    const failure = captureFailure('schedule.delete', new Error('unavailable'))
+    source.report({ failure })
+    expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'deleteFailed', seq: 2, failure })
     // The next outcome advances the sequence, so a re-shown banner restarts.
     source.report('deleted')
     expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'deleted', seq: 3 })
@@ -56,8 +58,9 @@ describe('delete toast source', () => {
     // A removal that found nothing keeps its own zero, so the banner can say so.
     source.reportClear({ cleared: true, count: 0 })
     expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'cleared', count: 0, seq: 2 })
-    source.reportClear({ cleared: false })
-    expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'clearFailed', seq: 3 })
+    const failure = captureFailure('schedule.deleteInactive', new Error('unavailable'))
+    source.reportClear({ cleared: false, failure })
+    expect(source.hooks.toast.getSnapshot()).toEqual({ kind: 'clearFailed', seq: 3, failure })
   })
 })
 
@@ -76,7 +79,7 @@ describe('ScheduleDeleteToast', () => {
   })
 
   it('shows the warning banner for a deletion that could not be confirmed', () => {
-    mount({ kind: 'deleteFailed', seq: 2 }, zh)
+    mount({ kind: 'deleteFailed', seq: 2, failure: captureFailure('schedule.delete', new Error('unavailable')) }, zh)
     expect(screen.getByRole('alert').textContent).toBe(zh['toast.deleteFailed'])
   })
 
@@ -97,7 +100,7 @@ describe('ScheduleDeleteToast', () => {
   })
 
   it('shows the warning banner for a bulk removal that failed', () => {
-    mount({ kind: 'clearFailed', seq: 5 }, zh)
+    mount({ kind: 'clearFailed', seq: 5, failure: captureFailure('schedule.deleteInactive', new Error('unavailable')) }, zh)
     expect(screen.getByRole('alert').textContent).toBe(zh['toast.clearFailed'])
   })
 })

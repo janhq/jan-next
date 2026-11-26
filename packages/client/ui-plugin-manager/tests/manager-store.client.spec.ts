@@ -299,7 +299,7 @@ describe('PluginManagerController', () => {
     inventory.list.mockResolvedValueOnce(refused('gateway/internal', 'offline again'))
     face.refresh()
     await vi.advanceTimersByTimeAsync(400)
-    expect(state().notice).toEqual({ kind: 'refresh-failed', seq: 2 })
+    expect(state().notice).toMatchObject({ kind: 'refresh-failed', seq: 2, failure: { operation: 'pluginInventory.list' } })
     face.dismissNotice()
     expect(state().notice).toBeNull()
   })
@@ -436,7 +436,8 @@ describe('PluginManagerController', () => {
     await vi.advanceTimersByTimeAsync(400)
     expect(state().refreshStatus).toBe('idle')
     expect(state().status).toBe('ready')
-    expect(state().notice).toEqual(failure ? { kind: 'refresh-failed', seq: 1 } : null)
+    if (failure) expect(state().notice).toMatchObject({ kind: 'refresh-failed', seq: 1, failure: { operation: 'pluginManager.listBundles' } })
+    else expect(state().notice).toBeNull()
   })
 
   it.each([false, true])('does not publish a manual refresh that settles after disposal (failure: %s)', async (failure) => {
@@ -554,25 +555,25 @@ describe('PluginManagerController', () => {
     })
     await controller.load()
     face.setEnabled(BUNDLE.name, true)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'enable', code: 'operation-error', reason: 'the tree rejected it', packageName: BUNDLE.name, seq: 1 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'enable', code: 'operation-error', reason: 'the tree rejected it', packageName: BUNDLE.name, seq: 1, failure: { operation: 'pluginManager.enable' } }) })
     face.setEnabled(BUNDLE.name, false)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'disable', reason: 'offline', packageName: BUNDLE.name, seq: 2 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'disable', reason: 'offline', packageName: BUNDLE.name, seq: 2 }) })
     face.setEnabled(BUNDLE.name, true)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'enable', reason: 'transport down', packageName: BUNDLE.name, seq: 3 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'enable', reason: 'transport down', packageName: BUNDLE.name, seq: 3 }) })
     face.setEnabled(BUNDLE.name, true)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'enable', reason: 'odd', packageName: BUNDLE.name, seq: 4 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'enable', reason: 'odd', packageName: BUNDLE.name, seq: 4 }) })
     // A refusal keeps its code with no words of its own; a failure without a code has neither.
     face.setEnabled(BUNDLE.name, true)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'enable', code: 'bundle-in-use', reason: '', packageName: BUNDLE.name, seq: 5 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'enable', code: 'bundle-in-use', reason: '', packageName: BUNDLE.name, seq: 5 }) })
     face.setEnabled(BUNDLE.name, true)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'enable', reason: '', packageName: BUNDLE.name, seq: 6 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'enable', reason: '', packageName: BUNDLE.name, seq: 6 }) })
     // A change the Host stopped is said in passing.
     face.setEnabled(BUNDLE.name, true)
     await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'cancelled', seq: 7 }) })
     // An incompatibility keeps the packages it names for the page to word.
     face.setEnabled(BUNDLE.name, true)
     await vi.waitFor(() => {
-      expect(state().notice).toEqual({
+      expect(state().notice).toMatchObject({
         kind: 'failed', action: 'enable', code: 'incompatible-version', incompatible: [INCOMPATIBLE], reason: '', packageName: BUNDLE.name, seq: 8,
       })
     })
@@ -600,7 +601,7 @@ describe('PluginManagerController', () => {
     plugins.removeBundle.mockResolvedValueOnce(ok({ ...failed(), stage: 'remove', error: { code: 'not-removable' } }) as never)
     face.uninstall(BUNDLE.name)
     face.confirm()
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'uninstall', code: 'not-removable', reason: '', packageName: BUNDLE.name, seq: 1 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'uninstall', code: 'not-removable', reason: '', packageName: BUNDLE.name, seq: 1 }) })
   })
 
   it('switches rows under their own busy keys and reports what the Host said', async () => {
@@ -617,7 +618,7 @@ describe('PluginManagerController', () => {
     gate.resolve(ok(APPLIED))
     await vi.waitFor(() => { expect(state().busy).toEqual([]) })
     face.setRowEnabled(ROW_ENTRY, true)
-    await vi.waitFor(() => { expect(state().notice).toEqual({ kind: 'failed', action: 'rowEnable', code: 'unaddressable', reason: '', packageName: ROW_ENTRY, seq: 1 }) })
+    await vi.waitFor(() => { expect(state().notice).toMatchObject({ kind: 'failed', action: 'rowEnable', code: 'unaddressable', reason: '', packageName: ROW_ENTRY, seq: 1 }) })
   })
 
   it('installs a Discover spec through the dialog, asking its registry first, and reopens a hidden installation instead', async () => {
@@ -728,12 +729,13 @@ describe('PluginManagerController', () => {
       expect(state().install.translate).toEqual({ step: 'offer', pkg: 'jan-new', locale: 'ja', language: '日本語', model: 'p/m' })
     })
 
-    it('dismisses later suggestions when the install offer is declined', async () => {
+    it.each(['later', 'never'] as const)('dismisses suggestions as %s when declining the install offer', async (mode) => {
       const dismiss = vi.fn()
       const { face, state } = await installed({ assess: vi.fn(() => OFFER), dismiss })
       await vi.waitFor(() => { expect(state().install.translate?.step).toBe('offer') })
-      face.declineTranslation()
-      expect(dismiss).toHaveBeenCalledExactlyOnceWith('jan-new', 'later')
+      if (mode === 'later') face.declineTranslation()
+      else face.declineTranslation(mode)
+      expect(dismiss).toHaveBeenCalledExactlyOnceWith('jan-new', mode)
       expect(state().install.translate).toBeNull()
     })
 
@@ -1288,7 +1290,7 @@ describe('PluginManagerController', () => {
     face.enableInstalled()
     await vi.waitFor(() => { expect(state().install.open).toBe(false) })
     expect(plugins.setBundleEnabled).toHaveBeenCalledTimes(2)
-    expect(state().notice).toEqual({ kind: 'failed', action: 'enable', code: 'operation-error', reason: 'the tree rejected it', packageName: 'jan-a', seq: 2 })
+    expect(state().notice).toMatchObject({ kind: 'failed', action: 'enable', code: 'operation-error', reason: 'the tree rejected it', packageName: 'jan-a', seq: 2 })
     expect(state().highlight).toBe('jan-a')
 
     // An install that named no bundle has nothing to enable or mark: the screen just closes.

@@ -51,7 +51,7 @@
   display: flex;
   flex-direction: column;
   background: var(--dsw-alias-settings-card-fill);
-  transition: border-color .16s, background .16s;
+  transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 
@@ -119,7 +119,7 @@
   overflow-wrap: anywhere;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .12s;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 /* Focusing the card reveals it too: a broken card keeps its place in the tab
@@ -345,7 +345,7 @@
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .12s;
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .iconButton:focus-visible::after {

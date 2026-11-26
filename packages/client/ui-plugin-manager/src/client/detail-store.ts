@@ -2,6 +2,7 @@
 import type { Context as ClientContext } from '@janhq/cordis'
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import type { BundleDetail, RemoteFailure } from '@janhq/jan-api-remotes/client'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import { NPMMIRROR_REGISTRY } from '@janhq/jan-plugin-manager/registry'
 
 /** Why a bundle detail read failed: the Host's `plugin-manager/detail-unavailable` reason, or `other`. */
@@ -11,7 +12,7 @@ export type BundleDetailFailure = 'too-large' | 'network' | 'denied' | 'git-unav
 export type BundleDetailState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly detail: BundleDetail }
-  | { readonly status: 'error'; readonly failure: BundleDetailFailure }
+  | { readonly status: 'error'; readonly failure: BundleDetailFailure; readonly diagnostics: FailureDetails }
 
 /** Bundle detail reads by {@link bundleDetailKey}. */
 export type BundleDetailsState = Readonly<Record<string, BundleDetailState>>
@@ -115,7 +116,9 @@ export class BundleDetailController {
       this.npmFileSources = fastest.ok && fastest.value === NPMMIRROR_REGISTRY ? ['npmmirror'] : []
     }
     const answer = await remote.pluginManager.readBundleDetail(name, language, { npmFileSources: fromNpm ? this.npmFileSources : [] })
-    if (current()) this.publish(key, answer.ok ? { status: 'ready', detail: answer.value } : { status: 'error', failure: failureOf(answer.error) })
+    if (current()) this.publish(key, answer.ok ? { status: 'ready', detail: answer.value } : {
+      status: 'error', failure: failureOf(answer.error), diagnostics: captureFailure('pluginManager.readBundleDetail', answer.error),
+    })
   }
 
   private publish(key: string, state: BundleDetailState): void {

@@ -1,3 +1,4 @@
+import { captureFailure } from '@janhq/jan-client-ui-primitives'
 /**
  * Folder drop on the left Sidebar: a directory dragged from the system file
  * manager onto the Sidebar column becomes a Workspace. Listeners run in the
@@ -106,7 +107,7 @@ export function FolderDrop({ enabled, anchor, hint, createWorkspace, onAdded, no
           try {
             last = await create({ path })
           } catch (error) {
-            tell({ kind: 'folderDropFailed', message: error instanceof Error ? error.message : String(error) })
+            tell({ kind: 'folderDropFailed', message: error instanceof Error ? error.message : String(error), failure: captureFailure('workspace.addFolder', error) })
             return
           }
         }

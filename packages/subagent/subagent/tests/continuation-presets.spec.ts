@@ -14,8 +14,10 @@ import AgentLoop from '@janhq/jan-agent-loop'
 import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
 import AgentPresets from '@janhq/jan-agent-preset-registry'
 import { createUserMessage } from '@janhq/jan-llm'
+import { syncTools } from '@janhq/jan-mcp-client/src/tools.ts'
 import { SessionId } from '@janhq/jan-session'
 import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import { defineTool } from '@janhq/jan-tools'
 import { managerState, subagentManager } from './manager-internals.ts'
 import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
 import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
@@ -37,7 +39,10 @@ afterEach(async () => {
 })
 
 /** Real preset mounts, Agent lifecycle, and persistence with a scripted model. */
-async function setup(script: ConstructorParameters<typeof MockAdapter>[0] = [textResponse('done'), textResponse('continued'), textResponse('done again')]) {
+async function setup(
+  script: ConstructorParameters<typeof MockAdapter>[0] = [textResponse('done'), textResponse('continued'), textResponse('done again')],
+  scopedMcp = false,
+) {
   const root = mkdtempSync(join(tmpdir(), 'jan-continuation-presets-'))
   roots.push(root)
   const ctx = new Context()
@@ -45,6 +50,24 @@ async function setup(script: ConstructorParameters<typeof MockAdapter>[0] = [tex
   ctx.baseUrl = pathToFileURL(fixtures).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
+  let mcpOwner: Context | undefined
+  const registerScopedMcp = async (name: string): Promise<void> => {
+    if (mcpOwner === undefined) throw new Error('the MCP preset is not mounted')
+    const client = {
+      getServerCapabilities: () => ({ tools: {} }),
+      listTools: async () => ({ tools: [{ name, inputSchema: { type: 'object' } }] }),
+    }
+    await syncTools(client as never, mcpOwner, {
+      serverName: 'project', toolCallTimeoutMs: 1_000, signal: new AbortController().signal,
+    }, new Map())
+  }
+  ctx.loader.builtins.scopedMcp = {
+    inject: ['tools'],
+    async apply(owner: Context) {
+      mcpOwner = owner
+      await registerScopedMcp('lookup')
+    },
+  }
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions') })
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -54,7 +77,10 @@ async function setup(script: ConstructorParameters<typeof MockAdapter>[0] = [tex
   for (const [id, tool] of [['coding', 'preset_only'], ['reviewing', 'reviewing_only']] as const) {
     unregister.set(id, await ctx.agentPresets.register({
       id,
-      plugins: [{ name: pathToFileURL(join(fixtures, 'plugins/preset-tool.js')).href, config: { tool } }],
+      plugins: [
+        { name: pathToFileURL(join(fixtures, 'plugins/preset-tool.js')).href, config: { tool } },
+        ...(id === 'reviewing' && scopedMcp ? [{ name: 'cordis:scopedMcp' }] : []),
+      ],
     }))
   }
   await mountWorkingDirectoryFixture(ctx)
@@ -69,7 +95,7 @@ async function setup(script: ConstructorParameters<typeof MockAdapter>[0] = [tex
     agentOptions: { provider: 'mock', model: 'mock' },
     setup: async (agentCtx) => { await ctx.agentPresets.mount(agentCtx, 'coding') },
   })
-  return { ctx, parent: handle.agent, adapter, spawn, presets, unregister }
+  return { ctx, parent: handle.agent, adapter, spawn, presets, unregister, registerScopedMcp }
 }
 
 /** Settlement messages must not consume responses scripted for the child. */
@@ -124,6 +150,44 @@ describe('child preset start validation', () => {
     expect(adapter.requests).toEqual([])
   })
 
+  it('rejects child profiles before starting a fork or external backend', async () => {
+    const { ctx, parent, adapter } = await setup()
+    ctx.subagents.registerProvider({
+      name: 'external',
+      capabilities: { agentOptions: false, agentPreset: false, outputSchema: false, depthLimit: false },
+      inheritsParentContext: false,
+      start: () => { throw new Error('external startup should not be reached') },
+    })
+    ctx.subagents.registerProvider({
+      name: 'external-independent',
+      capabilities: { agentOptions: false, agentPreset: true, outputSchema: false, depthLimit: false },
+      inheritsParentContext: false,
+      start: () => { throw new Error('external startup should not be reached') },
+    })
+    const initialEvents = parent.session.snapshotEvents()
+
+    for (const profile of [{ persona: 'Review only.' }, { toolFilter: { allow: [] } }]) {
+      for (const provider of ['fork', 'external']) {
+        await expect(ctx.subagents.startActivation({ ...startSpec(parent, undefined, provider), ...profile }))
+          .rejects.toMatchObject({ code: 'PROFILE_UNSUPPORTED' })
+      }
+    }
+    for (const provider of ['fork', 'external', 'external-independent']) {
+      await expect(ctx.subagents.startActivation({ ...startSpec(parent, undefined, provider), sandboxMode: 'read-only' }))
+        .rejects.toMatchObject({ code: 'PROFILE_UNSUPPORTED' })
+    }
+    expect(parent.session.snapshotEvents()).toEqual(initialEvents)
+    expect(ctx.agents.list().map(agent => agent.id)).toEqual([parent.id])
+    expect(adapter.requests).toEqual([])
+  })
+
+  it('rejects capped delegation when there is no parent sandbox policy', async () => {
+    const { ctx, parent } = await setup()
+    await expect(ctx.subagents.startActivation({ ...startSpec(parent), sandboxMode: 'read-only' }))
+      .rejects.toMatchObject({ code: 'PRESET_UNAVAILABLE' })
+    expect(ctx.agents.list().map(agent => agent.id)).toEqual([parent.id])
+  })
+
   it('rolls back an independent spawn when the preset service has unloaded', async () => {
     const { ctx, parent, adapter, presets } = await setup()
     await presets.dispose()
@@ -173,6 +237,83 @@ describe('continuable child presets', () => {
     })
     expect(adapter.requests[0]?.tools?.map(tool => tool.name)).toEqual(['reviewing_only'])
     expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(['preset_only'])
+  })
+
+  it('applies the child persona and tool filter both on start and after cold resume', async () => {
+    const { ctx, parent, adapter, spawn } = await setup()
+    parkParent(ctx, parent)
+    const persona = 'Review the evidence; quote {{examples}} literally.'
+    for (const name of ['evidence_read', 'evidence_write']) {
+      ctx.tools.register(defineTool({
+        name,
+        description: name,
+        parameters: {},
+        output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+        execute: () => Promise.resolve(name),
+      }))
+    }
+    const parentTools = ctx.tools.schemas(parent).map(tool => tool.name)
+    const toolFilter = { allow: ['evidence_read', 'evidence_write', 'retired_tool'], deny: ['evidence_write'] }
+    const label = 'Check the files (only those changed)'
+    const agent = 'team/reviewer'
+    const started = await ctx.subagents.startActivation({ ...startSpec(parent, 'reviewing'), label, agent, persona, toolFilter })
+    const initial = await settled(ctx, started.childId)
+    expect(initial.events.find(event => event.type === 'subagent/descriptor')?.data)
+      .toMatchObject({ label, agent, persona, toolFilter })
+    expect(ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog).toMatchObject([
+      { id: started.childId, label, agent },
+    ])
+    using observed = await ctx.sessionQuery.observeSession(started.childId)
+    expect(observed.projections?.values.subagent).toMatchObject({ mode: 'continuable', label, agent })
+    expect(ctx.agents.get(started.childId)).toBeUndefined()
+    await spawn.dispose()
+
+    await continueChild(ctx, started.childId)
+    await settled(ctx, started.childId)
+
+    const requests = adapter.requests.filter(request => request.sessionId === started.childId)
+    expect(requests).toHaveLength(2)
+    for (const request of requests) {
+      expect(JSON.stringify(request.messages.filter(message => message.role === 'system'))).toContain(persona)
+      expect(request.tools?.map(tool => tool.name)).toEqual(['evidence_read'])
+    }
+    expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(parentTools)
+  })
+
+  it.each([
+    { toolFilter: { deny: ['mcp:project'] }, visible: ['reviewing_only'] },
+    { toolFilter: { allow: ['mcp:project'] }, visible: ['mcp__project__lookup'] },
+  ])('applies $toolFilter to MCP tools only present in the child preset on start and cold resume', async ({ toolFilter, visible }) => {
+    const { ctx, parent, adapter, spawn } = await setup(undefined, true)
+    parkParent(ctx, parent)
+    expect(ctx.tools.definitions()).toEqual([])
+    expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(['preset_only'])
+
+    const unfiltered = await ctx.subagents.startActivation(startSpec(parent, 'reviewing'))
+    await settled(ctx, unfiltered.childId)
+    expect(adapter.requests[0]?.tools?.map(tool => tool.name).sort()).toEqual(['mcp__project__lookup', 'reviewing_only'])
+
+    const started = await ctx.subagents.startActivation({ ...startSpec(parent, 'reviewing'), toolFilter })
+    const initial = await settled(ctx, started.childId)
+    expect(initial.events.find(event => event.type === 'subagent/descriptor')?.data).toMatchObject({ toolFilter })
+    await spawn.dispose()
+    await continueChild(ctx, started.childId)
+    await settled(ctx, started.childId)
+
+    expect(adapter.requests.filter(request => request.sessionId === started.childId).map(request => request.tools?.map(tool => tool.name)))
+      .toEqual([visible, visible])
+  })
+
+  it('keeps new MCP registrations from a denied server out of a resident child', async () => {
+    const { ctx, parent, registerScopedMcp } = await setup(['hang'], true)
+    parkParent(ctx, parent)
+    const started = await ctx.subagents.startActivation({ ...startSpec(parent, 'reviewing'), toolFilter: { deny: ['mcp:project'] } })
+    const child = ctx.agents.get(started.childId)
+    if (child === undefined) throw new Error('delegated agent did not start')
+    await registerScopedMcp('later')
+    expect(ctx.tools.registeredDefinitions(child).map(tool => tool.name)).toContain('mcp__project__later')
+    expect(ctx.tools.schemas(child).map(tool => tool.name)).toEqual(['reviewing_only'])
+    await started.dispose()
   })
 
   it('restores an explicit same-as-parent selection after the parent switches and the provider unloads', async () => {

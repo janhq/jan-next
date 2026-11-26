@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { PassThrough } from 'node:stream'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { getJanRuntimeVersion, initProfile, readProfileManifest } from '@janhq/jan-app-boot'
-import { anchorPathSpec, readProfileRegistry, runPluginCommand, runProfilePnpm, viewProfilePackage } from '../src/operations.ts'
+import { anchorInstallSpec, anchorPathSpec, readProfileRegistry, runPluginCommand, runProfilePnpm, viewProfilePackage } from '../src/operations.ts'
 
 /** The manifest fields an inspection prints. */
 const VIEW_FIELDS = ['name', 'version', 'description', 'jan'] as const
@@ -31,6 +31,8 @@ interface FakeChild {
 
 /** What each kind of pnpm invocation changes in the profile and what it answers. */
 interface FakePnpm {
+  /** Model the descriptors passed to pnpm rather than exposing inherited output to Jan. */
+  honorDescriptors?: boolean
   /** What the run changes in the profile. */
   mutate: (dir: string) => void
   /** The run's exit code and captured output. */
@@ -68,7 +70,7 @@ function fixture() {
   // One pnpm command per operation: a lookup that only reads the registry, the frozen install that
   // repairs a post-install refusal, and the run itself, which applies the test's mutation and exit code.
   const pnpm: FakePnpm = {
-    mutate: () => {},
+    mutate: () => { },
     exitCode: 0,
     output: '',
     repairExit: 0,
@@ -77,7 +79,7 @@ function fixture() {
   }
   command.run.mockImplementation((...call: unknown[]) => {
     const argv = call[1] as readonly string[]
-    const runDir = (call[2] as { cwd: string }).cwd
+    const { cwd: runDir, stdout } = call[2] as { cwd: string; stdout: string }
     const lookup = argv.indexOf('view')
     if (lookup !== -1) {
       const spec = argv[lookup + 1] as string
@@ -86,14 +88,18 @@ function fixture() {
       return result(answer.exitCode, answer.stdout)
     }
     if (argv.includes('--frozen-lockfile') || argv.includes('--config.lockfile=false')) return result(pnpm.repairExit, '')
-    return result(pnpm.exitCode, pnpm.output, () => { pnpm.mutate(runDir) })
+    const run = result(pnpm.exitCode, pnpm.output, () => { pnpm.mutate(runDir) })
+    if (pnpm.honorDescriptors && stdout === 'inherit') {
+      return Object.assign(run, { stdout: null, stderr: null })
+    }
+    return run
   })
   onTestFinished(() => { command.run.mockReset(); treeWait.skip = false; rmSync(home, { recursive: true, force: true }) })
   return { home, dir, context: { home, profile: 'test', installAnchor, cwd: home }, pnpm }
 }
 
 function result(
-  exitCode: number | undefined, output: string, mutate: () => void = () => {},
+  exitCode: number | undefined, output: string, mutate: () => void = () => { },
   details: { code?: string; shortMessage?: string } = {},
 ) {
   const stdout = new PassThrough()
@@ -108,7 +114,7 @@ function result(
   // A launch failure reports on the raw child, which never emits an exit; anything else exits once execa's promise settles.
   // Both arrive on a macrotask, so a fixture built before the run still reaches the listener the run attaches.
   if (details.code === undefined) {
-    void done.then(() => { setTimeout(() => { raw.emit('exit', exitCode, null) }, 0) }, () => {})
+    void done.then(() => { setTimeout(() => { raw.emit('exit', exitCode, null) }, 0) }, () => { })
   } else {
     setTimeout(() => { raw.emit('error', Object.assign(new Error('pnpm failed to launch'), { code: details.code })) }, 0)
   }
@@ -177,8 +183,10 @@ it.each(['service', 'cli'] as const)('reports unsupported activation through %s 
   pnpm.mutate = (target) => {
     install(target, 'supported')
     install(target, 'restricted')
-    writeFileSync(join(target, 'node_modules/restricted/package.json'), JSON.stringify({ name: 'restricted', version: '1',
-      jan: { bundle: { patch: './cordis.patch.yml', platforms: [process.platform === 'darwin' ? 'win32' : 'darwin'] } } }))
+    writeFileSync(join(target, 'node_modules/restricted/package.json'), JSON.stringify({
+      name: 'restricted', version: '1',
+      jan: { bundle: { patch: './cordis.patch.yml', platforms: [process.platform === 'darwin' ? 'win32' : 'darwin'] } },
+    }))
   }
   const messages: string[] = []
   const result = await runPluginCommand(context, ['add', 'restricted'], {
@@ -198,8 +206,10 @@ it('preserves malformed platform metadata errors without selecting the installed
   const { dir, context, pnpm } = fixture()
   pnpm.mutate = (target) => {
     install(target, 'malformed')
-    writeFileSync(join(target, 'node_modules/malformed/package.json'), JSON.stringify({ name: 'malformed', version: '1',
-      jan: { bundle: { patch: './cordis.patch.yml', platforms: ['macos'] } } }))
+    writeFileSync(join(target, 'node_modules/malformed/package.json'), JSON.stringify({
+      name: 'malformed', version: '1',
+      jan: { bundle: { patch: './cordis.patch.yml', platforms: ['macos'] } },
+    }))
   }
   await expect(runProfilePnpm(context, ['add', 'malformed'], { execution: 'service', outputBytes: 8192 }))
     .rejects.toThrow('jan.bundle.platforms must be a nonempty list of Node platform names')
@@ -561,14 +571,16 @@ it('checks scoped components in nested groups while leaving unresolved and local
     const component = join(packageDir, 'node_modules', '@example', 'component')
     mkdirSync(component, { recursive: true })
     writeFileSync(join(component, 'package.json'), JSON.stringify({ name: '@example/component', version: '1.0.0' }))
-    writeFileSync(join(packageDir, 'cordis.patch.yml'), JSON.stringify([{ insert: [
-      { id: 'group', group: true, config: [{ id: 'component', name: '@example/component/subpath' }] },
-      { id: 'empty-group', group: true, config: {} },
-      { id: 'relative', name: './plugin.mjs' },
-      { id: 'absolute', name: '/plugin.mjs' },
-      { id: 'url', name: 'file:///plugin.mjs' },
-      { id: 'unresolved', name: 'uninstalled-plugin' },
-    ] }]))
+    writeFileSync(join(packageDir, 'cordis.patch.yml'), JSON.stringify([{
+      insert: [
+        { id: 'group', group: true, config: [{ id: 'component', name: '@example/component/subpath' }] },
+        { id: 'empty-group', group: true, config: {} },
+        { id: 'relative', name: './plugin.mjs' },
+        { id: 'absolute', name: '/plugin.mjs' },
+        { id: 'url', name: 'file:///plugin.mjs' },
+        { id: 'unresolved', name: 'uninstalled-plugin' },
+      ],
+    }]))
   }
   expect(await runProfilePnpm(context, ['add', 'bundle'], { execution: 'service', outputBytes: 8192 })).toMatchObject({ exitCode: 0 })
 })
@@ -586,15 +598,57 @@ it('anchors relative package specs without rewriting registry specs', () => {
   expect(anchorPathSpec('package@1', '/workspace')).toBe('package@1')
 })
 
+it('anchors a bare local directory or tarball the caller can see, and leaves a package name alone', () => {
+  const { home } = fixture()
+  mkdirSync(join(home, 'plugin-dir'), { recursive: true })
+  writeFileSync(join(home, 'plugin-1.0.0.tgz'), '')
+  expect(anchorInstallSpec('plugin-dir', home)).toBe(join(home, 'plugin-dir'))
+  expect(anchorInstallSpec('plugin-1.0.0.tgz', home)).toBe(join(home, 'plugin-1.0.0.tgz'))
+  // A name with nothing on disk stays a registry spec, and an explicit path form keeps its own anchoring.
+  expect(anchorInstallSpec('elsewhere', home)).toBe('elsewhere')
+  expect(anchorInstallSpec('package@1', home)).toBe('package@1')
+  expect(anchorInstallSpec('./plugin-dir', home)).toBe(join(home, 'plugin-dir'))
+})
+
+it('anchors a quoted bare tarball filename from the invocation directory', async () => {
+  const { home, context } = fixture()
+  const filename = 'My Plugin.tgz'
+  writeFileSync(join(home, filename), '')
+  await runPluginCommand(context, ['add', filename], { execution: 'cli', outputBytes: 100 })
+  expect(command.run.mock.calls[0]?.[1]).toEqual(['add', join(home, filename)])
+})
+
+it.each(['plugin-dir', 'My Plugin'])('installs the bare local directory %j without a registry lookup', async (directory) => {
+  const { home, context, pnpm } = fixture()
+  mkdirSync(join(home, directory), { recursive: true })
+  writeFileSync(join(home, directory, 'package.json'), JSON.stringify({ name: 'plugin', version: '1.0.0' }))
+  pnpm.mutate = (target) => { install(target, 'plugin') }
+  expect(await runProfilePnpm(context, ['add', directory], { execution: 'service', outputBytes: 8192 }))
+    .toMatchObject({ exitCode: 0 })
+  expect(pnpm.views).toEqual([])
+  expect(command.run.mock.calls[0]?.[1]).toEqual(['add', join(home, directory)])
+})
+
 it('activates newly installed bundles and leaves retained disabled dependencies disabled', async () => {
   const { dir, context, pnpm } = fixture()
   install(dir, 'disabled')
   pnpm.mutate = (target) => { install(target, 'new-bundle') }
   expect(await runPluginCommand(context, ['add', 'new-bundle'], { execution: 'service', outputBytes: 100 })).toMatchObject({ exitCode: 0 })
   expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['new-bundle'])
-  pnpm.mutate = () => {}
+  pnpm.mutate = () => { }
   await runPluginCommand(context, ['update'], { execution: 'service', outputBytes: 100 })
   expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['new-bundle'])
+})
+
+it('activates a bundle promoted from dev to production dependencies', async () => {
+  const { dir, context, pnpm } = fixture()
+  install(dir, 'plugin')
+  const { dependencies, ...manifest } = readProfileManifest('test', dir)
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ ...manifest, devDependencies: dependencies }))
+  pnpm.mutate = (target) => { install(target, 'plugin') }
+  const outcome = await runPluginCommand(context, ['add', 'plugin'], { execution: 'cli', outputBytes: 100 })
+  expect(outcome.exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['plugin'])
 })
 
 it('can install without activation and bounds output while retaining the complete log', async () => {
@@ -687,7 +741,7 @@ function observingChild(dir: string, pid: number, waitMs = RECORD_WAIT_MS) {
 /** The written run record, or undefined once `waitMs` passes without one. */
 async function recordedRun(dir: string, waitMs: number): Promise<string | undefined> {
   const deadline = Date.now() + waitMs
-  for (;;) {
+  for (; ;) {
     if (existsSync(runRecord(dir))) return readFileSync(runRecord(dir), 'utf8')
     if (Date.now() >= deadline) return undefined
     await new Promise(resolve => setTimeout(resolve, 1))
@@ -873,7 +927,7 @@ it.each([
   { code: 'EACCES', shortMessage: undefined, expected: 1 },
 ])('reports launch failures with a complete log: $code', async ({ code, shortMessage, expected }) => {
   const { context } = fixture()
-  command.run.mockImplementationOnce(() => result(undefined, '', () => {}, { code, ...shortMessage === undefined ? {} : { shortMessage } }))
+  command.run.mockImplementationOnce(() => result(undefined, '', () => { }, { code, ...shortMessage === undefined ? {} : { shortMessage } }))
   const messages: string[] = []
   const outcome = await runProfilePnpm(context, ['root'], {
     execution: 'service', outputBytes: 4, signal: new AbortController().signal,
@@ -1014,4 +1068,248 @@ it('uses application-owned executable arguments and environment for package oper
   expect(command.run).toHaveBeenLastCalledWith(runtime.command,
     [...runtime.args, 'view', 'example', 'name', 'version', 'description', 'jan', '--json', '--config.fetch-retries=0'],
     expect.objectContaining({ env: expect.objectContaining(runtime.env) as unknown }))
+})
+/** A pnpm run that reports blocked build scripts, as the non-interactive failure it is. */
+const blockedBuilds = (names: readonly string[], mutate: () => void) =>
+  result(1, `[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: ${names.join(', ')}\n`, mutate)
+
+it('ignores unrelated earlier pending builds without automatic approval', async () => {
+  const { context, dir, pnpm } = fixture()
+  const pending = 'allowBuilds:\n  earlier@1.0.0: set this to true or false\n'
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), pending)
+  pnpm.output = '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: earlier@1.0.0\n'
+  pnpm.mutate = (target) => { install(target, 'unrelated') }
+  const outcome = await runPluginCommand(context, ['add', 'unrelated'], { execution: 'service', outputBytes: 8192 })
+  expect(outcome.exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['unrelated'])
+  expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(pending)
+})
+
+it('leaves a bundle inactive when plain CLI add skips its build', async () => {
+  const { context, dir, pnpm } = fixture()
+  pnpm.honorDescriptors = true
+  pnpm.output = 'Ignored build scripts: native-run.\nRun "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.\n'
+  const manifest = readFileSync(join(dir, 'package.json'), 'utf8')
+  const lockfile = join(dir, 'pnpm-lock.yaml')
+  writeFileSync(lockfile, 'original lockfile\n')
+  pnpm.mutate = (target) => {
+    install(target, 'native-run')
+    writeFileSync(lockfile, 'changed lockfile\n')
+  }
+  const output: string[] = []
+  const outcome = await runPluginCommand(context, ['add', 'native-run'], {
+    execution: 'cli', outputBytes: 8192, onOutput: (text) => { output.push(text) },
+  })
+  expect(outcome.exitCode).toBe(1)
+  expect(output.join('')).toContain(pnpm.output)
+  expect(outcome.output).toContain('Approve the build scripts, then add native-run again.')
+  expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(manifest)
+  expect(readFileSync(lockfile, 'utf8')).toBe('original lockfile\n')
+  expect(existsSync(join(dir, 'node_modules', 'native-run', 'package.json'))).toBe(true)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+})
+
+it('activates a previously skipped bundle after separate approval and an explicit retry', async () => {
+  const { context, dir, pnpm } = fixture()
+  const options = { execution: 'service', outputBytes: 8192 } as const
+  const workspace = join(dir, 'pnpm-workspace.yaml')
+  install(dir, 'disabled')
+  const add = () => runPluginCommand(context, ['add', 'plugin'], options)
+  const lockfile = join(dir, 'pnpm-lock.yaml')
+  const modules = join(dir, 'node_modules', '.modules.yaml')
+  const installPlugin = (target: string) => {
+    install(target, 'plugin')
+    writeFileSync(lockfile, `
+lockfileVersion: '9.0'
+importers:
+  '.':
+    dependencies:
+      plugin:
+        specifier: '1'
+        version: 1.0.0
+snapshots:
+  plugin@1.0.0:
+    dependencies:
+      native-transitive: 1.2.3
+  native-transitive@1.2.3: {}
+`)
+  }
+  pnpm.output = '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: native-transitive\n'
+  pnpm.mutate = (target) => {
+    installPlugin(target)
+    writeFileSync(modules, 'ignoredBuilds:\n  - native-transitive@1.2.3\n')
+    writeFileSync(workspace, 'allowBuilds:\n  native-transitive: set this to true or false\n')
+  }
+  expect((await add()).exitCode).toBe(1)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+  // The policy entry is now earlier work, but the new bundle still needs that exact skipped dependency.
+  pnpm.output = ''
+  const retry = await add()
+  expect(retry.exitCode).toBe(1)
+  expect(retry.output).toContain('native-transitive@1.2.3')
+  expect(existsSync(lockfile)).toBe(false)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+
+  pnpm.output = ''
+  pnpm.mutate = () => {
+    writeFileSync(workspace, 'allowBuilds:\n  native-transitive: true\n')
+    writeFileSync(modules, '{}\n')
+  }
+  expect((await runPluginCommand(context, ['approve-builds', 'native-transitive'], options)).exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual([])
+
+  pnpm.mutate = installPlugin
+  expect((await add()).exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['plugin'])
+  pnpm.mutate = () => { }
+  expect((await runPluginCommand(context, ['add', 'disabled'], options)).exitCode).toBe(0)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles).toEqual(['plugin'])
+})
+
+it('approves only the keys this run reported and activates only after the retry', async () => {
+  const { dir, context } = fixture()
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'allowBuilds:\n  earlier@1.0.0: set this to true or false\n')
+  const bundles = (): readonly string[] => readProfileManifest('test', dir).jan?.profile?.bundles ?? []
+  const bundlesAtStartOfAdd: (readonly string[])[] = []
+  command.run.mockImplementation((...call: unknown[]) => {
+    const argv = call[1] as readonly string[]
+    if (argv.includes('view')) return result(0, '{}')
+    if (!argv.includes('add')) return result(0, '')
+    const runDir = (call[2] as { cwd: string }).cwd
+    bundlesAtStartOfAdd.push(bundles())
+    // The first pass reports every pending key in the tree, and only the retry succeeds.
+    return bundlesAtStartOfAdd.length === 1
+      ? blockedBuilds(['earlier@1.0.0', 'native-run'], () => { install(runDir, 'native-run') })
+      : result(0, '', () => { install(runDir, 'native-run') })
+  })
+  const approved: string[][] = []
+  const outcome = await runProfilePnpm(context, ['add', 'native-run'], {
+    execution: 'service', outputBytes: 8192, approveReportedBuilds: true,
+    onBuildsApproved: (names) => { approved.push([...names]) },
+  })
+  // Neither pass activated anything before the retry finished, and the earlier undecided key stayed earlier work.
+  expect(bundlesAtStartOfAdd).toEqual([[], []])
+  expect(approved).toEqual([['native-run']])
+  expect(outcome.exitCode).toBe(0)
+  const policy = readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')
+  expect(policy).toContain('earlier@1.0.0: set this to true or false')
+  expect(policy).toContain('native-run: true')
+  expect(bundles()).toEqual(['native-run'])
+})
+
+it('fails without activating when the retry still reports an undecided script', async () => {
+  const { dir, context } = fixture()
+  command.run.mockImplementation((...call: unknown[]) => {
+    const argv = call[1] as readonly string[]
+    if (argv.includes('view')) return result(0, '{}')
+    if (!argv.includes('add')) return result(0, '')
+    const runDir = (call[2] as { cwd: string }).cwd
+    // pnpm warns and exits 0 when it skips an undecided script, which is the case the guard has to catch.
+    return result(0, '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: native-run\n', () => { install(runDir, 'native-run') })
+  })
+  const approved: string[][] = []
+  const outcome = await runProfilePnpm(context, ['add', 'native-run'], {
+    execution: 'service', outputBytes: 8192, approveReportedBuilds: true,
+    onBuildsApproved: (names) => { approved.push([...names]) },
+  })
+  expect(approved).toEqual([['native-run']])
+  expect(outcome.exitCode).toBe(1)
+  expect(outcome.output).toContain('build scripts of native-run are still undecided; bundle selection is unchanged')
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles ?? []).toEqual([])
+})
+
+it('approves nothing when the report names a key the policy already decided', async () => {
+  const { dir, context } = fixture()
+  // pnpm never reports a decided key, so a report that does is not this run's to act on.
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'allowBuilds:\n  native-run: true\n')
+  command.run.mockImplementation((...call: unknown[]) => {
+    const argv = call[1] as readonly string[]
+    if (argv.includes('view')) return result(0, '{}')
+    if (!argv.includes('add')) return result(0, '')
+    const runDir = (call[2] as { cwd: string }).cwd
+    return blockedBuilds(['native-run'], () => { install(runDir, 'native-run') })
+  })
+  const approved: string[][] = []
+  const outcome = await runProfilePnpm(context, ['add', 'native-run'], {
+    execution: 'service', outputBytes: 8192, approveReportedBuilds: true,
+    onBuildsApproved: (names) => { approved.push([...names]) },
+  })
+  expect(approved).toEqual([])
+  expect(outcome.exitCode).toBe(1)
+  expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe('allowBuilds:\n  native-run: true\n')
+})
+
+it('reports the first run when the approval cannot be recorded', async () => {
+  const { context } = fixture()
+  command.run.mockImplementation((...call: unknown[]) => {
+    const argv = call[1] as readonly string[]
+    if (argv.includes('view')) return result(0, '{}')
+    if (!argv.includes('add')) return result(0, '')
+    const runDir = (call[2] as { cwd: string }).cwd
+    // The policy is readable when the snapshot is taken and gone when the approval is recorded.
+    const policy = join(runDir, 'pnpm-workspace.yaml')
+    return blockedBuilds(['native-run'], () => {
+      rmSync(policy, { force: true })
+      mkdirSync(policy)
+    })
+  })
+  const approved: string[][] = []
+  const outcome = await runProfilePnpm(context, ['add', 'native-run'], {
+    execution: 'service', outputBytes: 8192, approveReportedBuilds: true,
+    onBuildsApproved: (names) => { approved.push([...names]) },
+  })
+  expect(approved).toEqual([])
+  expect(outcome.exitCode).toBe(1)
+  expect(outcome.output).toContain('Ignored build scripts: native-run')
+})
+
+it('approves nothing when the pending policy cannot be read', async () => {
+  const { dir, context } = fixture()
+  rmSync(join(dir, 'pnpm-workspace.yaml'), { force: true })
+  mkdirSync(join(dir, 'pnpm-workspace.yaml'))
+  command.run.mockImplementation((...call: unknown[]) => {
+    const argv = call[1] as readonly string[]
+    if (argv.includes('view')) return result(0, '{}')
+    if (!argv.includes('add')) return result(0, '')
+    const runDir = (call[2] as { cwd: string }).cwd
+    return blockedBuilds(['native-run'], () => { install(runDir, 'native-run') })
+  })
+  const approved: string[][] = []
+  const outcome = await runProfilePnpm(context, ['add', 'native-run'], {
+    execution: 'service', outputBytes: 8192, approveReportedBuilds: true,
+    onBuildsApproved: (names) => { approved.push([...names]) },
+  })
+  // Without knowing which keys are earlier work, approving could grant an unrelated pending script.
+  expect(approved).toEqual([])
+  expect(outcome.exitCode).toBe(1)
+  expect(readProfileManifest('test', dir).jan?.profile?.bundles ?? []).toEqual([])
+})
+
+it('retries a rejected installation against the files the whole operation found', async () => {
+  const { dir, context } = fixture()
+  writeFileSync(join(dir, 'pnpm-lock.yaml'), 'original-lock\n')
+  const manifestBefore = readFileSync(join(dir, 'package.json'), 'utf8')
+  let adds = 0
+  command.run.mockImplementation((...call: unknown[]) => {
+    const argv = call[1] as readonly string[]
+    if (argv.includes('view')) return result(0, '{}')
+    if (argv.includes('--frozen-lockfile') || argv.includes('--config.lockfile=false')) return result(0, '')
+    if (!argv.includes('add')) return result(0, '')
+    adds += 1
+    const runDir = (call[2] as { cwd: string }).cwd
+    const mutate = (): void => {
+      // Only the installed manifest carries the incompatibility, so the post-install check is what refuses it.
+      installGuarded(runDir, 'incompatible', 'incompatible', '1.0.0', '>=999.0.0')
+      writeFileSync(join(runDir, 'pnpm-lock.yaml'), 'changed-lock\n')
+    }
+    return adds === 1 ? blockedBuilds(['incompatible'], mutate) : result(0, '', mutate)
+  })
+  const outcome = await runProfilePnpm(context, ['add', 'incompatible'], {
+    execution: 'service', outputBytes: 8192, approveReportedBuilds: true,
+  })
+  // The retry judges the operation, so the package its sibling installed is still a new, incompatible dependency.
+  expect(outcome.exitCode).toBe(1)
+  expect(outcome.incompatible).toMatchObject([{ name: 'incompatible' }])
+  expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(manifestBefore)
+  expect(readFileSync(join(dir, 'pnpm-lock.yaml'), 'utf8')).toBe('original-lock\n')
 })

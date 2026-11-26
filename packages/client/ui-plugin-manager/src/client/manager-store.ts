@@ -9,6 +9,7 @@ import { sanitizeInstallInput } from './sanitize-install-input.ts'
 import type {} from '@janhq/jan-client-product-analytics/client'
 import type {} from '@janhq/jan-client-ui-plugin-i18n/client'
 import { randomUUID } from '@janhq/jan-util-crypto'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { Context as ClientContext } from '@janhq/cordis'
 import type {
   BundleInfo,
@@ -83,8 +84,8 @@ export type ManagerNotice =
   | { readonly kind: 'restart'; readonly packageName: string; readonly reason: RestartReason | undefined; readonly seq: number }
   | { readonly kind: 'overridden'; readonly packageName: string; readonly seq: number }
   | { readonly kind: 'cancelled'; readonly seq: number }
-  | { readonly kind: 'refresh-failed'; readonly seq: number }
-  | { readonly kind: 'install'; readonly outcome: 'done' | 'failed' | 'unconfirmed' | 'applying' | 'unknown'; readonly seq: number }
+  | { readonly kind: 'refresh-failed'; readonly seq: number; readonly failure?: FailureDetails }
+  | { readonly kind: 'install'; readonly outcome: 'done' | 'failed' | 'unconfirmed' | 'applying' | 'unknown'; readonly seq: number; readonly failure?: FailureDetails }
   | {
     readonly kind: 'failed'
     /** What was being done when it failed. */
@@ -93,6 +94,7 @@ export type ManagerNotice =
     readonly code?: ManagementError['code']
     /** The Host's diagnostic or the transport's words, shown verbatim; empty when the code says it all. */
     readonly reason: string
+    readonly failure?: FailureDetails
     /** The packages an `incompatible-version` refusal names. */
     readonly incompatible?: readonly IncompatiblePlugin[]
     readonly packageName?: string
@@ -413,6 +415,7 @@ export interface PluginManagerState {
    * cached refresh failures reported by toast. Background reads do not start the spinner.
    */
   readonly refreshStatus: 'idle' | 'refreshing' | 'failed'
+  readonly loadFailure?: FailureDetails | undefined
   readonly packages: readonly PackageView[]
   /** Package names and row keys with an action crossing the wire. */
   readonly busy: readonly string[]
@@ -488,8 +491,8 @@ export interface PluginManagerFace {
   enableInstalled: () => void
   /** Translate the installed plugin into the UI language in the Host; also retries a failed translation. */
   translateInstalled: () => void
-  /** Decline the offer to translate the installed plugin. */
-  declineTranslation: () => void
+  /** Decline the translation offer for this app start or permanently for this package. */
+  declineTranslation: (mode?: 'later' | 'never') => void
   /** Drop the list mark once it has been shown. */
   clearHighlight: () => void
   /** Put a bundle into, or take it out of, the profile's layer list. */
@@ -560,6 +563,7 @@ function failedNotice(error: unknown, subject: { action: FailedAction; packageNa
   const incompatible = error instanceof RemoteAnswerError ? error.incompatible : undefined
   return {
     kind: 'failed', reason: reasonOf(error), ...code === undefined ? {} : { code },
+    failure: captureFailure(`pluginManager.${subject.action}`, error),
     ...incompatible === undefined ? {} : { incompatible }, ...subject, seq,
   }
 }
@@ -842,9 +846,9 @@ export class PluginManagerController {
       toggleInstallDetails: () => { this.patchInstall({ detailsOpen: !this.getSnapshot().install.detailsOpen }) },
       enableInstalled: () => { void this.enableInstalled() },
       translateInstalled: () => { void this.translateInstalled() },
-      declineTranslation: () => {
+      declineTranslation: (mode = 'later') => {
         const offer = this.getSnapshot().install.translate
-        if (offer?.step === 'offer' || offer?.step === 'failed') this.ctx.get('pluginI18n')?.dismiss(offer.pkg, 'later')
+        if (offer?.step === 'offer' || offer?.step === 'failed') this.ctx.get('pluginI18n')?.dismiss(offer.pkg, mode)
         this.patchInstall({ translate: null })
       },
       clearHighlight: () => { if (this.getSnapshot().highlight !== null) this.patch({ highlight: null }) },
@@ -1103,9 +1107,8 @@ export class PluginManagerController {
     try {
       await this.load()
       if (this.getSnapshot().status !== 'error') await this.checkAllVersions()
-    } catch (_error) {
-      // A rejected transport request leaves the cached cards available for retry.
-      this.patch({ status: 'error' })
+    } catch (error) {
+      this.patch({ status: 'error', loadFailure: captureFailure('pluginManager.refresh', error) })
     } finally {
       // Hold the spinner to its minimum so a fast read does not flash it, then settle.
       const remaining = REFRESH_SPINNER_MIN_MS - (Date.now() - startedAt)
@@ -1117,9 +1120,11 @@ export class PluginManagerController {
   /** Publish refresh feedback only before disposal. */
   private settleRefresh(): void {
     if (this.disposed) return
-    const failed = this.getSnapshot().status === 'error'
+    const { status, loadFailure } = this.getSnapshot()
+    const failed = status === 'error'
     this.patch(failed && this.hasCachedInventory
-      ? { status: 'ready', refreshStatus: 'idle', notice: { kind: 'refresh-failed', seq: ++this.noticeSeq } }
+      ? { status: 'ready', refreshStatus: 'idle', notice: { kind: 'refresh-failed', seq: ++this.noticeSeq,
+        ...loadFailure === undefined ? {} : { failure: loadFailure } } }
       : { refreshStatus: failed ? 'failed' : 'idle' })
   }
 
@@ -1134,7 +1139,7 @@ export class PluginManagerController {
         const inventory = await this.ctx.remote.pluginInventory.list()
         if (generation !== this.generation) return
         if (!inventory.ok) {
-          this.patch({ status: 'error' })
+          this.patch({ status: 'error', loadFailure: captureFailure('pluginInventory.list', inventory.error) })
           continue
         }
         if (inventory.value.managementAvailable !== true) {
@@ -1148,13 +1153,15 @@ export class PluginManagerController {
         ])
         if (generation !== this.generation) return
         if (!bundles.ok || !plugins.ok) {
-          this.patch({ status: 'error' })
+          this.patch({ status: 'error', loadFailure: !bundles.ok ? captureFailure('pluginManager.listBundles', bundles.error)
+            : !plugins.ok ? captureFailure('pluginManager.listPlugins', plugins.error) : undefined })
           continue
         }
         this.hasCachedInventory = true
         const current = new Map(this.getSnapshot().packages.map(pkg => [pkg.name, pkg]))
         this.patch({
           status: 'ready',
+          loadFailure: undefined,
           refreshStatus: this.getSnapshot().refreshStatus === 'refreshing' ? 'refreshing' : 'idle',
           packages: sortPackages(bundles.value.map((bundle) => {
             const next = packageView(bundle, plugins.value)
@@ -1164,6 +1171,8 @@ export class PluginManagerController {
         })
         this.dropStaleVersions()
       } while (this.shouldRerun())
+    } catch (error) {
+      this.patch({ status: 'error', loadFailure: captureFailure('pluginManager.load', error) })
     } finally {
       this.inFlight = undefined
     }
@@ -1393,7 +1402,8 @@ export class PluginManagerController {
       if (completed.subject.selection) this.trackToggle(result.bundle, true)
     }
     const phase = this.getSnapshot().install.phase
-    if (phase === 'done' || phase === 'failed') this.notifyHiddenInstall(phase)
+    if (phase === 'done' || phase === 'failed') this.notifyHiddenInstall(phase, phase === 'failed'
+      ? captureFailure('pluginManager.install', result.error ?? { code: 'plugin-manager/install-failed' }) : undefined)
     void this.load().then(() => { this.offerTranslation() })
   }
 
@@ -1478,8 +1488,9 @@ export class PluginManagerController {
     }
   }
 
-  private notifyHiddenInstall(outcome: Extract<ManagerNotice, { kind: 'install' }>['outcome']): void {
-    if (!this.getSnapshot().install.open) this.patch({ notice: { kind: 'install', outcome, seq: ++this.noticeSeq } })
+  private notifyHiddenInstall(outcome: Extract<ManagerNotice, { kind: 'install' }>['outcome'], failure?: FailureDetails): void {
+    if (!this.getSnapshot().install.open) this.patch({ notice: { kind: 'install', outcome, seq: ++this.noticeSeq,
+      ...failure === undefined ? {} : { failure } } })
   }
 
   /**

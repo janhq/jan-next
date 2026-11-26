@@ -37,7 +37,8 @@
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
 - button "Choose project" [disabled]
-- 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
+- 'button "Switch the mode for this task: Minimal mode"': Minimal mode
+- 'button "Choose agent: Jan"': Jan
 - button "2 turns 2 steps"
 - button "28 tok · Cache hit 0%": 28 tokCache hit 0%
 - button "0% of context used": 0%

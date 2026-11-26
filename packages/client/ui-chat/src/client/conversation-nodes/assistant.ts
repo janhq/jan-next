@@ -37,7 +37,7 @@ interface AssistantState {
   readonly firstVisibleTime: number | undefined
   readonly firstTokenTime: number | undefined
   readonly streamingPhase: AssistantChatData['streamingPhase']
-  readonly final: ConversationMatch | undefined
+  readonly final: { readonly match: ConversationMatch; readonly blocks: readonly AssistantBlock[]; readonly visible: boolean } | undefined
   readonly usage: unknown
 }
 
@@ -65,10 +65,6 @@ function blockIsVisible(block: AssistantBlock | undefined): boolean {
   if (block === undefined || block.kind === 'tool-call') return false
   if (block.kind === 'text' || block.kind === 'reasoning') return block.text.trim() !== ''
   return true
-}
-
-function hasVisibleContent(blocks: readonly AssistantBlock[]): boolean {
-  return blocks.some(blockIsVisible)
 }
 
 function hasInterruptionEvidence(blocks: readonly AssistantBlock[]): boolean {
@@ -187,13 +183,19 @@ function settleMessage(
   event: SessionEvent<'assistant/message'>,
 ): AssistantState {
   const blocks = toAssistantBlocks(event.data.message.content)
-  const visibleByIndex = blocks.map(blockIsVisible)
+  const visibleByIndex: boolean[] = []
+  let visibleBlocks = 0
+  for (const block of blocks) {
+    const visible = blockIsVisible(block)
+    visibleByIndex.push(visible)
+    visibleBlocks += Number(visible)
+  }
   return {
     ...state,
     blocks,
     visibleByIndex,
-    visibleBlocks: visibleByIndex.reduce((count, visible) => count + Number(visible), 0),
-    final: match,
+    visibleBlocks,
+    final: { match, blocks, visible: visibleBlocks > 0 },
     usage: event.data.usage,
   }
 }
@@ -214,8 +216,8 @@ function finalNode(
   context: ConversationNodeContext<AssistantState>,
 ): AssistantMessageNode | undefined {
   const final = state.final
-  if (final?.event.type === 'assistant/message') {
-    const event = final.event
+  if (final?.match.event.type === 'assistant/message') {
+    const event = final.match.event
     return {
       kind: 'assistant',
       seq: event.seq,
@@ -223,7 +225,7 @@ function finalNode(
       time: event.time,
       turn: state.turn,
       step: state.step,
-      blocks: toAssistantBlocks(event.data.message.content),
+      blocks: final.blocks,
       usage: event.data.usage,
       timing: {
         stepStartTime: context.start?.event.time ?? null,
@@ -270,39 +272,24 @@ function fallbackState(context: ConversationNodeContext<AssistantState>): Assist
   return state
 }
 
-interface AssistantProjection {
-  readonly data: AssistantChatData
-  readonly anchorSeq: number
-  readonly visible: boolean
-  readonly settled: AssistantMessageNode | undefined
-}
-
-function projectAssistant(context: ConversationNodeContext<AssistantState>): AssistantProjection | undefined {
+function projectAssistant(context: ConversationNodeContext<AssistantState>): AssistantChatData | undefined {
   const state = context.state ?? fallbackState(context)
   if (state === undefined) return undefined
   const settled = finalNode(state, context)
   const blocks = settled?.blocks ?? compactBlocks(state.blocks)
-  const visible = settled === undefined ? state.visibleBlocks > 0 : hasVisibleContent(blocks)
   const status = settled?.interrupted === true
     ? 'interrupted'
     : settled === undefined ? 'running' : 'settled'
-  const anchorSeq = (settled?.interrupted === true ? settled.seq : state.firstVisibleSeq ?? settled?.seq)
-    ?? context.matches[0]?.event.seq ?? 0
   const time = settled?.time ?? state.firstVisibleTime ?? context.matches[0]?.event.time ?? 0
   return {
-    anchorSeq,
-    visible,
-    settled,
-    data: {
-      status,
-      turn: state.turn,
-      step: state.step,
-      blocks,
-      time,
-      ...status === 'running' && state.streamingPhase !== undefined ? { streamingPhase: state.streamingPhase } : {},
-      ...state.usage === undefined ? {} : { usage: state.usage },
-      ...settled === undefined ? {} : { finalNode: settled },
-    },
+    status,
+    turn: state.turn,
+    step: state.step,
+    blocks,
+    time,
+    ...status === 'running' && state.streamingPhase !== undefined ? { streamingPhase: state.streamingPhase } : {},
+    ...state.usage === undefined ? {} : { usage: state.usage },
+    ...settled === undefined ? {} : { finalNode: settled },
   }
 }
 
@@ -354,10 +341,10 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
     if (projected === undefined) return null
     return {
       kind: 'step',
-      turn: projected.data.turn,
-      step: projected.data.step,
+      turn: projected.turn,
+      step: projected.step,
       key: 'assistant-step',
-      value: projected.data,
+      value: projected,
     }
   },
   buildViewNode: (context) => {
@@ -368,7 +355,7 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
       return current == null ? null : { ...current, visibility: 'hidden' }
     }
     const settled = data.finalNode
-    const visible = settled === undefined ? state.visibleBlocks > 0 : hasVisibleContent(data.blocks)
+    const visible = state.final?.visible ?? state.visibleBlocks > 0
     if (settled === undefined && !visible && current == null) return null
     // A successful message retains its live anchor alongside pending Tool calls.
     const anchorSeq = (settled?.interrupted === true ? settled.seq : state.firstVisibleSeq ?? settled?.seq)

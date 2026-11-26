@@ -10,7 +10,7 @@ import type { ArchiveToastEntryProps, ToastEntryProps, WorkspaceToastProps } fro
  */
 export function ToastEntry<P extends PropsRuntime<'workspace.toast'>>(props: ToastEntryProps<P>) {
   const { dismissToast, display, t, renderFactorySlot, seq } = props
-  return renderFactorySlot('workspace.toast.content', { ...display(props, t, dismissToast), seq, onDone: dismissToast })
+  return renderFactorySlot('workspace.toast.content', { ...display(props, t, dismissToast), failure: props.failure, seq, onDone: dismissToast })
 }
 
 /**
@@ -35,8 +35,8 @@ export function ArchiveToastEntry(props: ArchiveToastEntryProps) {
  * @param props - Localized display fields, display identity, and dismissal.
  * @returns One Toast, remounted only for a new display identity.
  */
-export function WorkspaceToast({ seq, text, tone, holdMs, actions, onDone }: WorkspaceToastProps) {
-  return <Toast key={seq} text={text} onDone={onDone}
+export function WorkspaceToast({ seq, text, tone, holdMs, actions, failure, onDone }: WorkspaceToastProps) {
+  return <Toast key={seq} text={text} onDone={onDone} failure={failure}
     {...tone === 'success' ? { tone: 'success' as const } : {}}
     {...tone === 'warning' ? { icon: <IconWarningOutlineRegular /> } : {}}
     {...holdMs === undefined ? {} : { holdMs }}

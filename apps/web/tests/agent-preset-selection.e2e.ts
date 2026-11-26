@@ -231,6 +231,7 @@ describe('web e2e: agent-preset selection', () => {
     fixtureRoot = await realpath(await mkdtemp(join(tmpdir(), 'jan-web-e2e-refusing-')))
     await seedRefusingPreset(fixtureRoot)
     scaffold = await launchWebScaffold({
+      developerTools: true,
       agentPresets: { default: 'standard', definitions: [{ id: REFUSING_ID, name: 'Refusing mode', description: 'Refuses to start.', plugins: [{ name: pathToFileURL(join(fixtureRoot, REFUSING_ID, 'refuses.mjs')).href }] }] },
     })
     // A resumed session runs what it was created with; seeding one that
@@ -252,10 +253,10 @@ describe('web e2e: agent-preset selection', () => {
     await rm(fixtureRoot, { recursive: true, force: true })
   })
 
-  it('clears an unapplied hidden pick and creates a Standard session with the roster editable in Settings', async () => {
+  it('clears an unapplied hidden pick and creates a Code session with the roster editable in Settings', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-hero'))
     expect(await livePreset(scaffold)).toBeUndefined()
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
+    await page.getByRole('button', { name: 'Code mode', exact: true }).click()
     await page.getByRole('menuitem', { name: /^Minimal mode/ }).click()
     await page.getByRole('button', { name: 'Minimal mode', exact: true }).waitFor()
     await openSettings(page, 'en')
@@ -265,34 +266,34 @@ describe('web e2e: agent-preset selection', () => {
     await expect.poll(() => codingTools.getAttribute('aria-checked')).toBe('false')
     await dialog.getByRole('button', { name: 'Close' }).last().click()
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Got it', exact: true }).click()
+    await page.getByRole('button', { name: 'Code mode', exact: true }).waitFor({ timeout: 10_000 })
     await expect.poll(() => livePreset(scaffold)).toBe('standard')
 
     await openSettings(page, 'en')
     await codingTools.click()
     await expect.poll(() => codingTools.getAttribute('aria-checked')).toBe('true')
-    await dialog.getByRole('button', { name: 'Agent presets' }).click()
-    await dialog.getByRole('button', { name: 'New task default: Standard mode' }).waitFor({ timeout: 10_000 })
+    await dialog.getByRole('button', { name: 'Modes', exact: true }).click()
+    await dialog.getByRole('button', { name: 'New task default: Code mode' }).waitFor({ timeout: 10_000 })
     expect(await dialog.getByRole('switch').count()).toBe(0)
     await dialog.getByRole('button', { name: 'Set as new task default: Minimal mode' }).waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Close' }).last().click()
 
     const snapshot = await captureStableAria(page, '[class*="heroWorkspaceRow"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(HERO_EXPECTED, snapshot, MODE)
-    expect(snapshot).toContain('Standard mode')
+    expect(snapshot).toContain('Code mode')
   })
 
-  it('names every preset and what it is for', async () => {
+  it('describes selectable modes and omits delegation presets', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-menu'))
-    await page.getByRole('button', { name: 'Standard mode' }).click()
+    await page.getByRole('button', { name: 'Code mode' }).click()
     const menu = page.getByRole('menu')
     await menu.waitFor({ timeout: 10_000 })
 
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
 
     await compareOrRefreshGolden(MENU_EXPECTED, snapshot, MODE)
-    // Every shipped preset, each with the sentence saying what it composes —
-    // the id alone never said what a preset does.
+    expect(await menu.getByRole('menuitem', { name: /^(reviewer|scout|worker)\b/ }).count()).toBe(0)
     expect(snapshot).toContain('Minimal mode')
     expect(snapshot).toContain('Creator mode')
     await page.keyboard.press('Escape')
@@ -300,7 +301,7 @@ describe('web e2e: agent-preset selection', () => {
 
   it('applies the staged pick to the blank session, and the host honors it', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-stage'))
-    await page.getByRole('button', { name: 'Standard mode' }).click()
+    await page.getByRole('button', { name: 'Code mode' }).click()
     await page.getByRole('menuitem', { name: /Minimal mode/ }).click()
 
     // The chip stages; the blank session the workspace connect produced is
@@ -345,7 +346,7 @@ describe('web e2e: agent-preset selection', () => {
     // answers "already standard" and sends nothing — and restores the catalog
     // instead of leaving the session reading the narrower composition.
     await page.getByRole('button', { name: 'Minimal mode' }).click()
-    await page.getByRole('menuitem', { name: /^Standard mode/ }).first().click()
+    await page.getByRole('menuitem', { name: /^Code mode/ }).first().click()
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('standard')
 
     await writeComposerDraft(page, composer, '/')
@@ -358,13 +359,13 @@ describe('web e2e: agent-preset selection', () => {
     await writeComposerDraft(page, composer, '')
   }, 90_000)
 
-  it('preserves the current mode until New Session reuses its blank under the reset Standard default', async () => {
+  it('preserves the current mode until New Session reuses its blank under the reset Code default', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-agent-preset-disabled'))
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('standard')
 
     await openSettings(page, 'en')
     const dialog = page.getByRole('dialog', { name: 'Settings' })
-    await dialog.getByRole('button', { name: 'Agent presets' }).click()
+    await dialog.getByRole('button', { name: 'Modes', exact: true }).click()
     await dialog.getByRole('button', { name: 'Set as new task default: Minimal mode' }).click()
     await dialog.getByRole('button', { name: 'New task default: Minimal mode' }).waitFor({ timeout: 10_000 })
     await expect.poll(() => livePreset(scaffold), { timeout: 15_000 }).toBe('minimal')
@@ -378,7 +379,7 @@ describe('web e2e: agent-preset selection', () => {
     await page.getByRole('button', { name: 'Minimal mode', exact: true }).click()
     await page.getByRole('menu').waitFor()
     expect(await page.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
-    expect(await page.getByRole('menuitem', { name: /^Standard mode|^Creator mode/ }).count()).toBe(2)
+    expect(await page.getByRole('menuitem', { name: /^Code mode|^Creator mode/ }).count()).toBe(2)
     await page.keyboard.press('Escape')
     await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('standard')
 
@@ -399,7 +400,7 @@ describe('web e2e: agent-preset selection', () => {
     await newConversation.waitFor()
     await page.reload()
     await newConversation.waitFor()
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Code mode', exact: true }).waitFor()
 
     await openSettings(page, 'en')
     const reopened = page.getByRole('dialog', { name: 'Settings' })
@@ -408,12 +409,12 @@ describe('web e2e: agent-preset selection', () => {
     await expect.poll(() => reopenedDeveloperTools.getAttribute('aria-checked')).toBe('false')
     await reopenedDeveloperTools.click()
     await expect.poll(() => reopenedDeveloperTools.getAttribute('aria-checked')).toBe('true')
-    await reopened.getByRole('button', { name: 'Agent presets' }).click()
-    await reopened.getByRole('button', { name: 'New task default: Standard mode' }).waitFor({ timeout: 10_000 })
+    await reopened.getByRole('button', { name: 'Modes', exact: true }).click()
+    await reopened.getByRole('button', { name: 'New task default: Code mode' }).waitFor({ timeout: 10_000 })
     await reopened.getByRole('button', { name: 'Set as new task default: Minimal mode' }).waitFor({ timeout: 10_000 })
     await reopened.getByRole('button', { name: 'Close' }).last().click()
     await expect.poll(() => livePreset(scaffold, newSessionId), { timeout: 15_000 }).toBe('standard')
-    await page.getByRole('button', { name: 'Standard mode' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Code mode' }).waitFor({ timeout: 10_000 })
   })
 
   it('labels a resumed session with the preset it was created under', async () => {
@@ -454,7 +455,7 @@ it.each([false, true])('starts Creator from Plugins with Coding Tools=%s without
     const standard = scaffold.ctx.agents.list()[0]
     if (standard === undefined) throw new Error('Connecting the workspace did not create a Session')
     expect(scaffold.ctx.agentPresets.composedPreset(standard.ctx)).toBe('standard')
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Code mode', exact: true }).waitFor()
     const composerOf = (sessionId: SessionId) =>
       page.locator(`[data-conversation-session="${sessionId}"] [data-composer-input][contenteditable="true"]`)
     const draft = 'Keep this unsent plugin idea.'
@@ -518,7 +519,7 @@ it.each([false, true])('starts Creator from Plugins with Coding Tools=%s without
     expect(scaffold.ctx.sessionProjections.checkpoint(reopened.session).agentPreset?.val).toBe('standard')
     expect(scaffold.ctx.agentPresets.composedPreset(reopened.ctx)).toBe('standard')
     expect(scaffold.ctx.sessionProjections.checkpoint(creator.session).agentPreset?.val).toBe('cordis')
-    await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Code mode', exact: true }).waitFor()
     expect(scaffold.ctx.settings.describe().find(row => row.ns === 'ui-settings')?.value).toMatchObject({ enabled: developerTools })
     expect(scaffold.ctx.agentPresets.defaultId).toBe('standard')
     expect(tripwire.pageErrors).toEqual([])

@@ -8,6 +8,7 @@
     "src"
   ],
   "references": [
+    { "path": "../../host/downloads" },
     {
       "path": "../../../vendor/cosmokit"
     },

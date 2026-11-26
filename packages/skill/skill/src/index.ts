@@ -116,6 +116,25 @@ export interface SkillLookupOptions {
 export interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
+  /** Skip filters. Listings also include shadowed candidates so settings can show every skill folder. */
+  readonly unfiltered?: boolean | undefined
+}
+
+/**
+ * Decides which discovered skills a lookup may see. `resolve` runs once per
+ * uncached lookup with the caller's options and returns a candidate predicate,
+ * or `undefined` to leave that lookup unfiltered. A hidden candidate is dropped
+ * before duplicate names resolve, so a same-name skill from another root can
+ * win. The owner calls {@link SkillRegistry.refresh} after its own inputs change.
+ */
+export interface SkillFilter {
+  /** Unique filter name, used in failure logs. */
+  readonly name: string
+  /**
+   * @param options - the lookup's cwd and scope.
+   * @returns a predicate that keeps a skill when it returns true, or undefined for no filtering.
+   */
+  readonly resolve: (options: SkillViewOptions) => ((skill: SkillSummary) => boolean) | undefined
 }
 
 /**
@@ -320,6 +339,8 @@ interface LayerCollectResult {
 
 interface CollectResult {
   entries: Map<string, IndexedCandidate>
+  /** Unfiltered candidates in precedence order, including shadowed ones. */
+  candidates?: IndexedCandidate[]
   cacheable: boolean
 }
 
@@ -363,7 +384,8 @@ export class SkillRegistry extends Service {
     scope => new SkillLayer(scope),
     () => { this.invalidateCache() },
   )
-  private readonly collectCache = new Map<string, Map<string, IndexedCandidate>>()
+  private readonly collectCache = new Map<string, CollectResult>()
+  private readonly filters = new NamedEntries<SkillFilter>(name => new Error(`a skill filter named "${name}" is already registered`))
   private revision = 0
   private nextProviderOrder = 0
   /** Stable identities for cache keys; scope keys are opaque identity-compared objects. */
@@ -460,12 +482,33 @@ export class SkillRegistry extends Service {
   }
 
   /**
+   * Register a visibility filter applied to every filtered lookup, in every
+   * scope, until the returned disposer runs. Registration and disposal
+   * invalidate cached catalogs.
+   * @param filter - borrowed filter with a registry-unique name.
+   * @returns the Cordis effect disposer that removes this filter.
+   */
+  registerFilter(filter: SkillFilter): () => void {
+    let undo: (() => void) | undefined
+    // oxlint-disable-next-line typescript/no-misused-promises -- exact synchronous disposer keeps Cordis effect identity
+    return this.ctx.effect(() => {
+      undo = this.filters.insert(filter.name, filter)
+      this.invalidateCache()
+      return () => {
+        undo?.()
+        undo = undefined
+        this.invalidateCache()
+      }
+    }, 'skills.registerFilter()')
+  }
+
+  /**
    * List invocation-neutral skill summaries for a workspace. Consumers apply
    * model or user invocation policy at their operational boundary. Lookup
    * options and provider candidates are readonly same-process values borrowed
    * throughout discovery.
    * @param options - view options; `scope` selects the viewing agent's layers, `cwd` selects project roots, and `signal` cancels discovery.
-   * @returns all sorted winning summaries.
+   * @returns sorted winning summaries, or all candidates for an unfiltered listing.
    */
   async list(options: SkillViewOptions = {}): Promise<SkillSummary[]> {
     return (await this.snapshot(options)).skills
@@ -481,8 +524,7 @@ export class SkillRegistry extends Service {
   async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot> {
     const collected = await this.collect(options)
     return {
-      skills: [...collected.entries.values()]
-        .map(entry => toSummary(entry.candidate))
+      skills: Array.from(collected.candidates ?? collected.entries.values(), entry => toSummary(entry.candidate))
         .sort(compareSkillSummary),
       complete: collected.cacheable,
     }
@@ -533,9 +575,9 @@ export class SkillRegistry extends Service {
       // The chain is part of the key rather than assumed stable: a blank-session
       // recompose re-parents an existing scope without touching this registry,
       // and only a chain-bearing key makes the next read see the new preset.
-      const key = this.collectCacheKey(options.cwd, scopeChainOf(options.scope), revision)
+      const key = this.collectCacheKey(options, scopeChainOf(options.scope), revision)
       const cached = this.collectCache.get(key)
-      if (cached !== undefined) return { entries: cached, cacheable: true }
+      if (cached !== undefined) return cached
 
       const result = await this.collectFresh(options)
       throwIfAborted(options.signal)
@@ -544,10 +586,10 @@ export class SkillRegistry extends Service {
           attempt += 1
           continue
         }
-        return { entries: result.entries, cacheable: false }
+        return { ...result, cacheable: false }
       }
       if (result.cacheable) {
-        this.collectCache.set(key, result.entries)
+        this.collectCache.set(key, result)
         if (this.collectCache.size > this.collectCacheMaxEntries) {
           const oldest = this.collectCache.keys().next() as IteratorYieldResult<string>
           this.collectCache.delete(oldest.value)
@@ -563,23 +605,43 @@ export class SkillRegistry extends Service {
     // the farther ones — the tools registry's shadowing rule. Rank decides
     // duplicates only within one layer.
     const layers = [this.layers.global, ...this.layers.chainLayers(options.scope)]
+    if (options.unfiltered === true) {
+      const entries = new Map<string, IndexedCandidate>()
+      const candidates: IndexedCandidate[] = []
+      let cacheable = true
+      for (const layer of layers.reverse()) {
+        const collected = await this.listLayerCandidates(layer, options)
+        if (!collected.cacheable) cacheable = false
+        for (const entry of collected.entries.sort(compareIndexedCandidates)) {
+          candidates.push(entry)
+          if (!entries.has(entry.candidate.name)) entries.set(entry.candidate.name, entry)
+        }
+      }
+      return { entries, candidates, cacheable }
+    }
+    const keep = this.resolveFilters(options)
     const merged = new Map<string, IndexedCandidate>()
     let cacheable = true
     for (const layer of layers) {
-      const collected = await this.collectLayer(layer, options)
+      const collected = await this.collectLayer(layer, options, keep)
       if (!collected.cacheable) cacheable = false
       for (const entry of collected.entries) merged.set(entry.candidate.name, entry)
     }
     return { entries: merged, cacheable }
   }
 
-  private async collectLayer(layer: SkillLayer, options: SkillLookupOptions): Promise<LayerCollectResult> {
+  private async collectLayer(
+    layer: SkillLayer,
+    options: SkillLookupOptions,
+    keep: ((skill: SkillSummary) => boolean) | undefined,
+  ): Promise<LayerCollectResult> {
     const collected = await this.listLayerCandidates(layer, options)
     collected.entries.sort(compareIndexedCandidates)
     const seen = new Set<string>()
     const result: IndexedCandidate[] = []
     for (const entry of collected.entries) {
       const skill = entry.candidate
+      if (keep !== undefined && !keep(toSummary(skill))) continue
       if (seen.has(skill.name)) {
         this.ctx.logger.warn(`skill "${skill.name}" from ${skill.source} ignored because a higher-priority skill already exists`)
         continue
@@ -649,8 +711,29 @@ export class SkillRegistry extends Service {
     return id
   }
 
-  private collectCacheKey(cwd: string | undefined, chain: ScopeKey[], revision: number): string {
-    return JSON.stringify({ cwd, scopes: chain.map(key => this.scopeId(key)), revision })
+  private collectCacheKey(options: SkillViewOptions, chain: ScopeKey[], revision: number): string {
+    return JSON.stringify({
+      cwd: options.cwd, scopes: chain.map(key => this.scopeId(key)), revision, unfiltered: options.unfiltered === true,
+    })
+  }
+
+  /**
+   * Combine every filter's predicate for one lookup. A filter that throws is
+   * logged and skipped, so a broken filter shows more skills rather than none.
+   */
+  private resolveFilters(options: SkillViewOptions): ((skill: SkillSummary) => boolean) | undefined {
+    if (options.unfiltered === true || this.filters.isEmpty()) return undefined
+    const predicates: ((skill: SkillSummary) => boolean)[] = []
+    for (const filter of this.filters.values()) {
+      try {
+        const predicate = filter.resolve(options)
+        if (predicate !== undefined) predicates.push(predicate)
+      } catch (error) {
+        this.ctx.logger.warn(`skill filter "${filter.name}" skipped: ${errorMessage(error)}`)
+      }
+    }
+    if (predicates.length === 0) return undefined
+    return skill => predicates.every(predicate => predicate(skill))
   }
 
   /** Notify catalog observers without making their refresh work load-bearing. */

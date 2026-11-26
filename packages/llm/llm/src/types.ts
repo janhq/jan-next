@@ -582,6 +582,8 @@ export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {
   system?: string
   /** Tool schemas (adapters map to the provider's `tools` field). */
   tools?: ToolSchema[]
+  /** Omit to keep the provider default, or disallow tool selection for this call. */
+  toolChoice?: 'none'
   /** Session-folded tool history used for route projection; omission sends complete declarations without tool updates. */
   toolHistory?: ToolHistory
   temperature?: number
@@ -604,4 +606,6 @@ export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {
    * requests leave it unset.
    */
   purpose?: Purpose
+  /** Uses the session id for transport and caching, not for durable work or conversation progress. */
+  ephemeral?: true
 }

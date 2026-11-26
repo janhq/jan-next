@@ -40,8 +40,7 @@ export function PluginDetailSection(props: PluginDetailSectionProps): ReactNode 
     () => document === undefined ? undefined : { resolve: value => detailImage(document, value) },
     [document, detailImage],
   )
-  const shown = detailDocumentState(state?.status === 'error'
-    ? { status: 'error', message: t(FAILURE_KEYS[state.failure]) }
-    : state === undefined || state.status === 'loading' ? state : { status: 'ready', markdown: detail?.status === 'found' ? detail.markdown : undefined })
-  return <DetailDocument state={shown} labels={labels} images={images} onRetry={() => { retryDetail(request, language) }} />
+  const shown = detailDocumentState(state, failure => t(FAILURE_KEYS[failure]))
+  return <DetailDocument state={shown} labels={labels} images={images} failure={state?.status === 'error' ? state.diagnostics : undefined}
+    onRetry={() => { retryDetail(request, language) }} />
 }

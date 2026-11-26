@@ -9,12 +9,15 @@
 import type { Context } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import type {} from '@janhq/jan-agent-preset-registry'
+import type { AgentProfile, AgentProfileSummary } from '@janhq/jan-agent-profiles/types'
+import type {} from '@janhq/jan-agent-profiles'
 import { defineTool } from '@janhq/jan-tools'
 import type { ToolDefinition } from '@janhq/jan-tools'
 import type { AgentOptions } from '@janhq/jan-agent'
 import { ReasoningEffortId } from '@janhq/jan-llm'
 import type { ContentBlock } from '@janhq/jan-llm'
 import {
+  SubagentError,
   assertSubagentMaxDepth,
   delegationDepthOf,
   parentAgentOptionsForDelegation,
@@ -39,7 +42,7 @@ export const inject = ['tools', 'subagents', 'systemPrompt', 'sessionProjections
 
 // Definition identity keeps shared guidance scoped to the actual visible tools,
 // including scoped overrides and independently loaded tool registries.
-const delegationTools = new Set<ToolDefinition>()
+const delegationTools = new Map<ToolDefinition, boolean>()
 
 /** Config: which registered provider this tool delegates to, plus child defaults. */
 export interface Config extends PresetSelectionConfig {
@@ -147,9 +150,42 @@ function providerWording(inheritsConversation: boolean): { description: string; 
   }
 }
 
+function isSubagentProfile(profile: AgentProfileSummary): boolean {
+  return profile.use !== 'primary' && profile.shadowedBy === undefined
+}
+
+function availableAgentContext(profiles: readonly AgentProfileSummary[]): string {
+  const heading = 'Available agents (pass as `agent`):'
+  let remaining = 4096 - Buffer.byteLength(heading)
+  const lines: string[] = []
+  for (const profile of profiles) {
+    if (!isSubagentProfile(profile)) continue
+    const prefix = `\n- ${profile.id}${profile.sandbox === undefined ? '' : ` [${profile.sandbox}]`}: `
+    const prefixBytes = Buffer.byteLength(prefix)
+    if (prefixBytes > remaining) break
+    remaining -= prefixBytes
+    const description = profile.description.replace(/\s+/g, ' ').trim()
+    const bytes = Buffer.byteLength(description)
+    if (bytes > remaining) {
+      let end = 0
+      for (const character of description) {
+        remaining -= Buffer.byteLength(character)
+        if (remaining < 0) break
+        end += character.length
+      }
+      lines.push(prefix + description.slice(0, end))
+      break
+    }
+    lines.push(prefix + description)
+    remaining -= bytes
+    if (lines.length === 40) break
+  }
+  return lines.length === 0 ? '' : heading + lines.join('')
+}
+
 /**
  * Install one delegation-tool composition.
- * The owning composition shares its registrations across Agents; child startup resolves the selected preset.
+ * The owning composition shares its registrations across Agents; child startup resolves its preset and any named profile.
  * @param ctx - Context that owns the registrations.
  * @param config - delegation-tool configuration.
  * @returns when the plugin is ready.
@@ -213,6 +249,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   let mounted: { subagentProvider: SubagentProvider; definition: ToolDefinition; disposeTool: () => void } | undefined
   const mount = (subagentProvider: SubagentProvider): void => {
     assertSubagentProviderConfiguration(subagentProvider)
+    const supportsProfiles = subagentProvider.capabilities.agentPreset && !subagentProvider.inheritsParentContext
     const wording = providerWording(subagentProvider.inheritsParentContext)
     const providerRouteDefaults = subagentProvider.agentRouteDefaults
     const selectionDescription = providerRouteDefaults !== undefined
@@ -255,6 +292,12 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           required: true,
           description: wording.promptDescription,
         },
+        ...supportsProfiles ? {
+          agent: {
+            type: 'string' as const,
+            description: 'Name of a Jan agent to run this task (see Available agents)',
+          },
+        } : {},
         ...presets.choices === undefined ? {} : {
           agent_preset: {
             type: 'string' as const,
@@ -297,13 +340,45 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           throw new Error('subagent tool requires a calling agent (exec.agent was undefined)')
         }
 
+        const profileId = args.agent
+        let profile: AgentProfile | undefined
+        const agentProfiles = profileId === undefined ? undefined : ctx.get('agentProfiles')
+        if (profileId !== undefined) {
+          if (typeof profileId !== 'string') throw new Error('agent must be a string')
+          const workspaceId = agentProfiles?.projectOf(parent)
+          if (agentProfiles !== undefined) {
+            try {
+              profile = await agentProfiles.get({ id: profileId, ...workspaceId === undefined ? {} : { workspaceId } })
+            } catch (error: unknown) {
+              if (typeof error !== 'object' || error === null || !('code' in error)
+                || error.code !== 'agent-profiles/not-found') throw error
+            }
+          }
+          if (profile === undefined || !isSubagentProfile(profile)) {
+            const ids = agentProfiles?.snapshot(workspaceId).profiles.filter(isSubagentProfile).map(entry => entry.id)
+            throw new Error(`agent must be one of: ${ids?.join(', ') || '(none)'}`)
+          }
+          if (!supportsProfiles) {
+            throw new SubagentError(`subagent provider "${subagentProvider.name}" does not support agent profiles`, 'PROFILE_UNSUPPORTED')
+          }
+        }
+        const toolFilter = profile === undefined ? undefined : agentProfiles?.toolRestrictionOf(profile)
+
         const routes = subagentModelSelectionPolicy(subagentModelSelectionProjectionHandle, parent.session)
         const modelSelectionPolicy = routes === undefined ? undefined : { routes }
         const agentPreset = presets.resolve(args as PresetSelectionRequest)
         const modelRequest = args as DelegationModelRequest
         const parentOptions = parentAgentOptionsForDelegation(parent)
         const roleRoute = agentPreset === undefined ? undefined : config.presetAgentOptions?.[agentPreset]
-        const configured = roleRoute === undefined ? config.agentOptions
+        const profileRoute = profile?.model === undefined || hasDelegationModelRequest(modelRequest)
+          ? undefined
+          : await agentProfiles?.resolveModel(profile.model)
+        const configured = profileRoute !== undefined ? {
+          ...config.agentOptions,
+          provider: profileRoute.provider,
+          model: profileRoute.model,
+          reasoningEffort: profileRoute.reasoningEffort === undefined ? undefined : ReasoningEffortId(profileRoute.reasoningEffort),
+        } : roleRoute === undefined ? config.agentOptions
           : { ...config.agentOptions, ...roleRoute, reasoningEffort: undefined }
         const requiresRoutePreflight = hasDelegationModelRequest(modelRequest) || hasConfiguredLlmSelection(configured)
         const configuredChildAgentOptions = requiresRoutePreflight && providerRouteDefaults !== undefined
@@ -321,7 +396,8 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           if (llm === undefined) {
             throw new Error('cannot resolve the selected child LLM route because the `llm` service is unavailable')
           }
-          const inheritParentReasoningEffort = providerRouteDefaults === undefined && !hasDelegationModelRequest(modelRequest)
+          const inheritParentReasoningEffort = profileRoute === undefined && providerRouteDefaults === undefined
+            && !hasDelegationModelRequest(modelRequest)
           await preflightChildLlmRoute(
             llm,
             parentOptions,
@@ -329,9 +405,10 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
             exec.signal,
             inheritParentReasoningEffort,
           )
-          if (ctx.subagents.getProvider(config.provider) !== subagentProvider) {
-            throw new Error(`subagent provider "${config.provider}" changed while resolving the child LLM route; retry the delegation`)
-          }
+        }
+        if ((requiresRoutePreflight || profile !== undefined) && ctx.subagents.getProvider(config.provider) !== subagentProvider) {
+          const subject = requiresRoutePreflight ? 'child LLM route' : 'child agent profile'
+          throw new Error(`subagent provider "${config.provider}" changed while resolving the ${subject}; retry the delegation`)
         }
         exec.signal.throwIfAborted()
         const maxDepth = ctx.subagents.resolveMaxDepth(config.maxDepth)
@@ -340,6 +417,10 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           prompt: [{ type: 'text', text: args.prompt }] as ContentBlock[],
           parent,
           ...agentPreset === undefined ? {} : { agentPreset },
+          ...profile === undefined ? {} : { agent: profile.id },
+          ...profile?.instructions ? { persona: profile.instructions } : {},
+          ...toolFilter === undefined ? {} : { toolFilter },
+          ...profile?.sandbox === undefined ? {} : { sandboxMode: profile.sandbox },
           ...requestedChildAgentOptions !== undefined ? { agentOptions: requestedChildAgentOptions } : {},
           ...maxDepth !== undefined ? { maxDepth } : {},
         }
@@ -357,7 +438,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     })
     const disposeTool = ctx.effect(() => {
       const unregister = ctx.tools.register(definition)
-      delegationTools.add(definition)
+      delegationTools.set(definition, supportsProfiles)
       return () => {
         delegationTools.delete(definition)
         unregister()
@@ -388,7 +469,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     order: ctx.systemPrompt.getSectionOrder('TOOL_SUBAGENT'),
     text: (context) => {
       if (mounted === undefined) return ''
-      const visible = [...delegationTools]
+      const visible = [...delegationTools.keys()]
         .filter(tool => ctx.tools.get(tool.name, context.scope) === tool)
         .map(tool => tool.name)
         .sort()
@@ -411,4 +492,24 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         + ` Do not call \`${toolName}\` at this depth; carry out the work directly.`
     },
   })
+  const bindProfiles = ctx.inject(['agentProfiles'], (scope) => {
+    // Operational, not optional runtime context: the tool's `agent` field
+    // points at this roster, so a preset with runtime context off keeps it.
+    scope.effect(() => scope.systemPrompt.context({
+      name: toolName === 'subagent' ? 'agent-profiles:subagents' : `agent-profiles:subagents:${toolName}`,
+      order: ctx.systemPrompt.getContextOrder('SUBAGENT_DELEGATION'),
+      required: true,
+      interpolate: false,
+      text: ({ agent, scope: agentScope }) => {
+        if (agent === undefined || mounted === undefined || !delegationTools.get(mounted.definition)
+          || ctx.tools.get(toolName, agentScope) !== mounted.definition) return ''
+        for (const [tool, supportsProfiles] of delegationTools) {
+          if (supportsProfiles && tool.name < toolName && ctx.tools.get(tool.name, agentScope) === tool) return ''
+        }
+        const profiles = scope.agentProfiles
+        return availableAgentContext(profiles.snapshot(profiles.projectOf(agent)).profiles)
+      },
+    }))
+  })
+  if (ctx.get('agentProfiles') !== undefined) await bindProfiles.await()
 }

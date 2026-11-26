@@ -36,6 +36,37 @@ describe('conversation layout', () => {
     expect(chats(reopened)).toEqual([a])
   })
 
+  it('moves a tab into the requested strip slot and collapses its empty source pane after reload', () => {
+    let saved: string | undefined
+    const layout = new ConversationLayout(undefined, (value) => { saved = value })
+    const catalog = new Set([a, b, c])
+    layout.sync(a, catalog)
+    layout.openInNewTab(c)
+    layout.openBeside(b)
+    const { dock } = layout.getSnapshot()
+    const [left, right] = dockPaneIds(dock)
+    const tab = getPane(dock, right!).activeTabId!
+    layout.placeTab(tab, left!, 1)
+
+    const restored = new ConversationLayout(saved, () => {})
+    restored.sync(b, catalog)
+    const next = restored.getSnapshot().dock
+    expect(dockPaneIds(next)).toEqual([next.activePaneId])
+    expect(getPane(next, next.activePaneId).tabs.map(id => next.tabs[id]?.contentId)).toEqual([a, b, c])
+    expect(chats(restored)).toEqual([b])
+  })
+
+  it('preserves the selected tab when splitting it with a new blank pane below', () => {
+    const layout = new ConversationLayout(undefined, () => {})
+    layout.sync(a, new Set([a]))
+    const { dock } = layout.getSnapshot()
+    layout.splitTab(getPane(dock, dock.activePaneId).activeTabId!, 'column')
+    const next = layout.getSnapshot().dock
+    expect(next.nodes[next.rootId]).toMatchObject({ axis: 'column', sizes: [0.5, 0.5] })
+    expect(chats(layout)).toEqual([a, ''])
+    expect(next.activePaneId).toBe(dockPaneIds(next)[1])
+  })
+
   it('reuses the focused tab for a new sidebar chat and reveals an already open tab in place', () => {
     const layout = new ConversationLayout(undefined, () => {})
     layout.sync(a, new Set([a, b, c]))

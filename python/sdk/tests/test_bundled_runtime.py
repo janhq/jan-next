@@ -7,12 +7,13 @@ adapter loading; initialize and shutdown do not call a model.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from jan import Jan, HarnessClient, HarnessConfig
-from jan.errors import JsonRpcError, TransportClosedError
 from jan_runtime import RUNTIME_MODE_ENV_VAR, resolve_bundled_launch_args
 
 _MODES = ("exe", "node")
@@ -85,20 +86,24 @@ def test_python_sdk_applies_an_ordered_profile_patch(
 
 
 @pytest.mark.parametrize("mode", _MODES)
-def test_bundled_runtime_surfaces_unbundled_plugin_failure(
+def test_bundled_runtime_surfaces_required_plugin_failure(
     tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    missing = "@janhq/jan-does-not-exist"
     patch = tmp_path / "missing.patch.yml"
-    patch.write_text(json.dumps([{
-        "insert": [{"id": "missing", "name": "@janhq/jan-does-not-exist"}],
-    }]))
+    # The SDK profile has no webserver row; startup still audits it when inserted.
+    patch.write_text(json.dumps([{"insert": [{"id": "webserver", "name": missing}]}]))
 
-    client = _client(tmp_path, mode, monkeypatch, patch)
-    client.start()
-    try:
-        with pytest.raises((JsonRpcError, TransportClosedError, TimeoutError)) as excinfo:
-            client.initialize(provider="tokamak", cwd=str(tmp_path), model="tokamak/auto")
-    finally:
-        client.close()
-
-    assert "@janhq/jan-does-not-exist" in str(excinfo.value)
+    _select_mode(mode, monkeypatch)
+    result = subprocess.run(
+        [*resolve_bundled_launch_args(), "--profile", "sdk", "--patch", str(patch)],
+        cwd=tmp_path,
+        env={**os.environ, "JAN_HOME": str(tmp_path / "home"), "JAN_TELEMETRY_DISABLED": "1"},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=120,
+    )
+    assert result.returncode == 1, result.stderr
+    assert "webserver (required)" in result.stderr
+    assert missing in result.stderr

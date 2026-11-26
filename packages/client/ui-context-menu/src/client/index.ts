@@ -5,7 +5,7 @@ import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-client-ui-layout/client'
 import type {} from '@janhq/jan-client-locale/client'
 import z from '@janhq/schemastery'
-import { MENU_TRANSITION_MS } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, MENU_TRANSITION_MS, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import { menuTargetKey } from './target-key.ts'
 import { MenuRegistry } from './registry.ts'
 import { createMenuStore } from './store.ts'
@@ -68,20 +68,26 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   let finishOpening: (() => void) | undefined
   let returnFocus: HTMLElement | null = null
   let disposed = false
-  const notify: ContextMenus['notify'] = (text, success = false, action) => {
+  const publishNotice = (text: string, success: boolean, action?: Parameters<ContextMenus['notify']>[2], failure?: FailureDetails): void => {
     if (disposed) return
     const id = ++sequence
-    instance.actions.notify({ id, text, success, ...action === undefined ? {} : { action: {
+    instance.actions.notify({ id, text, success, ...failure === undefined ? {} : { failure }, ...action === undefined ? {} : { action: {
       label: action.label,
       onClick: () => {
         if (disposed || instance.getSnapshot().notice?.id !== id) return
         instance.actions.notify(null)
-        try { void Promise.resolve(action.run()).catch(() => { notify(action.failureLabel) }) }
-        catch (_error) { notify(action.failureLabel) }
+        const failed = (error: unknown): void => {
+          publishNotice(action.failureLabel, false, undefined, captureFailure('contextMenu.noticeAction', error))
+        }
+        try { void Promise.resolve(action.run()).catch(failed) }
+        catch (error) { failed(error) }
       },
     } } })
   }
-  const registry = new MenuRegistry((message) => { notify(message ?? t('failed')) }, config.resolutionTimeoutMs)
+  const notify: ContextMenus['notify'] = (text, success = false, action) => { publishNotice(text, success, action) }
+  const registry = new MenuRegistry((operation, message, error) => {
+    publishNotice(message ?? t('failed'), false, undefined, captureFailure(operation, error))
+  }, config.resolutionTimeoutMs)
   const cancelOpening = (): void => {
     clearTimeout(openingTimer); finishOpening?.(); finishOpening = undefined
     active?.unsubscribe(); active?.resolution.dispose(); active = undefined

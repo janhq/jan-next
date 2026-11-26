@@ -114,7 +114,7 @@ export class SessionCommandController {
   /**
    * Create one ordinary Session for a new conversation, reusing the named
    * blank Session while it is an unarchived member of the requested Workspace.
-   * @param request - optional blank Session to reuse, location, and Agent preset.
+   * @param request - optional blank Session to reuse, location, preset and agent profile.
    * @returns the created or reused Session identity and its preset when configured.
    */
   async create(request: SessionCreateRequest): Promise<SessionCreateValue> {
@@ -146,6 +146,7 @@ export class SessionCommandController {
         cwd,
         ...(workspace === undefined ? {} : { workspaceId: workspace.id }),
         ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
+        ...(request.agentProfile === undefined ? {} : { agentProfile: request.agentProfile }),
         reusable: sessionId => !this.ctx.workspaceRegistry.archivedSessionIds.includes(sessionId)
           && (workspace === undefined || workspace.sessionIds.includes(sessionId)),
       })

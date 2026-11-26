@@ -1,10 +1,10 @@
 /** Conversation-specific tab placement over the dockkit engine. */
 import {
-  applyOp, clampSizes, createIdMinter, createInitialState, dockPaneIds, findContentTab, getNode, getPane, getTab, MAX_DOCK_PANES,
-  planAddTab, planDropTab, planPlaceTab, planSettle, replay,
+  applyOp, clampSizes, createIdMinter, createInitialState, dockPaneIds, findContentTab, findTabPane, getNode, getPane, getTab,
+  MAX_DOCK_PANES, planAddTab, planDropTab, planPlaceTab, planSettle, replay,
 } from '@janhq/jan-client-ui-dockkit'
 import type {
-  DockZone, LayoutNode, LayoutOp, LayoutState, Mint, NodeId, PaneId, SplitAxis, SplitId, TabFactory, TabId, TabRecord,
+  DockZone, HalvesFit, LayoutNode, LayoutOp, LayoutState, Mint, NodeId, PaneId, SplitAxis, SplitId, TabFactory, TabId, TabRecord,
 } from '@janhq/jan-client-ui-dockkit'
 import type { SessionId } from '@janhq/jan-session/types'
 import { z } from 'zod'
@@ -111,7 +111,7 @@ function openInPane(dock: LayoutState, mint: Mint, paneId: PaneId, contentId: st
   return replay(dock, planAddTab(dock, mint, paneId, makeTab(contentId)))
 }
 
-function splitChat(dock: LayoutState, mint: Mint, paneId: PaneId, id: SessionId, axis: SplitAxis): LayoutState {
+function splitChat(dock: LayoutState, mint: Mint, paneId: PaneId, id: string, axis: SplitAxis): LayoutState {
   const newPaneId = mint('pane')
   return openInPane(withOp(dock, { type: 'split', paneId, axis, direction: 'after', newPaneId, newSplitId: mint('split') }), mint, newPaneId, id)
 }
@@ -144,6 +144,7 @@ export interface ConversationLayoutSnapshot {
 
 /** Own the window's tab arrangement and keep it persisted. */
 export class ConversationLayout {
+  private room: ReadonlyMap<PaneId, HalvesFit> | undefined
   private readonly listeners = new Set<() => void>()
   private readonly mint = createIdMinter().next
   private manual: LayoutState
@@ -208,6 +209,7 @@ export class ConversationLayout {
    */
   canOpenBeside(id: SessionId): boolean {
     return id !== selectedSession(this.manual) && dockPaneIds(this.manual).length < MAX_DOCK_PANES
+      && this.room?.get(this.manual.activePaneId)?.row !== false
   }
 
   /**
@@ -222,6 +224,50 @@ export class ConversationLayout {
       ? splitChat(this.manual, this.mint, pane, id, 'row')
       : settled(replay(this.manual, planDropTab(this.manual, this.mint, existing, pane, 'right', blankTab)), this.mint)
     this.commitManual(dock)
+  }
+
+  /** Keep menu and keyboard splits on the same measured room rule as edge drops. */
+  setRoom = (room: ReadonlyMap<PaneId, HalvesFit>): void => { this.room = room }
+
+  /** Check the pane limit and any available room measurement before splitting an existing tab's pane. */
+  canSplitTab = (tabId: TabId, axis: SplitAxis): boolean => this.manual.tabs[tabId] !== undefined
+    && dockPaneIds(this.manual).length < MAX_DOCK_PANES
+    && this.room?.get(findTabPane(this.manual, tabId).id)?.[axis] !== false
+
+  /**
+   * Resolve a focused control to its chat pane without relying on window selection.
+   * @param target - focused element, or null when there is no target.
+   * @returns the containing pane id if it is still in the layout, otherwise undefined.
+   */
+  paneForTarget(target: Element | null): PaneId | undefined {
+    const element = target?.closest<HTMLElement>('[data-chat-tabs] [data-dockkit-pane]')
+    if (element === null || element === undefined) return undefined
+    const id = element.dataset.dockkitPane as PaneId | undefined
+    return id !== undefined && this.manual.nodes[id]?.kind === 'pane' ? id : undefined
+  }
+
+  /**
+   * Resolve focus to a tab in the current chat layout.
+   * @param target - focused element, or null when there is no target.
+   * @returns the focused tab chip's id, the pane's active tab id as a fallback,
+   * or undefined if focus is outside the current chat layout.
+   */
+  tabForTarget(target: Element | null): TabId | undefined {
+    const paneId = this.paneForTarget(target)
+    if (paneId === undefined) return undefined
+    const pane = getPane(this.manual, paneId)
+    const tab = target?.closest<HTMLElement>('[data-dockkit-tab]')?.dataset.dockkitTab as TabId | undefined
+    return tab !== undefined && pane.tabs.includes(tab) ? tab : pane.activeTabId
+  }
+
+  /** Check whether the window can close a tab without removing its last tab. */
+  canCloseTab = (): boolean => Object.keys(this.manual.tabs).length > 1
+
+  /** Split the tab's pane and focus a new blank chat without moving the original tab. */
+  splitTab = (tabId: TabId, axis: SplitAxis): void => {
+    if (!this.canSplitTab(tabId, axis)) return
+    const pane = findTabPane(this.manual, tabId)
+    this.commitManual(splitChat(this.manual, this.mint, pane.id, '', axis))
   }
 
   /**

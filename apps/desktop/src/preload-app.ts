@@ -36,6 +36,7 @@ function createProductApi(): JanDesktopProductApi {
     },
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
     factoryReset: categories => ipcRenderer.invoke(DESKTOP_IPC.factoryReset, categories) as Promise<void>,
+    restartApplication: () => ipcRenderer.invoke(DESKTOP_IPC.restartApplication) as Promise<void>,
     notifications: {
       show: request => ipcRenderer.invoke(DESKTOP_IPC.notificationShow, request) as Promise<boolean>,
       windowActive: () => ipcRenderer.invoke(DESKTOP_IPC.notificationWindowActive) as Promise<boolean>,

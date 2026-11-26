@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { expect, it, onTestFinished } from 'vitest'
 import { parse } from 'yaml'
-import { approveBuilds, recordPendingBuilds } from '../src/build-approval.ts'
+import { approveBuilds, readPendingBuilds, recordPendingBuilds } from '../src/build-approval.ts'
 
 function fixture(text?: string) {
   const dir = mkdtempSync(join(tmpdir(), 'build-approval-'))
@@ -13,6 +13,18 @@ function fixture(text?: string) {
   if (text !== undefined) writeFileSync(filename, text)
   return { dir, filename }
 }
+
+it('reads the keys awaiting a decision without changing the settings', async () => {
+  const original = 'allowBuilds:\n  native: set this to true or false\n  trusted: true\n  "@scope/other": set this to true or false\n'
+  const { dir, filename } = fixture(original)
+  expect(await readPendingBuilds(dir)).toEqual(['native', '@scope/other'])
+  expect(readFileSync(filename, 'utf8')).toBe(original)
+})
+
+it('reads a profile without workspace settings as having nothing pending', async () => {
+  const { dir } = fixture()
+  expect(await readPendingBuilds(dir)).toEqual([])
+})
 
 it('approves only named pending packages and preserves comments, decisions and settings', async () => {
   const { dir, filename } = fixture('# profile settings\nother: &unrelated value\ncopy: *unrelated\nnodeLinker: hoisted\nallowBuilds:\n  native: set this to true or false\n  "@scope/other": set this to true or false\n  trusted: true\n  denied: false\n  "@scope/*": set this to true or false\n')
@@ -87,6 +99,16 @@ it('records the ignored build scripts a non-interactive run reported', async () 
   expect(await recordPendingBuilds(dir, output)).toEqual(['native@1.0.0', '@scope/other@file:../other'])
   await approveBuilds(dir, ['native@1.0.0'])
   expect(parse(readFileSync(filename, 'utf8'))).toMatchObject({ allowBuilds: { 'native@1.0.0': true } })
+})
+
+it('records exact build keys from a successful pnpm warning sentence', async () => {
+  const { dir, filename } = fixture()
+  const version = '@scope/native@1.0.0'
+  const file = 'local@file:../directory-ending-in-dot.'
+  const output = `Ignored build scripts: ${version}, ${file}.\r\nRun "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.\r\n`
+  expect(await recordPendingBuilds(dir, output)).toEqual([version, file])
+  await approveBuilds(dir, [version, file])
+  expect(parse(readFileSync(filename, 'utf8'))).toMatchObject({ allowBuilds: { [version]: true, [file]: true } })
 })
 
 function gitPrepareRefusal(key: string, eol = '\n') {

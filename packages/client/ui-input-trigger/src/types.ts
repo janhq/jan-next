@@ -70,6 +70,13 @@ export interface InputTriggerCandidate {
    * resolving the candidate.
    */
   readonly drill?: boolean
+  /** Tab only fills this row; Enter and pointer picks activate it. */
+  readonly complete?: true
+  /**
+   * The row can be starred: the menu shows a star before the label, filled
+   * when `on`, and a press routes to {@link InputTriggerSource.onStar}.
+   */
+  readonly star?: { readonly on: boolean }
 }
 
 /**
@@ -130,6 +137,8 @@ export interface InputTriggerPick {
   /** Settling pick, or the candidate's drill action (Tab / row chevron). */
   readonly action: PickAction
   readonly span: TokenSpan
+  /** True when Tab asks a completion row to fill without activating. */
+  readonly completeOnly?: true
 }
 
 /**
@@ -180,6 +189,21 @@ export interface InputTriggerSource {
   header?(session: ClientSessionContext, req: HeaderRequest): readonly InputTriggerCrumb[] | undefined
   /** Every pick lands here; claim/insert outcomes are executed by the pipeline via the scoped input events. */
   onPick(pick: InputTriggerPick): PickOutcome
+  /**
+   * Toggle the star of a candidate that carries {@link InputTriggerCandidate.star}.
+   * The menu stays open, fetches candidates again for the same query once this
+   * settles, and keeps the highlight on the toggled row.
+   * @param session - session owning the draft.
+   * @param candidate - the toggled row.
+   */
+  onStar?(session: ClientSessionContext, candidate: InputTriggerCandidate): void | Promise<void>
+  /**
+   * Claim leading slash argument suggestions after a command name and a space.
+   * @param session - session owning the draft.
+   * @param name - typed command name without the leading slash.
+   * @returns whether this source provides argument completions for the name.
+   */
+  matchesArguments?(session: ClientSessionContext, name: string): boolean
   /** Synchronous space-time adjudication over hot state only. `token` is the just-completed leading token (e.g. '/goal'). */
   matchSpace?(session: ClientSessionContext, token: string): PickOutcome
   /**

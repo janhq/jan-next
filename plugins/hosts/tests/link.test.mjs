@@ -56,3 +56,47 @@ test('negotiates local-only federation before opening the workspace stream', { t
   for await (const value of link.stream('workspace/follow', {}, new AbortController().signal)) frames.push(value)
   assert.deepEqual(frames, ['ready'])
 })
+
+test('plugin POST signs in again after a 401 and returns the JSON response', { timeout: 2000 }, async (t) => {
+  let signIns = 0
+  const requests = []
+  const server = createServer(async (req, res) => {
+    if (req.url.startsWith('/connect?')) {
+      return res.writeHead(302, { 'set-cookie': `jan-auth=login-${++signIns}` }).end()
+    }
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    requests.push({ path: req.url, method: req.method, cookie: req.headers.cookie, type: req.headers['content-type'], body: Buffer.concat(chunks).toString() })
+    if (requests.length === 1) return res.writeHead(401).end()
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ result: { projects: [] } }))
+  })
+  server.listen(0, '127.0.0.1')
+  t.after(() => server.close())
+  await once(server, 'listening')
+  const link = createHostLink({ root: `http://127.0.0.1:${server.address().port}/`, token: 'test' })
+  const body = { method: 'peerProjects', params: {} }
+  assert.deepEqual(await link.post('jan-api/orchestration', body), { result: { projects: [] } })
+  assert.equal(signIns, 2)
+  assert.deepEqual(requests, ['login-1', 'login-2'].map(login => ({
+    path: '/jan-api/orchestration', method: 'POST', cookie: `jan-auth=${login}`, type: 'application/json', body: JSON.stringify(body),
+  })))
+})
+
+test('plugin POST reports a non-2xx HTTP status without decoding the response', { timeout: 2000 }, async (t) => {
+  let signIns = 0
+  const server = createServer((req, res) => {
+    if (req.url.startsWith('/connect?')) {
+      signIns++
+      return res.writeHead(302, { 'set-cookie': 'jan-auth=owner' }).end()
+    }
+    res.writeHead(503).end('Unavailable')
+  })
+  server.listen(0, '127.0.0.1')
+  t.after(() => server.close())
+  await once(server, 'listening')
+  const link = createHostLink({ root: `http://127.0.0.1:${server.address().port}/`, token: 'test' })
+  await assert.rejects(async () => link.post('jan-api/orchestration', {}), {
+    message: 'The other Jan answered HTTP 503 for jan-api/orchestration.',
+  })
+  assert.equal(signIns, 1)
+})

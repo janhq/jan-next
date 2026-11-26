@@ -20,7 +20,10 @@ export class MenuRegistry {
   private readonly providers = new Map<string, Provider>()
   private readonly occurrences = new Set<() => void>()
   private disposed = false
-  constructor(private readonly failed: (message?: string) => void, private readonly timeoutMs?: number) {}
+  constructor(
+    private readonly failed: (operation: string, message: string | undefined, error: unknown) => void,
+    private readonly timeoutMs?: number,
+  ) {}
 
   /**
    * Register actions for subsequent openings.
@@ -111,14 +114,14 @@ export class MenuRegistry {
           if (result instanceof Promise) clear()
           preparing = result instanceof Promise ? new Promise<void>((settle) => {
             const timer = this.timeoutMs === undefined ? undefined : setTimeout(() => {
-              deadline.abort(); this.failed()
+              deadline.abort(); this.failed('contextMenu.resolve', undefined, { code: 'context-menu/timeout' })
             }, this.timeoutMs)
             const finish = (): void => { clearTimeout(timer); signal.removeEventListener('abort', finish); settle() }
             signal.addEventListener('abort', finish, { once: true })
-            void result.then(accept).catch(() => { if (!signal.aborted) this.failed() }).finally(finish)
+            void result.then(accept).catch((error: unknown) => { if (!signal.aborted) this.failed('contextMenu.resolve', undefined, error) }).finally(finish)
           }) : undefined
           if (!(result instanceof Promise)) accept(result)
-        } catch (_error) { if (!signal.aborted) { clear(); this.failed() } }
+        } catch (error) { if (!signal.aborted) { clear(); this.failed('contextMenu.resolve', undefined, error) } }
       }
       const subscriptions: (() => void)[] = []
       const withdraw = (): void => {
@@ -134,7 +137,7 @@ export class MenuRegistry {
       try {
         for (const input of provider.observe(target)) subscriptions.push(input.subscribe(prepare))
         prepare()
-      } catch (_error) { if (!lifetime.signal.aborted && !provider.lifetime.signal.aborted) this.failed() }
+      } catch (error) { if (!lifetime.signal.aborted && !provider.lifetime.signal.aborted) this.failed('contextMenu.observe', undefined, error) }
       pending.push((async () => {
         let current: Promise<void> | undefined
         do { current = preparing; await current } while (current !== preparing)
@@ -148,8 +151,8 @@ export class MenuRegistry {
           || selected.action.disabled || selected.action.children !== undefined) return
         const run = selected.action.run
         dispose()
-        try { void Promise.resolve(run?.()).catch(() => { this.failed(selected.action.failureLabel) }) }
-        catch (_error) { this.failed(selected.action.failureLabel) }
+        try { void Promise.resolve(run?.()).catch((error: unknown) => { this.failed('contextMenu.runAction', selected.action.failureLabel, error) }) }
+        catch (error) { this.failed('contextMenu.runAction', selected.action.failureLabel, error) }
       },
     }
   }

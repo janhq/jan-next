@@ -185,6 +185,29 @@ describe('restrict()', () => {
     expect(await run(ctx, 'write', key)).toBe('Error: unknown tool "write"')
   })
 
+  it('can restrict scope-local tools without losing their registered definitions', async () => {
+    const ctx = await mount()
+    const { scope, key } = await mintAgentScope(ctx, 'local-policy')
+    const sibling = await mintAgentScope(ctx, 'other')
+    const local = tool('read', 'agent read')
+    ctx.tools.register(tool('read'))
+    scope.ctx.tools.register(local)
+    scope.ctx.tools.register(tool('write'))
+    const lift = scope.ctx.tools.restrict({ allow: ['read'], deny: ['read'] }, { includeScopeLocal: true })
+
+    expect(ctx.tools.definitions(key)).toEqual([])
+    expect(ctx.tools.registeredDefinitions(key).find(definition => definition.name === 'read')).toBe(local)
+    expect(ctx.tools.registeredDefinitions(key).map(definition => definition.name)).toEqual(['read', 'write'])
+    expect(ctx.tools.registeredDefinitions().map(definition => definition.name)).toEqual(['read'])
+    expect(await run(ctx, 'read', key)).toBe('Error: unknown tool "read"')
+    expect(await run(ctx, 'write', key)).toBe('Error: unknown tool "write"')
+    expect(await run(ctx, 'read', sibling.key)).toBe('ran:read')
+
+    lift()
+    expect(await run(ctx, 'read', key)).toBe('agent read')
+    expect(await run(ctx, 'write', key)).toBe('ran:write')
+  })
+
   it('composes multiple restrictions by intersection and lifts each independently', async () => {
     const ctx = await mount()
     const { scope, key } = await mintAgentScope(ctx, 'a')

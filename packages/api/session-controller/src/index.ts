@@ -303,7 +303,7 @@ export class SessionController extends TypertRemoteService {
 
   /**
    * Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.
-   * @param request - optional blank Session to reuse, location, and Agent preset.
+   * @param request - optional blank Session to reuse, location, preset and agent profile.
    * @returns the created or reused Session identity and its preset when configured.
    */
   @Remote('create')

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@janhq/cordis'
@@ -23,7 +24,7 @@ const PLAN_CONFIG = { section: 'Test plan mode instructions.' }
  * Only the model is mocked; the loop, the session log, and the plugin are
  * real.
  */
-async function harness(adapter: MockAdapter): Promise<Context> {
+async function harness(adapter: MockAdapter, section = PLAN_CONFIG.section): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
@@ -33,7 +34,7 @@ async function harness(adapter: MockAdapter): Promise<Context> {
   await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(PlanModeController, PLAN_CONFIG)
+  await ctx.plugin(PlanModeController, { section })
   ctx.llm.registerAdapter(['mock'], adapter)
   for (const name of ['read', 'write']) {
     ctx.tools.register(defineContentToolFixture({
@@ -95,6 +96,52 @@ function findEvent<T extends SessionEvent['type']>(
 }
 
 describe('plan mode through the agent loop', () => {
+  it.each([
+    'base/cordis.patch.yml',
+    'web-app/presets/standard.patch.yml',
+    'web-app/presets/ptc.patch.yml',
+    'web-app/presets/cordis.patch.yml',
+  ])('delivers the evidence-first policy from %s to the planning model', async (patchPath) => {
+    const source = readFileSync(new URL(`../../../bundle/${patchPath}`, import.meta.url), 'utf8')
+    // Extract only the plan-mode YAML literal; the other bundle rows use Loader-specific tags.
+    const literal = /^ +- id: plan-mode\r?\n +name: '@janhq\/jan-plan-mode'\r?\n +config:\r?\n +section: \|\r?\n( +)/m.exec(source)
+    if (literal === null || literal[1] === undefined) throw new Error(`No plan-mode section in ${patchPath}`)
+    const indent = literal[1]
+    const lines = source.slice(literal.index + literal[0].length - indent.length).split(/\r?\n/)
+    const end = lines.findIndex(line => line.trim() !== '' && !line.startsWith(indent))
+    const section = lines.slice(0, end < 0 ? undefined : end).map(line => line.slice(indent.length)).join('\n').trimEnd()
+    const adapter = new MockAdapter([textResponse('Investigating.'), textResponse('Out of plan mode.')])
+    const ctx = await harness(adapter, section)
+    const agent = await ctx.agentLoop.create(SessionId('it-plan-shipped-policy'), { provider: 'mock', model: 'mock' })
+
+    ctx.planMode.set(agent, true)
+    const planningIdle = waitForIdle(ctx, agent)
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Plan a change spanning the repo.' }], source: { kind: 'user' } }))
+    await planningIdle
+
+    const planning = requestSystem(adapter.requests[0])
+    expect(planning).toContain('Investigate before drafting.')
+    expect(planning).toContain('agent_preset: "scout"')
+    expect(planning).toContain('launch the independent scouts in parallel')
+    expect(planning).toContain('Verify critical findings yourself')
+    expect(planning).toContain('inspect directly instead')
+    expect(planning).toContain('Use ask_user_question only for user-owned decisions')
+    expect(planning).toContain('Do not use todo_write')
+    for (const heading of ['Context', 'Approach', 'Files and symbols', 'Verification', 'Assumptions and contingencies']) {
+      expect(planning).toContain(`${heading}:`)
+    }
+    expect(planning).toContain('Do not call exit_plan_mode until')
+    expect(planning).toContain('without making further design decisions')
+
+    ctx.planMode.set(agent, false)
+    const implementationIdle = waitForIdle(ctx, agent)
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Continue.' }], source: { kind: 'user' } }))
+    await implementationIdle
+
+    expect(requestSystem(adapter.requests[1])).not.toContain('Investigate before drafting.')
+    expect(adapter.requests[1]?.tools).toEqual(adapter.requests[0]?.tools)
+  })
+
   it('a pre-turn set() makes the FIRST header plan-shaped, and a non-shell call is guidance-constrained only', async () => {
     const adapter = new MockAdapter([
       toolCallResponse('call-1', 'write', {}, 'Writing during plan.'),

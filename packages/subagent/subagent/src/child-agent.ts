@@ -8,6 +8,8 @@
 
 import type { Context } from '@janhq/cordis'
 import type { Agent, AgentOptions, CreateAgentOptions } from '@janhq/jan-agent'
+import { expandMcpServerEntries } from '@janhq/jan-mcp-client'
+import { scopeOf } from '@janhq/jan-scope'
 import type { SandboxMode } from '@janhq/jan-sandbox'
 import type { Session } from '@janhq/jan-session'
 import type {} from '@janhq/jan-system-prompt'
@@ -27,6 +29,7 @@ import type {} from '@janhq/jan-permission-presets'
 import type {} from '@janhq/jan-agent-preset-registry'
 import { delegationDepthOf } from './depth.ts'
 import { SubagentError } from './error.ts'
+import { isWiderSandboxMode } from './sandbox-mode.ts'
 
 /** Thrown when starting a child would exceed the requested depth cap. */
 export class SubagentDepthError extends Error {
@@ -157,10 +160,12 @@ export function childSessionMeta(
 export interface ChildComposition {
   /** Preset to mount; omission shares a supplied creator or uses host composition. */
   readonly agentPreset?: string | undefined
-  /** Historical descriptor persona reapplied only during cold resume. */
+  /** Literal persona applied on creation and restored from the descriptor on cold resume. */
   readonly persona?: string | undefined
-  /** Historical descriptor tool restriction reapplied only during cold resume. */
+  /** Tool names and `mcp:<server>` selectors applied to the composed tools on start and cold resume. */
   readonly toolFilter?: ToolRestriction | undefined
+  /** Sandbox ceiling fixed at delegation or restored from the child descriptor. */
+  readonly sandboxMode?: SandboxMode | undefined
 }
 
 /**
@@ -175,13 +180,13 @@ export const SUBAGENT_DELEGATION_CONTEXT
     + 'limitation in your reply so the delegating agent can handle it.'
 
 /**
- * Compose a child before publication and restore historical descriptor overrides.
+ * Compose a fresh or restored child before publication and apply its overrides.
  * Explicit selection mounts the named preset. Omission joins a supplied creator's
  * current generation; a restored child without a saved preset uses host composition.
  * Registrations belong to the child's scope.
  * @param childCtx - the child agent's scoped creation context.
  * @param parent - creator for fresh delegation; absent during target-only restoration.
- * @param composition - independent preset and any overrides read from a historical descriptor.
+ * @param composition - independent preset and the child's persona and tool restriction overrides.
  * @returns A promise when mounting an independent preset; otherwise completes synchronously.
  */
 export function applyChildComposition(
@@ -213,9 +218,39 @@ function applyChildOverrides(childCtx: Context, composition: ChildComposition): 
       name: 'deployment:persona-prefix',
       order: childCtx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
       text: composition.persona,
+      interpolate: false,
     })
   }
-  if (composition.toolFilter !== undefined) childCtx.tools.restrict(composition.toolFilter)
+  if (composition.toolFilter !== undefined) restrictChildTools(childCtx, composition.toolFilter)
+}
+
+function restrictChildTools(childCtx: Context, filter: ToolRestriction): void {
+  const { tools } = childCtx
+  const options = { allowUnregistered: true, includeScopeLocal: true }
+  const hasMcp = filter.allow?.some(name => name.startsWith('mcp:')) === true
+    || filter.deny?.some(name => name.startsWith('mcp:')) === true
+  if (!hasMcp) {
+    tools.restrict(filter, options)
+    return
+  }
+
+  const scope = scopeOf(childCtx)
+  let key: string | undefined
+  let lift: (() => void) | undefined
+  const refresh = (): void => {
+    const definitions = tools.registeredDefinitions(scope)
+    const allow = filter.allow === undefined ? undefined : expandMcpServerEntries(filter.allow, definitions)
+    const deny = filter.deny === undefined ? undefined : expandMcpServerEntries(filter.deny, definitions)
+    const nextKey = JSON.stringify([allow, deny])
+    if (nextKey === key) return
+    // Installing or lifting a mask synchronously emits tools/change.
+    key = nextKey
+    const previous = lift
+    lift = tools.restrict({ ...allow === undefined ? {} : { allow }, ...deny === undefined ? {} : { deny } }, options)
+    previous?.()
+  }
+  refresh()
+  childCtx.on('tools/change', refresh)
 }
 
 /** Policy seeded onto a child session's log at the delegation boundary. */
@@ -225,7 +260,7 @@ export interface DelegatedPolicyOverrides {
    * the child keeps it under the pinned `never` approval policy.
    */
   readonly permissionPreset: 'auto' | 'danger-full-access' | undefined
-  /** The parent session's explicit sandbox-mode override, or `undefined` without one. */
+  /** The parent's sandbox override, or its effective mode narrowed to the requested cap. */
   readonly sandboxMode: SandboxMode | undefined
   /**
    * `'never'` whenever the approval capability is composed, `undefined`
@@ -240,19 +275,27 @@ export interface DelegatedPolicyOverrides {
  * the child start's first await: a later parent switch belongs to the
  * parent's future, not to this child. Auto and Full access identities are
  * inherited only through the in-process Jan path so either can replace a stale
- * same-bundle fork value. Only the parent session's explicit sandbox override
- * is captured — never deployment defaults or one-shot grants — and the approval
- * policy is pinned to `'never'` regardless of the parent's own policy.
+ * same-bundle fork value. Uncapped children inherit only the explicit sandbox
+ * override; capped children use the parent's effective mode, never a one-shot grant.
+ * The approval policy is pinned to `'never'` regardless of the parent's policy.
  * @param parent - the delegating parent agent.
- * @returns the sandbox override (or `undefined` without one) and the approval pin.
+ * @param cap - optional ceiling on the child's sandbox mode.
+ * @returns the captured sandbox mode, preset identity, and approval pin.
+ * @throws PRESET_UNAVAILABLE if a capped request has no parent sandbox policy.
  */
-export function captureDelegatedPolicyOverrides(parent: Agent): DelegatedPolicyOverrides {
+export function captureDelegatedPolicyOverrides(parent: Agent, cap?: SandboxMode): DelegatedPolicyOverrides {
   const preset = parent.ctx.get('permissionPresets')?.current(parent.session)
-  return {
-    permissionPreset: preset === 'auto' || preset === 'danger-full-access' ? preset : undefined,
-    sandboxMode: parent.ctx.get('sandboxPolicy')?.overrideOf(parent.session),
-    approvalPolicy: parent.ctx.get('approval') === undefined ? undefined : 'never',
+  const sandboxPolicy = parent.ctx.get('sandboxPolicy')
+  const permissionPreset = preset === 'auto' || preset === 'danger-full-access' ? preset : undefined
+  const approvalPolicy = parent.ctx.get('approval') === undefined ? undefined : 'never'
+  if (cap === undefined) return { permissionPreset, sandboxMode: sandboxPolicy?.overrideOf(parent.session), approvalPolicy }
+  if (sandboxPolicy === undefined) {
+    throw new SubagentError('an agent profile sandbox cap requires a parent sandbox policy service', 'PRESET_UNAVAILABLE')
   }
+  const parentMode = sandboxPolicy.resolve({ session: parent.session }).mode
+  return isWiderSandboxMode(parentMode, cap)
+    ? { permissionPreset: undefined, sandboxMode: cap, approvalPolicy }
+    : { permissionPreset, sandboxMode: parentMode, approvalPolicy }
 }
 
 /**

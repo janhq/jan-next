@@ -26,7 +26,7 @@
   position: absolute;
   inset: 0;
   background: var(--dsw-alias-bg-mask-1);
-  animation: modalFade var(--ds-transition-duration) var(--ds-ease-out);
+  animation: modalFade var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
 /* Dialogs use the prominent elevation on the secondary layer. */
@@ -38,13 +38,15 @@
   flex-direction: column;
   gap: 20px;
   width: min(380px, 100%);
+  /* Never taller than the window; the body scrolls so the footer stays reachable. */
+  max-height: 100%;
   padding: 0 0 24px;
   overflow: hidden;
   border: 0;
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-elevation-prominent);
-  animation: modalEnter var(--ds-transition-duration) var(--ds-ease-out);
+  animation: modalEnter var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
 /* Modals stay centered; a small scale gives the card a place to come from. */
@@ -69,6 +71,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-height: 0;
 }
 
 /* Header row (figma Title row): pad l24/t22/r14/b12, SPACE_BETWEEN —
@@ -139,6 +142,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   margin-top: 20px;
   padding: 0 24px;
 }
@@ -149,4 +154,5 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 0 24px;
+  flex-shrink: 0;
 }

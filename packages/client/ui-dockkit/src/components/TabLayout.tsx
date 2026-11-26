@@ -155,6 +155,8 @@ export function TabLayout(props: LayoutProps): ReactNode {
       ))}
       {root.kind === 'split' && <div className={clsx(css.divider, css.tabLayoutDivider)}
         data-dockkit-divider={`${root.id}:0`} style={{ gridColumn: 2, gridRow: 1 }}
+        data-dockkit-resizing={callbacks.activeDivider === `${root.id}:0` || undefined}
+        onDoubleClick={(event) => { callbacks.onDividerNudge?.(root.id, 0, undefined, event.currentTarget) }}
         onPointerDown={(event) => { callbacks.onDividerPressed(root.id, 0, event) }} />}
     </div>
   )

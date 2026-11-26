@@ -10,6 +10,7 @@ import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@janhq/jan-
 import type { SessionListState } from '@janhq/jan-api-session-controller/client'
 import { SessionId } from '@janhq/jan-session/types'
 import type { SettingsRootComponentProps } from '../src/client/shell-contract.ts'
+import type { SettingsSearchTarget } from '../src/client/settings-search.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import type { DesktopUpdateView } from '../src/types.ts'
@@ -68,6 +69,8 @@ function mount({
     { id: 'welcome', order: -100 },
     { id: 'credential', order: 0 },
   ],
+  targets = [],
+  showCodingRow = true,
 }: {
   shortcuts?: readonly ShortcutCatalogEntry[]
   wide?: boolean
@@ -78,6 +81,8 @@ function mount({
   mainView?: boolean
   rows?: Row[]
   steps?: Step[]
+  targets?: readonly SettingsSearchTarget[]
+  showCodingRow?: boolean
 } = {}) {
   // Mutable row source standing in for the bound useSections hook; bump()
   // plays a ledger change through the same observable contract.
@@ -88,7 +93,11 @@ function mount({
   const reconnect = vi.fn()
   const renderSlot = vi.fn(
     ((key: string, _owner: unknown, opts?: { only?: string; fallback?: import('react').ReactNode }) => {
-      if (key === 'settings.section') return <div data-testid={`section-${opts?.only ?? 'all'}`} />
+      if (key === 'settings.section') return <div data-slot="settings.section">
+        <div data-testid={`section-${opts?.only ?? 'all'}`}>
+          {showCodingRow && opts?.only === 'general' && <div data-settings-search-row="developer-tools" tabIndex={-1}>Show coding view</div>}
+        </div>
+      </div>
       return SEAT_CONTENT[key] ?? opts?.fallback
     }) as SettingsRootComponentProps['renderSlot'],
   )
@@ -111,6 +120,9 @@ function mount({
   const shell = createSettingsShellStore().create()
   const props: SettingsRootComponentProps = {
     useStore: bindSnapshotSelector(shell), actions: shell.actions,
+    searchShortcut: 'Control+F /',
+    openSearchTarget: (target) => { shell.actions.openTarget(target); return true },
+    useSearchTargets: select => select(targets),
     useShortcuts: select => select(shortcuts),
     useSessions: select => select(sessions),
     useSessionStatus,
@@ -172,7 +184,13 @@ function mount({
     act(() => { sessions.byId[activeId] = { ...session, blank: next } })
     view.rerender(<SettingsRoot {...props} />)
   }
-  return { view, renderSlot, bump, listeners, reconnect, setConnectionState, setDesktopUpdate, setShortcuts, setOnboardingActive }
+  const mountCodingRow = () => {
+    showCodingRow = true
+    view.rerender(<SettingsRoot {...props} />)
+  }
+  return {
+    view, renderSlot, bump, listeners, reconnect, setConnectionState, setDesktopUpdate, setShortcuts, setOnboardingActive, mountCodingRow,
+  }
 }
 
 function openPanel() {
@@ -498,6 +516,109 @@ describe('SettingsPanel navigation', () => {
     expect(listeners.size).toBe(1)
     view.unmount()
     expect(listeners.size).toBe(0)
+  })
+})
+
+describe('Settings search', () => {
+  const codingView: SettingsSearchTarget = {
+    sectionId: 'general', sectionTitle: 'General', title: 'Show coding view', keywords: ['developer tools'],
+    destination: { kind: 'row', id: 'developer-tools' },
+  }
+
+  it('ranks accent-insensitive titles above keyword hits and activates the selected page by keyboard', () => {
+    mount({ targets: [
+      { sectionId: 'models', sectionTitle: 'Models', title: 'Models', keywords: ['réseau'], destination: { kind: 'page' } },
+      { sectionId: 'agent-presets', sectionTitle: 'Réseau', title: 'Réseau', keywords: [], destination: { kind: 'page' } },
+    ] })
+    openPanel()
+    const search = screen.getByRole('combobox', { name: 'Search settings' })
+    search.focus()
+    fireEvent.change(search, { target: { value: '  RESEAU ' } })
+    const options = screen.getAllByRole('option')
+    expect(options.map(option => option.textContent)).toEqual(['Réseau', 'Models'])
+    expect(screen.queryByRole('button', { name: 'General' })).toBeNull()
+    fireEvent.keyDown(search, { key: 'ArrowDown' })
+    expect(search.getAttribute('aria-activedescendant')).toBe(options[0]?.id)
+    fireEvent.keyDown(search, { key: 'ArrowDown' })
+    expect(search.getAttribute('aria-activedescendant')).toBe(options[1]?.id)
+    fireEvent.keyDown(search, { key: 'Enter' })
+    expect(screen.getByTestId('section-models')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Models' }))
+  })
+
+  it('clears the query before Escape closes Settings and leaves composing input alone', () => {
+    mount({ targets: [codingView] })
+    openPanel()
+    const search = screen.getByRole('combobox', { name: 'Search settings' }) as HTMLInputElement
+    search.focus()
+    fireEvent.change(search, { target: { value: 'missing' } })
+    expect(screen.getByText('No settings found')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(search.value).toBe('')
+    expect(document.activeElement).toBe(search)
+    fireEvent.change(search, { target: { value: 'developer' } })
+    fireEvent.compositionStart(search)
+    fireEvent.keyDown(search, { key: 'ArrowDown', isComposing: true })
+    fireEvent.keyDown(search, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(search, { key: 'Escape', isComposing: true })
+    expect(search.getAttribute('aria-activedescendant')).toBeNull()
+    expect(search.value).toBe('developer')
+    fireEvent.compositionEnd(search)
+    fireEvent.keyUp(search, { key: 'Enter' })
+    fireEvent.keyDown(search, { key: 'Escape' })
+    expect(search.value).toBe('')
+    expect(screen.getByRole('button', { name: 'General' })).toBeTruthy()
+    fireEvent.keyDown(search, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('reveals and focuses the same General setting on successive selections', () => {
+    vi.useFakeTimers()
+    mount({ targets: [codingView] })
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    const search = screen.getByRole('combobox', { name: 'Search settings' })
+    const choose = () => {
+      fireEvent.change(search, { target: { value: 'developer' } })
+      fireEvent.click(screen.getByRole('option', { name: 'Show coding view', description: 'General' }))
+    }
+    choose()
+    const row = screen.getByText('Show coding view')
+    expect(scrollIntoView.mock.instances.at(-1)).toBe(row)
+    expect(document.activeElement).toBe(row)
+    expect(row.hasAttribute('data-settings-revealed')).toBe(true)
+    act(() => { vi.advanceTimersByTime(2_000) })
+    expect(row.hasAttribute('data-settings-revealed')).toBe(false)
+    search.focus()
+    choose()
+    expect(document.activeElement).toBe(row)
+    expect(row.hasAttribute('data-settings-revealed')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Models' }))
+    expect(row.hasAttribute('data-settings-revealed')).toBe(false)
+  })
+
+  it('reveals a row that mounts after the page renders', async () => {
+    const { mountCodingRow } = mount({ targets: [codingView], showCodingRow: false })
+    openPanel()
+    const search = screen.getByRole('combobox', { name: 'Search settings' })
+    fireEvent.change(search, { target: { value: 'developer' } })
+    fireEvent.keyDown(search, { key: 'Enter' })
+    expect(screen.queryByText('Show coding view')).toBeNull()
+    await act(async () => { mountCodingRow(); await Promise.resolve() })
+    expect(document.activeElement).toBe(screen.getByText('Show coding view'))
+  })
+
+  it('reports a missing target after waiting while leaving the destination page usable', () => {
+    vi.useFakeTimers()
+    mount({ targets: [{ ...codingView, destination: { kind: 'row', id: 'missing' } }] })
+    openPanel()
+    const search = screen.getByRole('combobox', { name: 'Search settings' })
+    fireEvent.change(search, { target: { value: 'developer' } })
+    fireEvent.keyDown(search, { key: 'Enter' })
+    expect(screen.queryByText('This setting is unavailable.')).toBeNull()
+    act(() => { vi.advanceTimersByTime(2_000) })
+    expect(screen.getByText('This setting is unavailable.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'General' }).getAttribute('aria-current')).toBe('true')
   })
 })
 

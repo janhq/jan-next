@@ -1,8 +1,9 @@
 /** Probes repository and account CLIs, configures the worker execution environment and command shims, and tracks setup readiness. */
 import type { Context } from '@deepseek-ai/cordis'
+import { delimiter } from 'node:path'
 import { UserError } from '../core/index.ts'
-import { SETUP_FIELDS, resolveDeployment, resolveFeishuBot, workerProbe, type Deployment, type Machine } from '../deployment.ts'
-import { agentVariables, applyEnvironment, verifyEnvironment, withoutDirectory, workerBin, writeEnvironment } from '../infra/environment.ts'
+import { SETUP_FIELDS, resolveDeployment, resolveFeishuBot, type Deployment, type Machine, type Probe } from '../deployment.ts'
+import { agentVariables, runAsWorker, verifyEnvironment, withoutDirectory, workerBin, writeEnvironment } from '../infra/environment.ts'
 import type { Settings, SettingsBlock } from '../policy.ts'
 import { SetupError, type SetupProblem } from '../setup.ts'
 
@@ -18,30 +19,30 @@ const setupFields = (settings: Settings) =>
 export const setupChanged = (before: Settings, after: Settings): boolean => setupFields(before) !== setupFields(after)
 
 /**
- * Resolves the target repository, GitHub account, and optional Feishu bot by probing CLIs, then writes and applies the isolated git and shim environment used by worker processes.
+ * Resolves the target repository, GitHub account, and optional Feishu bot by probing CLIs, then writes the isolated git configuration and shims used by worker processes.
  * `Runtime` runs it at startup to gate orchestration readiness, while `Settings` uses it to validate account changes, update blocked command shims, and schedule restarts.
  */
 export class Setup {
   private resolved?: Deployment
   problem?: SetupProblem
   feishuProblem?: SetupProblem
-  /** PATH with the worker shim directory removed so the host's own CLI calls invoke the real binaries. */
-  private readonly path: string
-  /** Environment variables pointing agent subprocesses at the isolated git config and command shims. */
-  private readonly variables: Record<string, string | undefined>
-  private restoreEnvironment?: () => void
+  /** Command environment with agent git settings but without worker shims on PATH. */
+  readonly commandEnvironment: Readonly<NodeJS.ProcessEnv>
+  /** Worker environment with the shims prepended to PATH. */
+  readonly workerEnvironment: Readonly<NodeJS.ProcessEnv>
   constructor(private readonly host: SetupHost) {
-    this.path = withoutDirectory(process.env.PATH ?? '', workerBin(host.machine.stateDir))
-    this.variables = agentVariables(host.machine.stateDir)
+    const { stateDir } = host.machine
+    const bin = workerBin(stateDir)
+    const path = withoutDirectory(process.env.PATH ?? '', bin)
+    this.commandEnvironment = Object.freeze({ ...agentVariables(stateDir), PATH: path })
+    this.workerEnvironment = Object.freeze({ ...this.commandEnvironment, PATH: [bin, path].join(delimiter) })
   }
-  /** Host command environment with agent git variables applied and the worker shim directory excluded from PATH. */
-  get commandEnvironment(): Record<string, string | undefined> { return { ...this.variables, PATH: this.path } }
   get deployment(): Deployment {
     if (!this.resolved) throw new Error(`dsh-superagent is waiting for setup: ${this.problem?.detail ?? 'setup has not run'}`)
     return this.resolved
   }
   configured(): boolean { return this.resolved !== undefined }
-  /** Resolve deployment accounts and apply the worker environment, recording `SetupError` failures in `problem`/`feishuProblem` and rethrowing unexpected errors. */
+  /** Resolve deployment accounts and verify the worker environment, recording known setup failures and rethrowing unexpected errors. */
   async run(settings: Settings): Promise<boolean> {
     try { this.resolved = await this.resolve(settings); return true }
     catch (error) {
@@ -67,11 +68,10 @@ export class Setup {
   async blockCommands(blocked: readonly string[]): Promise<void> {
     if (this.resolved) await writeEnvironment(this.resolved, blocked)
   }
-  restore(): void { this.restoreEnvironment?.(); this.restoreEnvironment = undefined }
   /** Probes CLIs the way worker shells run them, using `stateDir` as `cwd` since it exists even before the repository clone is valid. */
-  private probe() {
+  private probe(): Probe {
     const { context, machine, lifetime } = this.host
-    return workerProbe(context.subprocess, machine.stateDir, machine.stateDir, lifetime)
+    return argv => runAsWorker(context.subprocess, argv, machine.stateDir, AbortSignal.any([lifetime, AbortSignal.timeout(60_000)]), this.commandEnvironment)
   }
   private async resolve(settings: Settings): Promise<Deployment> {
     const { context, machine, lifetime } = this.host
@@ -89,11 +89,7 @@ export class Setup {
       throw new SetupError('environmentFailed', { output: error instanceof Error ? error.message : String(error) })
     }
     await writeEnvironment(resolved, settings.executor.blockedCommands).catch(machineProblem)
-    this.restoreEnvironment = applyEnvironment(this.variables, machine.stateDir, this.path)
-    await verifyEnvironment(resolved, context.subprocess, lifetime).catch((error: unknown) => {
-      this.restore()
-      machineProblem(error)
-    })
+    await verifyEnvironment(resolved, context.subprocess, lifetime, this.workerEnvironment).catch(machineProblem)
     return resolved
   }
 }

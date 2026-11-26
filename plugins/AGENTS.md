@@ -38,6 +38,10 @@ One change carries all four:
 
 A `packages/` capability that desktop ships also takes steps 2 to 4.
 
+## Browser half
+
+A plugin's `client*.js` is Jan UI like any `packages/client/` package: follow [jan-client-ui-ux](../.agents/skills/jan-client-ui-ux/SKILL.md) and the [Jan design contract](jan-theme/design/DESIGN.md), reuse `ui-primitives` through the module loader where they fit, route copy through `client.locale.js` in all eight locales, and write colors, radii and motion as theme tokens (`var(--ds-...)`, `var(--dsw-...)`) in CSS template strings too. The ui-theme style gates scan these strings.
+
 ## Porting from another repository
 
 Copy the sources into the home the table chooses; do not depend on the outside package. Rename `@deepseek-ai/dsh-<pkg>` to `@janhq/jan-<pkg>`, `@deepseek-ai/cordis` and `@deepseek-ai/schemastery` to `@janhq/cordis` and `@janhq/schemastery`, the `dsh` CLI to `jan`, `DSH_*` variables to `JAN_*`, and `dsh-<name>` ids to the names above. The package README names the source repository, commit and license under "Origin", and the source's license file stays in the package when it is not MIT. Later upstream fixes are ported by hand against that commit.

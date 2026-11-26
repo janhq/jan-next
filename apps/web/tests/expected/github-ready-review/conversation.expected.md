@@ -10,7 +10,7 @@
 
 - banner:
   - navigation "Session hierarchy": Review janhq/jan-next#314
-  - text: Standard mode
+  - text: Code mode
   - button "More actions"
   - button "Open right sidebar"
   - tablist:

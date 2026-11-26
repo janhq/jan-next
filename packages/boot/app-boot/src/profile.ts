@@ -29,7 +29,7 @@ import { applyEntryPatches, type PatchOptions } from '@janhq/cordis-plugin-inclu
 import { resolveJanHome } from '@janhq/jan-home-paths'
 import type { JanBundleManifest, JanPackageManifest } from '@janhq/jan-package-manifest'
 import { janDeclaration } from '@janhq/jan-package-manifest'
-import { INSTALLATION_OWNED_PROFILE_TUPLES, PROFILE_TEMPLATES, RETIRED_BUNDLES } from '@janhq/jan-official-bundles'
+import { INSTALLATION_OWNED_PROFILE_TUPLES, PROFILE_BUNDLE_ADDITIONS, PROFILE_TEMPLATES, RETIRED_BUNDLES } from '@janhq/jan-official-bundles'
 import { assertBundlePlatform } from './bundle-platform.ts'
 import { evaluatePluginCompatibility, pluginCompatibilityWarning } from './plugin-compatibility.ts'
 import { readProfileVersionExemptions } from './profile-compatibility.ts'
@@ -594,15 +594,20 @@ function withBundles(manifest: ProfileManifest, bundles: readonly string[]): Pro
 }
 
 /**
- * Normalize an exact installation-owned bundle tuple to its shipped template,
- * preserving all other manifest fields. Other bundle lists remain untouched.
- * Desktop checks once per profile so subsequent bundle selections are left alone.
+ * Normalize a shipped profile: replace an exact installation-owned bundle tuple with its
+ * template, then add each {@link PROFILE_BUNDLE_ADDITIONS} bundle once. Other bundle lists and
+ * manifest fields remain untouched, and a bundle the user later removes stays removed.
  * @param name - profile name, keyed into the shipped templates.
  * @param dir - profile directory the manifest was read from.
  * @param manifest - profile manifest as read from disk.
  * @returns the manifest with the shipped bundle list, or the input unchanged.
  */
 export function normalizeShippedProfile(name: string, dir: string, manifest: ProfileManifest): ProfileManifest {
+  return addShippedBundles(name, dir, migrateInstallationTuple(name, dir, manifest))
+}
+
+/** Replace an exact installation-owned tuple with the template. Desktop checks once per profile. */
+function migrateInstallationTuple(name: string, dir: string, manifest: ProfileManifest): ProfileManifest {
   const installationOwned = INSTALLATION_OWNED_PROFILE_TUPLES[name]
   const template = PROFILE_TEMPLATES[name]
   const bundles = manifest.jan?.profile?.bundles
@@ -615,6 +620,21 @@ export function normalizeShippedProfile(name: string, dir: string, manifest: Pro
   }
   // Record completion even for fresh or customized profiles, after any manifest write succeeds.
   if (marker !== undefined) writeFileSync(marker, '', { flag: 'a', mode: 0o600 })
+  return manifest
+}
+
+/** Add each bundle a release introduced to the template once; its marker keeps a later removal. */
+function addShippedBundles(name: string, dir: string, manifest: ProfileManifest): ProfileManifest {
+  for (const { id, bundle } of PROFILE_BUNDLE_ADDITIONS[name] ?? []) {
+    const bundles = manifest.jan?.profile?.bundles
+    const marker = join(dir, `.bundle-addition-${id}`)
+    if (bundles === undefined || existsSync(marker)) continue
+    if (!bundles.includes(bundle)) {
+      manifest = withBundles(manifest, [...bundles, bundle])
+      writeProfileManifest(dir, manifest)
+    }
+    writeFileSync(marker, '', { flag: 'a', mode: 0o600 })
+  }
   return manifest
 }
 

@@ -21,6 +21,18 @@ afterEach(async () => {
 type Question = { id: string; detail?: string; multiSelect?: boolean; options: { label: string }[] }
 type Tool = { name: string; execute(args: object, exec: object): Promise<Record<string, unknown>> }
 
+type Request = AsyncIterable<Buffer> & { method: string; headers: Record<string, string> }
+type Response = { writeHead(status: number): void; end(body: string): void }
+type Handler = (req: Request, res: Response) => Promise<void>
+type Reply = { status: number; body: { result?: unknown; error?: string } }
+
+function previewOf({ body: { result } }: Reply) {
+  if (!result || typeof result !== 'object' || !('previewId' in result) || typeof result.previewId !== 'string' || !('threads' in result)) {
+    throw new Error('Expected a browser import preview')
+  }
+  return result
+}
+
 async function janMigration(select: (labels: string[], source: string) => string[] | Promise<string[]>) {
   const home = await mkdtemp(join(tmpdir(), 'jan-migrate-'))
   roots.push(home)
@@ -42,13 +54,16 @@ async function janMigration(select: (labels: string[], source: string) => string
     janMcpSettings: { configuredNames: () => [], importMissing: writeMcp },
   }
   const createSession = vi.fn(async () => ({ append: async () => {}, flush: async () => {}, close: async () => {} }))
+  let handler: Handler
   apply({
     fiber: {},
     sessions: { get: () => undefined, prepare: (id: string) => ({ header: { id }, inheritedEventCount: 0 }) },
     sessionPersistence: { stat: async () => undefined, create: createSession },
     workspaceRegistry: {},
     workspaceController: { initializeDefault: async () => {} },
-    effect: () => {},
+    webServer: { register: (route: { handler: Handler }) => { handler = route.handler; return () => {} } },
+    connection: { requestRejection: () => undefined },
+    effect: (install: () => unknown) => install(),
     inject: ([service]: string[], install: (ctx: object) => void) => {
       if (service === 'tools') install({
         tools: { register: (tool: Tool) => { tools.set(tool.name, tool) } },
@@ -58,7 +73,15 @@ async function janMigration(select: (labels: string[], source: string) => string
     },
     get: (name: string) => services[name],
   })
-  return { source, writeRoutes, writeKey, writeMcp, createSession, execute: () => tools.get('migrate_import')!.execute({ source: 'jan' }, {}) }
+  const rpc = (method: string, params: object) => {
+    const { promise, resolve, reject } = Promise.withResolvers<Reply>()
+    let status = 0
+    handler({ method: 'POST', headers: { 'content-type': 'application/json' }, async *[Symbol.asyncIterator]() {
+      yield Buffer.from(JSON.stringify({ method, params }))
+    } }, { writeHead: code => { status = code }, end: body => resolve({ status, body: JSON.parse(body) }) }).catch(reject)
+    return promise
+  }
+  return { home, source, writeRoutes, writeKey, writeMcp, createSession, rpc, execute: () => tools.get('migrate_import')!.execute({ source: 'jan' }, {}) }
 }
 
 const writeMcpConfig = (source: string, mcpServers: object) => writeFile(join(source, 'mcp_config.json'), JSON.stringify({ mcpServers }))
@@ -196,4 +219,38 @@ it('imports only the chats counted in the selected form option', async () => {
 
   expect(await execute()).toMatchObject({ imported: 1, failed: [] })
   expect(createSession).toHaveBeenCalledExactlyOnceWith({ id: 'jan-reviewed-chat' })
+})
+
+it('imports only a connector explicitly selected from a browser preview', async () => {
+  const { source, rpc, writeMcp } = await janMigration(() => [])
+  await writeMcpConfig(source, { connector: { command: 'fixture-connector' }, other: { command: 'another-connector' } })
+  const result = previewOf(await rpc('list', { folder: source }))
+  expect((await rpc('import', { previewId: result.previewId, ids: [], mcpNames: ['connector'] })).body.result)
+    .toMatchObject({ settings: { mcp: { imported: 1, names: ['connector'] } } })
+  expect(writeMcp).toHaveBeenCalledExactlyOnceWith({ connector: expect.objectContaining({ command: 'fixture-connector' }) })
+})
+
+it('imports Cursor skills from the settings page without creating a chat', async () => {
+  const { home, rpc, createSession } = await janMigration(() => [])
+  const skill = join(home, '.cursor', 'skills', 'review')
+  vi.stubEnv('JAN_HOME', join(home, 'jan-home'))
+  vi.stubEnv('JAN_AGENTS_HOME', join(home, 'agent-home'))
+  await mkdir(skill, { recursive: true })
+  await writeFile(join(skill, 'SKILL.md'), 'Review carefully')
+  const result = previewOf(await rpc('list', { source: 'cursor' }))
+  expect(result.threads).toEqual([])
+  expect((await rpc('import', { previewId: result.previewId, ids: [], skillNames: ['review'] })).body.result)
+    .toMatchObject({ settings: { skills: { imported: ['review'] } } })
+  expect(createSession).not.toHaveBeenCalled()
+})
+
+it('rejects items absent from the preview and changed selected settings before writes', async () => {
+  const { source, rpc, writeMcp } = await janMigration(() => [])
+  await writeMcpConfig(source, { connector: { command: 'fixture-connector' } })
+  const result = previewOf(await rpc('list', { folder: source }))
+  await writeMcpConfig(source, { connector: { command: 'changed' }, other: { command: 'another-connector' } })
+  const request = { previewId: result.previewId, ids: [] }
+  expect((await rpc('import', { ...request, mcpNames: ['other'] })).body.error).toMatch(/not in the import preview/i)
+  expect((await rpc('import', { ...request, mcpNames: ['connector'] })).body.error).toMatch(/MCP.*changed/i)
+  expect(writeMcp).not.toHaveBeenCalled()
 })

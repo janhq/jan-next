@@ -14,9 +14,9 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   web: {
     bundles: ['@janhq/jan-base', '@janhq/jan-web-app'],
   },
-  // The desktop app's Web surface plus Jan's theme, legacy chat import, and preset catalog.
+  // The desktop app's Web surface plus Jan's theme, legacy chat import, preset catalog, and Forge's pull request status.
   desktop: {
-    bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app'],
+    bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app', '@janhq/jan-experimental-forge-bundle'],
   },
   headless: {
     bundles: ['@janhq/jan-base', '@janhq/jan-headless'],
@@ -43,6 +43,11 @@ export const INSTALLATION_OWNED_PROFILE_TUPLES: Readonly<Record<string, readonly
   desktop: ['@janhq/jan-base', '@janhq/jan-web-app'],
 }
 
+/** Bundles added once to existing profiles of a shipped template; a later removal by the user sticks. */
+export const PROFILE_BUNDLE_ADDITIONS: Readonly<Record<string, readonly { readonly id: string; readonly bundle: string }[]>> = {
+  desktop: [{ id: '2026-11-forge', bundle: '@janhq/jan-experimental-forge-bundle' }],
+}
+
 /** Bundles an earlier release shipped and the installation no longer carries; app-boot removes them from profiles. */
 export const RETIRED_BUNDLES: ReadonlySet<string> = new Set([
   // The Web composition mounts Schedule itself
@@ -58,8 +63,8 @@ export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@janhq/jan-base']
  * The bundles the jan installation ships for a person to switch on: each a
  * runtime dependency of the installation that declares `jan.bundle.patch`,
  * an `icon`, and `./locale/*.json` display metadata, selected by no shipped
- * template, and offered switched off by the plugin manager except persistent
- * terminals, which have no page switch
+ * template except the Desktop template's Forge, and offered switched off by
+ * the plugin manager except persistent terminals, which have no page switch
  * ([rationale](../../../../.agents/notes/implemented/process/2026-09-15-shipped-optional-bundles.md),
  * [admission](../../../../.agents/notes/implemented/architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md)).
  */

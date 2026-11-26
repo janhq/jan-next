@@ -15,10 +15,10 @@ import { installRemote, probeRemote, runtimeIdentity, shippedRuntimes, sshArgs, 
 import { startRelay } from './relay.mjs'
 import { deviceAddressKind, lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
-import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
+import { callRemote, receiveSetup, setupState } from './setup-copy.mjs'
 import { createHostLink } from './link.mjs'
 import { createFederation } from './federation.mjs'
-import { copyCustomizations, customizationOffer, customizationState } from './customization-copy.mjs'
+import { customizationState } from './customization-copy.mjs'
 import { resolveAgentsHome } from '@janhq/jan-home-paths'
 import { applySync, createSyncReview, syncFingerprints, syncInventory, syncKey, syncPayload, verifySyncPeer } from './setup-sync.mjs'
 
@@ -70,6 +70,7 @@ async function ownerCookieFor(ctx) {
 export function apply(ctx, config) {
   const store = new HostsStore(join(ctx.janHomePath(), 'hosts'))
   const tunnels = new Map()
+  const urlLinks = new Map()
   const syncReviews = createSyncReview()
   // What a running Connect is doing, per Host id; cleared when it ends either way.
   const progress = new Map()
@@ -79,6 +80,7 @@ export function apply(ctx, config) {
   let gatewayError
   let hashes = new Map()
   const federation = createFederation(ctx)
+  ctx.provide('janHosts', { peers, callPlugin })
   // A Gateway from before federation has no forwarder: Hosts still answers copies and folder
   // browsing there, and only another computer's projects stay out of that Jan's own window.
   if (typeof ctx.typertGateway.registerForwarder === 'function') {
@@ -89,11 +91,59 @@ export function apply(ctx, config) {
     if (!await federation.upload(request, response)) await next()
   }), 'jan-hosts: federated uploads')
 
-  // The saved destination and its credential live in different stores. Keep edits ordered.
-  function writeConnection(write) {
-    const result = connectionWrites.then(write)
+  // The saved destination and its credential live in different stores. Order edits and link lookups together.
+  function withConnections(run) {
+    const result = connectionWrites.then(run)
     connectionWrites = result.catch(() => undefined)
     return result
+  }
+
+  /** @returns {Promise<{ id: string, name: string, kind: 'ssh' | 'url', state: 'connected' | 'offline' }[]>} saved peers without credentials. */
+  async function peers() {
+    return Promise.all((await store.connections()).map(async (entry) => {
+      const { id, name, kind } = entry
+      const connected = kind === 'ssh' ? federation.linkOf(id) !== undefined : (await token(entry)) !== undefined
+      return { id, name, kind, state: connected ? 'connected' : 'offline' }
+    }))
+  }
+
+  /**
+   * Call a plugin's JSON route without exposing the peer's login to the caller.
+   * @param {string} id - saved peer id.
+   * @param {string} feature - plugin route name.
+   * @param {string} method - operation name on that route.
+   * @param {object} params - operation arguments.
+   * @param {AbortSignal} [signal] - cancels the request.
+   * @returns {Promise<unknown>} the remote operation's result.
+   */
+  async function callPlugin(id, feature, method, params, signal) {
+    const link = await withConnections(async () => {
+      const entry = (await store.connections()).find(item => item.id === id)
+      if (entry?.kind === 'ssh') return federation.linkOf(id)
+      if (entry?.kind !== 'url') return undefined
+      const value = await token(entry)
+      if (value === undefined) return undefined
+      const cached = urlLinks.get(id)
+      if (cached?.url === entry.url && cached.token === value) return cached.link
+      const link = createHostLink({ root: entry.url, token: value })
+      urlLinks.set(id, { url: entry.url, token: value, link })
+      return link
+    })
+    if (link === undefined) throw new HostsError('not-connected', 'That computer is not connected. Connect it in Settings, Hosts.')
+
+    let body
+    try {
+      body = await link.post(`jan-api/${feature}`, { method, params }, signal)
+    } catch (error) {
+      // A 4xx with the operation's message is the peer refusing the request; a
+      // 5xx is a temporary failure on the peer that a caller may retry.
+      const message = error?.cause?.body?.error
+      if (typeof message !== 'string') throw error
+      const status = error.cause.status
+      throw status >= 400 && status < 500 ? new HostsError('rejected', message, { cause: error }) : new Error(message, { cause: error })
+    }
+    if (typeof body.error === 'string') throw new HostsError('rejected', body.error)
+    return body.result
   }
 
   /** This computer's side of a customization copy: its settings, skill folders and plugin manager. */
@@ -131,11 +181,13 @@ export function apply(ctx, config) {
 
   async function saveToken(entry, value) {
     await ctx.credentials.modifyRecord(tokenKey(entry.id), () => Promise.resolve({ kind: 'grant', payload: { url: entry.url, token: value } }))
+    if (urlLinks.get(entry.id)?.token !== value) urlLinks.delete(entry.id)
   }
 
   function dropTunnel(id, forget = false) {
     tunnels.get(id)?.close()
     tunnels.delete(id)
+    urlLinks.delete(id)
     syncReviews.clear(id)
     federation.detach(id, forget)
   }
@@ -199,18 +251,8 @@ export function apply(ctx, config) {
     }
   }
 
-  // Before this option existed, a saved, enabled LAN listener was already cleartext.
   const entry = ctx.fiber.entry
-  const legacyLan = entry !== undefined && config.gatewayEnabled.get() && gatewayTransport() === 'http'
-    && deviceAddressKind(gatewayHost(true)) === 'lan' && !Object.hasOwn(entry.options.config ?? {}, 'gatewayAllowInsecureLan')
   let disposed = false
-  const gatewayMigration = legacyLan ? Promise.resolve(ctx.get('loader')?.await()).then(async () => {
-    if (disposed || !config.gatewayEnabled.get() || Object.hasOwn(entry.options.config ?? {}, 'gatewayAllowInsecureLan')) return
-    await ctx.settings.update(entry.options.id, { gatewayAllowInsecureLan: true })
-    ctx.logger.warn('jan-hosts: kept an existing LAN gateway enabled by opting into unencrypted LAN access. Review this option in Settings > Hosts.')
-  }).catch((error) => {
-    ctx.logger.warn('jan-hosts: could not migrate the existing LAN gateway setting: %s', error.message)
-  }) : Promise.resolve()
   let gatewayStart = Promise.resolve()
   let initialized = false
 
@@ -225,7 +267,7 @@ export function apply(ctx, config) {
     if (initialized) void restartGateway()
   }), 'jan-hosts: gateway switch')
 
-  const gatewayReady = gatewayMigration.then(() => {
+  const gatewayReady = Promise.resolve().then(() => {
     if (disposed) return
     initialized = true
     return restartGateway()
@@ -234,6 +276,7 @@ export function apply(ctx, config) {
     void gatewayReady
     return async () => {
       disposed = true
+      urlLinks.clear()
       await gatewayStart
       await gateway?.close()
       for (const tunnel of tunnels.values()) tunnel.close()
@@ -358,7 +401,7 @@ export function apply(ctx, config) {
     },
     async save(params) {
       try {
-        return await writeConnection(async () => {
+        return await withConnections(async () => {
           const { connection, token: pasted, previous } = await store.saveConnection(params)
           if (previous !== undefined && !sameDestination(previous, connection)) {
             dropTunnel(connection.id, true)
@@ -389,10 +432,11 @@ export function apply(ctx, config) {
       return { imported, failed }
     },
     async remove({ id }) {
-      return writeConnection(async () => {
+      return withConnections(async () => {
         dropTunnel(id, true)
         await store.removeConnection(id)
         await ctx.credentials.deleteRecord(tokenKey(id))
+        ctx.emit('jan-hosts/removed', id)
         return null
       })
     },
@@ -504,47 +548,9 @@ export function apply(ctx, config) {
     async receiveSetup(params) {
       return receiveSetup(providerSource(), params)
     },
-    // Asked here: what a connected SSH Host could take from this computer's model setup.
-    async setupOffer({ id }) {
-      const tunnel = tunnels.get(id)
-      if (tunnel === undefined) return { offer: false, items: [] }
-      const remote = await callRemote(tunnel, 'setupState')
-      // Only a Jan nobody set up there gets the offer, so a copy never fights choices made on it.
-      if (!remote.untouched) return { offer: false, items: [] }
-      const items = await copyable(providerSource(), remote)
-      return { offer: items.length > 0, items }
-    },
     // Answered on the other computer: which MCP servers, skills and plugin bundles it already has.
     async customizationState() {
       return customizationState({ settings: ctx.settings, janHome: ctx.janHomePath(), pluginManager: ctx.get('pluginManager') })
-    },
-    // Asked here: what a connected SSH Host lacks of this computer's customizations, by kind.
-    async customizationOffer({ id }) {
-      const link = federation.linkOf(id)
-      if (link === undefined) return { servers: [], skills: [], plugins: [] }
-      return customizationOffer(customizationSource(), await callRemote(tunnels.get(id), 'customizationState'))
-    },
-    async copyCustomizations({ id, servers, skills, plugins }) {
-      const tunnel = tunnels.get(id)
-      const link = federation.linkOf(id)
-      if (tunnel === undefined || link === undefined) throw new HostsError('not-connected', 'Connect first.')
-      const chosen = { servers, skills, plugins }
-      if (Object.values(chosen).every(list => !Array.isArray(list) || list.length === 0)) throw new HostsError('items', 'Choose at least one thing to bring.')
-      const source = customizationSource()
-      const offer = await customizationOffer(source, await callRemote(tunnel, 'customizationState'))
-      const entry = await find(id)
-      return copyCustomizations(source, { ssh: sshArgs(entry.ssh), remote: (endpoint, args) => link.call(endpoint, args) }, offer, chosen)
-    },
-    async copySetup({ id, routes }) {
-      const tunnel = tunnels.get(id)
-      if (tunnel === undefined) throw new HostsError('not-connected', 'Connect first.')
-      if (!Array.isArray(routes) || routes.length === 0) throw new HostsError('routes', 'Choose at least one provider to copy.')
-      const remote = await callRemote(tunnel, 'setupState')
-      const chosen = new Set(routes)
-      const source = providerSource()
-      const items = (await copyable(source, remote)).filter(item => chosen.has(item.route))
-      if (items.length === 0) throw new HostsError('routes', 'None of these providers can be copied to that computer.')
-      return callRemote(tunnel, 'receiveSetup', await setupPayload(source, items))
     },
     async enableGateway({ enabled }) {
       if (typeof enabled !== 'boolean') throw new HostsError('enabled', 'Choose on or off.')

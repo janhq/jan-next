@@ -187,11 +187,37 @@ button.toggle:focus-visible,
   }
 }
 
-.title {
+.title,
+.profile,
+.permission,
+.model {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile,
+.permission {
+  padding-inline: 5px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.profile {
+  max-width: 40%;
+}
+
+.permission {
+  max-width: 45%;
+}
+
+.model {
+  max-width: min(24%, 24ch);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
 }
 
 @media (hover: hover) {

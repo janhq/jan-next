@@ -13,6 +13,7 @@ import {
   type ConnectionGeneration,
   type ConnectionGenerationSource,
   type ConnectionHandle,
+  type ConnectionHostInfo,
 } from '@janhq/jan-client-connection/client'
 import type {
   InvocationDescriptor,
@@ -371,7 +372,7 @@ async function *unexpectedInProcessStream(): AsyncGenerator<never> {
 
 interface GenerationRun {
   readonly signal: AbortSignal
-  readonly ready: Promise<void>
+  readonly ready: Promise<ConnectionHostInfo>
   readonly done: Promise<void>
   abort(reason?: unknown): void
 }
@@ -397,8 +398,7 @@ class GenerationHarness {
     const source = this.source
     const controller = new AbortController()
     this.active = controller
-    let reportReady!: () => void
-    const ready = new Promise<void>((resolve) => { reportReady = resolve })
+    const { promise: ready, resolve: reportReady } = Promise.withResolvers<ConnectionHostInfo>()
     const done = Promise.resolve()
       .then(() => source(controller.signal, reportReady))
       .finally(() => {
@@ -416,8 +416,7 @@ class GenerationHarness {
   startOverlapping(): GenerationRun {
     if (this.source === undefined) throw new Error('fixture generation source is not registered')
     const controller = new AbortController()
-    let reportReady!: () => void
-    const ready = new Promise<void>((resolve) => { reportReady = resolve })
+    const { promise: ready, resolve: reportReady } = Promise.withResolvers<ConnectionHostInfo>()
     const done = Promise.resolve().then(() => this.source?.(controller.signal, reportReady))
       .then(() => undefined)
     void done.catch(() => undefined)
@@ -2154,7 +2153,7 @@ describe('Client Typert API', () => {
           type: 'item', streamId: legacy.streamId,
           value: { type: 'ready', clientId: 'legacy-client', host: { home: '/home/legacy' } },
         })
-        await run.ready
+        expect(await run.ready).toEqual({ home: '/home/legacy', name: 'legacy', remote: false })
         const seen: string[] = []
         ctx.remote.$on('fixture/changed', (namespace) => { seen.push(namespace) })
         socket.receive({

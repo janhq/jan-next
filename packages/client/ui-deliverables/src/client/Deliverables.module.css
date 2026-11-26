@@ -7,7 +7,7 @@
 .hostStatus { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .presented { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
 .presented[data-single='true'] { grid-template-columns: minmax(0, 1fr); }
-.file { position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 10px; min-width: 0; height: 60px; padding: 8px 10px; overflow: hidden; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-lg); background: var(--deliverable-fill); color: var(--dsw-alias-label-primary); transition: background-color 120ms ease; }
+.file { position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 10px; min-width: 0; height: 60px; padding: 8px 10px; overflow: hidden; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-lg); background: var(--deliverable-fill); color: var(--dsw-alias-label-primary); transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 @media (hover: hover) {
   .file:hover { background: var(--deliverable-hover); }
 }

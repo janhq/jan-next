@@ -18,6 +18,7 @@ import { SessionLogOffset } from '@janhq/jan-session'
 import type { Session, SessionId, SessionEvent, UserMessage } from '@janhq/jan-session'
 import type { SessionPersistence } from '@janhq/jan-session-persistence'
 import type { SessionObservation, SessionQueryEngine } from '@janhq/jan-session-query'
+import type { SandboxMode } from '@janhq/jan-sandbox'
 import type { ObjectJsonSchema } from '@janhq/jan-tools'
 import {
   appendDelegatedPolicyOverrides, applyChildComposition, captureDelegatedPolicyOverrides,
@@ -29,11 +30,12 @@ import {
 } from './continuation-messages.ts'
 import { installSubagentArchiveAdmission } from './archive-admission.ts'
 import { foldSubagentDescriptor, snapshotSubagentDescriptor } from './descriptor.ts'
-import type { SubagentDescriptorData } from './descriptor.ts'
+import type { ContinuableSubagentDescriptorData } from './descriptor.ts'
 import { catalogNames, establishCatalogChild, establishExternalCatalogChild } from './catalog.ts'
 import { SubagentError } from './error.ts'
 import type { LifecycleEmitter } from './lifecycle.ts'
 import { ROOT_AGENT_NAME, SiblingNameReservations, agentAddress, joinAgentPath, parentAgentPath } from './names.ts'
+import { isSandboxMode, isWiderSandboxMode } from './sandbox-mode.ts'
 import type { SiblingNameReservation } from './names.ts'
 import type { SubagentCatalogEntry, SubagentIdentityProjection } from './projection-types.ts'
 import { SubagentRunId } from './types.ts'
@@ -67,6 +69,22 @@ interface SubagentHost {
   readonly emitLifecycle: LifecycleEmitter
 }
 
+/** Inputs and the descriptor committed by local child setup, before Agent publication. */
+interface ChildCreation {
+  /** Live creator used only while establishing the child. */
+  parent: Agent
+  /** Absolute initial directory captured before provider preparation. */
+  cwd: string
+  seed: readonly SessionEvent[] | undefined
+  meta: NonNullable<CreateAgentOptions['meta']>
+  /** Exact parent-log prefix length inside {@link seed}. */
+  inheritedEventCount: SessionLogOffset
+  /** Captured sandbox and permission preset, plus the approval pin. */
+  delegatedPolicies: DelegatedPolicyOverrides
+  /** Setup narrows the descriptor further if the composed preset requires read-only access. */
+  descriptor: ContinuableSubagentDescriptorData
+}
+
 /** Inputs shared by fresh and resumed Activation materialization. */
 interface MaterializeBase {
   provider: string
@@ -88,20 +106,7 @@ type MaterializeInputs = MaterializeBase & (
      * session — including the delegation policy events a fresh creation seeded,
      * so a resume never re-captures the parent's policy.
      */
-    create?: {
-      /** Live creator used only while establishing the child. */
-      parent: Agent
-      /** Absolute initial directory captured before provider preparation. */
-      cwd: string
-      seed: readonly SessionEvent[] | undefined
-      meta: NonNullable<CreateAgentOptions['meta']>
-      /** Exact parent-log prefix length inside {@link seed}. */
-      inheritedEventCount: SessionLogOffset
-      /** Policy captured at delegation: the parent's sandbox override plus the approval pin. */
-      delegatedPolicies: DelegatedPolicyOverrides
-      /** Child-owned composition record appended after the inherited marker. */
-      descriptor: SubagentDescriptorData
-    }
+    create?: ChildCreation
     agentOptions: AgentOptions
     composition: ChildComposition
     outputSchema?: ObjectJsonSchema | undefined
@@ -333,17 +338,21 @@ export class SubagentManager {
       const agentProvider = agentOptions.provider
       const agentModel = agentOptions.model
       const agentReasoningEffort = agentOptions.reasoningEffort
+      // Capture before the first await: a later parent switch belongs to the parent's future.
+      const delegatedPolicies = captureDelegatedPolicyOverrides(parent, spec.sandboxMode)
+      const sandboxMode = spec.sandboxMode === undefined ? undefined : delegatedPolicies.sandboxMode
       const descriptor = snapshotSubagentDescriptor({
         mode: 'continuable',
         provider: spec.provider,
         label: spec.label,
+        ...spec.agent !== undefined ? { agent: spec.agent } : {},
         ...agentProvider !== undefined ? { agentProvider } : {},
         ...agentModel !== undefined ? { agentModel } : {},
         ...agentReasoningEffort !== undefined ? { agentReasoningEffort } : {},
+        ...spec.persona !== undefined ? { persona: spec.persona } : {},
+        ...spec.toolFilter !== undefined ? { toolFilter: spec.toolFilter } : {},
+        ...sandboxMode !== undefined ? { sandboxMode } : {},
       })
-      // Capture before the first await: a later parent switch belongs to the
-      // parent's future, not to this child.
-      const delegatedPolicies = captureDelegatedPolicyOverrides(parent)
 
       const cwd = await this.resolveDirectory(spec, signal)
       const prepared = await prepare({
@@ -371,23 +380,29 @@ export class SubagentManager {
             throw new SubagentError(`subagent "${childId}" already exists`, 'DUPLICATE_CHILD')
           }
         }
+        const create: ChildCreation = {
+          parent,
+          cwd,
+          seed,
+          meta: childSessionMeta(parent, childDepth, prepared.seed !== undefined, spec.agentPreset),
+          inheritedEventCount,
+          delegatedPolicies,
+          descriptor,
+        }
         const activation = await this.materialize({
           kind: 'local',
           childId,
           provider: spec.provider,
           ...ancestry,
           path,
-          create: {
-            parent,
-            cwd,
-            seed,
-            meta: childSessionMeta(parent, childDepth, prepared.seed !== undefined, spec.agentPreset),
-            inheritedEventCount,
-            delegatedPolicies,
-            descriptor,
-          },
+          create,
           agentOptions,
-          composition: { agentPreset: spec.agentPreset },
+          composition: {
+            agentPreset: spec.agentPreset,
+            persona: descriptor.persona,
+            toolFilter: descriptor.toolFilter,
+            sandboxMode: descriptor.sandboxMode,
+          },
           signal,
           delivery: spec.delivery,
           outputSchema: spec.outputSchema,
@@ -404,7 +419,7 @@ export class SubagentManager {
           ancestry.root,
           () => {
             this.assertAdmitting(parent)
-            establishCatalogChild(parent.session, childHeader, descriptor, reservation.name)
+            establishCatalogChild(parent.session, childHeader, create.descriptor, reservation.name)
           },
         )
       })
@@ -466,7 +481,7 @@ export class SubagentManager {
         this.assertAdmitting(parent)
         signal.throwIfAborted()
         if (reservation !== undefined) {
-          establishExternalCatalogChild(parent.session, activation.childId, spec.label, reservation.name)
+          establishExternalCatalogChild(parent.session, activation.childId, spec.label, reservation.name, spec.agent)
         }
         this.accept(activation)
         return this.receipt(activation)
@@ -783,6 +798,29 @@ export class SubagentManager {
     return pool
   }
 
+  /** Refuse tool execution if standing or explicitly requested file access exceeds the fixed ceiling. */
+  private guardSandboxMode(childCtx: Context, child: Agent, cap: SandboxMode, profile: boolean): void {
+    if (childCtx.get('sandboxPolicy') === undefined || childCtx.get('approval') === undefined) {
+      throw new SubagentError(profile
+        ? 'an agent profile sandbox cap requires sandbox policy and approval services'
+        : 'this preset requires sandbox policy and approval services', 'PRESET_UNAVAILABLE')
+    }
+    const denial = profile
+      ? `This subagent's agent profile limits it to ${cap} access.`
+      : 'This subagent preset requires a read-only sandbox.'
+    childCtx.tools.guard((exec) => {
+      const mode = childCtx.get('sandboxPolicy')?.resolve({ session: child.session }).mode
+      const args = exec.arguments
+      const requested = typeof args === 'object' && args !== null && 'sandbox_permissions' in args
+        ? args.sandbox_permissions : undefined
+      if (mode === undefined || isWiderSandboxMode(mode, cap)
+        || (requested !== undefined && (!isSandboxMode(requested) || isWiderSandboxMode(requested, cap)))) {
+        return denial
+      }
+      return undefined
+    })
+  }
+
   /** Perform one tracked materialization through publication or rollback. */
   private async materializeTracked(
     inputs: MaterializeInputs,
@@ -818,30 +856,22 @@ export class SubagentManager {
         const inheritedReadOnly = inputs.composition.agentPreset === undefined && create !== undefined
           && create.parent.ctx.get('agentPresets')?.requiresReadOnlyDelegation(create.parent.ctx) === true
         const readOnly = inheritedReadOnly || childCtx.get('agentPresets')?.requiresReadOnlyDelegation(childCtx) === true
-        const sandboxPolicy = readOnly ? childCtx.get('sandboxPolicy') : undefined
-        if (readOnly) {
-          if (sandboxPolicy === undefined || childCtx.get('approval') === undefined) {
-            throw new SubagentError('this preset requires sandbox policy and approval services', 'PRESET_UNAVAILABLE')
-          }
-          // Fail closed if a host surface changes the standing policy.
-          childCtx.tools.guard((exec) => {
-            const args = exec.arguments
-            if (sandboxPolicy.resolve({ session: child.session }).mode !== 'read-only'
-              || (typeof args === 'object' && args !== null && 'sandbox_permissions' in args
-                && args.sandbox_permissions !== undefined && args.sandbox_permissions !== 'read-only')) {
-              return 'This subagent preset requires a read-only sandbox.'
-            }
-            return undefined
-          })
-        }
+        const profileCap = inputs.composition.sandboxMode
+        const cap = readOnly ? 'read-only' : profileCap
+        if (cap !== undefined) this.guardSandboxMode(childCtx, child, cap, profileCap !== undefined)
         if (create !== undefined) {
           if (inputs.composition.agentPreset !== undefined) {
             child.session.append('agent-preset/selected', { agentPreset: inputs.composition.agentPreset })
           }
+          if (readOnly && profileCap !== undefined && profileCap !== 'read-only') {
+            create.descriptor = { ...create.descriptor, sandboxMode: 'read-only' }
+          }
           child.session.append('subagent/descriptor', create.descriptor)
-          appendDelegatedPolicyOverrides(child.session, readOnly
-            ? { sandboxMode: 'read-only', approvalPolicy: 'never', permissionPreset: undefined }
-            : create.delegatedPolicies)
+          appendDelegatedPolicyOverrides(child.session, cap === undefined ? create.delegatedPolicies : {
+            sandboxMode: cap,
+            approvalPolicy: 'never',
+            permissionPreset: readOnly ? undefined : create.delegatedPolicies.permissionPreset,
+          })
           const workingDirectory = childCtx.get('workingDirectory')
           if (workingDirectory === undefined) throw new Error('local subagents require the working-directory service')
           await workingDirectory.set(child, create.cwd, inputs.signal)
@@ -1238,6 +1268,7 @@ export class SubagentManager {
             agentPreset: agentPreset ?? undefined,
             persona: descriptor.persona,
             toolFilter: descriptor.toolFilter,
+            sandboxMode: descriptor.sandboxMode,
           },
           signal,
         })

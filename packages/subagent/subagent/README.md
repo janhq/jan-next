@@ -69,7 +69,9 @@ The root is always `lead`. A descendant's full name is the slash-separated path 
 
 ### Child presets
 
-In-process spawn accepts an independent `agentPreset`; fork and external backends reject this option. Without a selection, a local child joins the parent's current preset revision. An explicit id mounts the currently available revision, even when that id matches the parent's. Configure model choices through [`jan-tool-subagent`](../tool-subagent/README.md#selecting-a-child-preset) and persona and tools in the [preset composition](../../preset/agent-preset-registry/README.md). Cold resume preserves persona and tool restrictions recorded in historical child descriptors.
+In-process spawn accepts an independent `agentPreset`; fork and external backends reject this option. Without a selection, a local child joins the parent's current preset revision. An explicit id mounts the currently available revision, even when that id matches the parent's. Configure model choices through [`jan-tool-subagent`](../tool-subagent/README.md#selecting-a-child-preset).
+
+Spawn accepts an already resolved profile id in `agent`; the child descriptor and parent catalog record it separately from the creation label. The id does not apply or reload a profile. The caller supplies its literal `persona` and `toolFilter`, which override the deployment persona and narrow the child preset's tools without changing the parent's. A `toolFilter` entry of `mcp:<server>` matches that server's registered tools in the child's scope, including after reconnection or cold resume. The optional `sandboxMode` caps file access without granting more than the parent has. See [local child permission rules](../../../docs/subsystems/subagent.md#local-children-and-activations).
 
 ### Messaging, interrupting, and discovering
 
@@ -137,7 +139,7 @@ The `subagentActivity` Session summary carries the current stage and up to six r
 
 Cold resume mounts the target's saved preset from its `agentPreset` projection or creation header without reading its creator's current composition. A missing or broken saved preset rejects restoration. The original subagent provider need not remain registered.
 
-Targets without a saved preset use the host composition and retain their historical descriptor's persona and tool restrictions. Persisted permission policies replay from the target's own log. Restoration uses the currently registered preset definition, without preserving an earlier revision across restarts.
+Targets without a saved preset use the host composition. Cold resume reapplies the descriptor's persona, tool restrictions, and sandbox ceiling whether or not the child has a saved preset. Persisted permission policies replay from the target's own log. Restoration uses the currently registered preset definition, without preserving an earlier revision across restarts.
 
 ### Ownership and invariants
 

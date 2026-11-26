@@ -104,6 +104,7 @@
     "@janhq/jan-package-manifest": "workspace:*",
     "@janhq/cordis": "workspace:~",
     "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-host-plugin-inventory": "workspace:*",
     "@janhq/jan-subprocess": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",

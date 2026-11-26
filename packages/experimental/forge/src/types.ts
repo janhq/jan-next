@@ -45,6 +45,8 @@ export interface ChangeRequestCheck {
   readonly startedAt: string | null
   /** ISO 8601 time the check completed, or null while it runs and when the host reports none. */
   readonly completedAt: string | null
+  /** Check-run output, available on explicit detail reads when the host supplies it. */
+  readonly output?: { readonly title: string | null; readonly summary: string | null }
 }
 
 /** Combined outcome of all checks on the head commit. */
@@ -106,6 +108,57 @@ export interface ChangeRequestSnapshot {
   readonly updatedAt: string
   /** ISO 8601 time the change request was merged or closed, or null while it is open. */
   readonly closedAt: string | null
+}
+
+/** A browser-openable preview linked to the head commit or posted to its change request. */
+export interface ChangeRequestPreview {
+  readonly label: string
+  readonly url: string
+}
+
+/** A workflow artifact and the host page where the signed-in user can download it. */
+export interface ChangeRequestArtifact {
+  readonly name: string
+  readonly sizeBytes: number
+  readonly expiresAt: string
+  readonly expired: boolean
+  readonly url: string
+}
+
+/** On-demand assets; one source can fail without discarding successful results from the other sources. */
+export interface ChangeRequestAssets {
+  readonly previews: readonly ChangeRequestPreview[]
+  readonly artifacts: readonly ChangeRequestArtifact[]
+  readonly failures: readonly ForgeFailure[]
+  readonly truncated: boolean
+}
+
+/** Selects the entire request, only its reviews, or one check from the displayed head. */
+export type ChangeRequestFailureSelection = { readonly kind: 'all' } | { readonly kind: 'review' }
+  | { readonly kind: 'check'; readonly name: string; readonly workflow: string | null; readonly url: string | null }
+
+/** Text preserved from one failed step, associated with its check by browser URL. */
+export interface ChangeRequestFailureLog {
+  readonly url: string
+  readonly step: string
+  readonly text: string
+  readonly truncated: boolean
+}
+
+/** A review currently requesting changes, with body and inline comments. */
+export interface ChangeRequestBlockingReview {
+  readonly author: string | null
+  readonly body: string
+  readonly comments: readonly { readonly path: string; readonly line: number | null; readonly body: string }[]
+}
+
+/** Head-verified failure context; unavailable optional details are reported without losing the check list. */
+export interface ChangeRequestFailureContext {
+  readonly snapshot: ChangeRequestSnapshot
+  readonly logs: readonly ChangeRequestFailureLog[]
+  readonly reviews: readonly ChangeRequestBlockingReview[]
+  readonly failures: readonly ForgeFailure[]
+  readonly truncated: boolean
 }
 
 /** Why a provider could not read a change request. */
@@ -206,6 +259,11 @@ export interface ForgeProvider {
   ): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>>
   /** Read all checks for one change request on demand; omission declares that only the polling preview is available. */
   fetchChecks?(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>
+  /** Read previews and artifacts for the supplied head commit, independently of polling. */
+  fetchAssets?(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>
+  /** Read failed checks, job log tails and blocking reviews on demand. The caller verifies the returned head. */
+  fetchFailureContext?(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection,
+    signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>
   /** Find open change requests whose head is `branch` in `repository`, excluding the default branch and forks. */
   findByHead(repository: ForgeRepository, branch: string, signal: AbortSignal): Promise<readonly ChangeRequestRef[]>
   /** Report whether the provider can reach `host` with current credentials. */

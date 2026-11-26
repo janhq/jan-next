@@ -5,6 +5,7 @@ export const NS = 'job'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'count.live': '运行中 {count}',
   'count.idle.one': '{count} 个后台任务',
   'count.idle.other': '{count} 个后台任务',
   'list.aria': '后台任务',
@@ -43,10 +44,13 @@ export const zh = {
   'terminal.collapseAria': '收起输出',
   'terminal.expand': '展开其余 {n} 行',
   'terminal.expandAria': '展开被折叠的 {n} 行输出',
+  'call.background': '后台运行',
+  'call.lastLine': '最新输出',
 } as const
 
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<JobKey, string> = {
+  'count.live': '{count} running',
   'count.idle.one': '{count} background job',
   'count.idle.other': '{count} background jobs',
   'list.aria': 'Background jobs',
@@ -85,6 +89,8 @@ export const en: Record<JobKey, string> = {
   'terminal.collapseAria': 'Collapse output',
   'terminal.expand': 'Show {n} more lines',
   'terminal.expandAria': 'Expand {n} collapsed output lines',
+  'call.background': 'In background',
+  'call.lastLine': 'Latest output',
 }
 
 /** Key domain of the `job` namespace (zh is the source of truth). */
@@ -92,6 +98,7 @@ export type JobKey = keyof typeof zh
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  'count.live': '実行中 {count} 件',
   'count.idle.one': 'バックグラウンドジョブ {count} 件',
   'count.idle.other': 'バックグラウンドジョブ {count} 件',
   'list.aria': 'バックグラウンドジョブ',
@@ -130,10 +137,13 @@ export const ja = {
   'terminal.collapseAria': '出力を折りたたむ',
   'terminal.expand': '残り {n} 行を表示',
   'terminal.expandAria': '折りたたまれた出力 {n} 行を展開',
+  'call.background': 'バックグラウンド',
+  'call.lastLine': '最新の出力',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  'count.live': '{count} en curso',
   'count.idle.one': 'Tareas en segundo plano: {count}',
   'count.idle.other': 'Tareas en segundo plano: {count}',
   'list.aria': 'Trabajos en segundo plano',
@@ -172,10 +182,13 @@ export const es = {
   'terminal.collapseAria': 'Contraer salida',
   'terminal.expand': 'Mostrar {n} más líneas',
   'terminal.expandAria': 'Expandir líneas de salida colapsadas {n}',
+  'call.background': 'En segundo plano',
+  'call.lastLine': 'Última salida',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  'count.live': '{count} en cours',
   'count.idle.one': 'Tâches en arrière-plan : {count}',
   'count.idle.other': 'Tâches en arrière-plan : {count}',
   'list.aria': 'Travaux en arrière-plan',
@@ -214,10 +227,13 @@ export const fr = {
   'terminal.collapseAria': 'Réduire la sortie',
   'terminal.expand': 'Afficher {n} plus de lignes',
   'terminal.expandAria': 'Développer les lignes de sortie réduites {n}',
+  'call.background': 'En arrière-plan',
+  'call.lastLine': 'Dernière sortie',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  'count.live': '{count} läuft',
   'count.idle.one': 'Hintergrundaufgaben: {count}',
   'count.idle.other': 'Hintergrundaufgaben: {count}',
   'list.aria': 'Hintergrundjobs',
@@ -256,10 +272,13 @@ export const de = {
   'terminal.collapseAria': 'Ausgabe reduzieren',
   'terminal.expand': 'Zeige {n} weitere Zeilen',
   'terminal.expandAria': 'Erweitern Sie die minimierten Ausgabezeilen {n}',
+  'call.background': 'Im Hintergrund',
+  'call.lastLine': 'Letzte Ausgabe',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  'count.live': 'В работе: {count}',
   'count.idle.one': 'Фоновые задачи: {count}',
   'count.idle.other': 'Фоновые задачи: {count}',
   'list.aria': 'Фоновые задания',
@@ -298,10 +317,13 @@ export const ru = {
   'terminal.collapseAria': 'Свернуть вывод',
   'terminal.expand': 'Показать {n} больше строк',
   'terminal.expandAria': 'Развернуть свернутые выходные строки {n}',
+  'call.background': 'В фоне',
+  'call.lastLine': 'Последний вывод',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  'count.live': '{count} em execução',
   'count.idle.one': 'Tarefas em segundo plano: {count}',
   'count.idle.other': 'Tarefas em segundo plano: {count}',
   'list.aria': 'Trabalhos em segundo plano',
@@ -340,4 +362,6 @@ export const pt = {
   'terminal.collapseAria': 'Recolher saída',
   'terminal.expand': 'Mostrar mais {n} linhas',
   'terminal.expandAria': 'Expanda {n} linhas de saída recolhidas',
+  'call.background': 'Em segundo plano',
+  'call.lastLine': 'Última saída',
 } satisfies Record<keyof typeof en, string>

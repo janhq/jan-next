@@ -15,7 +15,7 @@
 
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import type { SessionId } from '@janhq/jan-session/types'
-import { writeClipboard } from '@janhq/jan-client-ui-primitives'
+import { captureFailure, writeClipboard, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import { SESSION_MARKDOWN_EXPORT_ROUTE } from '../routes.ts'
 
 /** Whether the latest copy attempt succeeded, prepared no transcript, or could not write. */
@@ -25,6 +25,7 @@ export type SessionMarkdownCopyNoticeKind = 'success' | 'preparationFailed' | 'c
 export interface SessionMarkdownCopyNotice {
   readonly kind: SessionMarkdownCopyNoticeKind
   readonly seq: number
+  readonly failure?: FailureDetails
 }
 
 /** Copy state shared by every Header row and the root overlay toast. */
@@ -153,11 +154,12 @@ export class SessionMarkdownCopyController {
       const [prepared, blob, written] = await Promise.allSettled([preparation, data, write])
       if (this.isCancelled()) return
       if (prepared.status === 'rejected' || blob.status === 'rejected') {
-        this.publishNotice('preparationFailed')
+        const error: unknown = prepared.status === 'rejected' ? prepared.reason : blob.status === 'rejected' ? blob.reason : undefined
+        this.publishNotice('preparationFailed', captureFailure('session.exportMarkdown', error))
         return
       }
       if (written.status === 'rejected') {
-        this.publishNotice('clipboardFailed')
+        this.publishNotice('clipboardFailed', captureFailure('clipboard.write', written.reason))
         return
       }
       this.publishNotice('success')
@@ -171,19 +173,21 @@ export class SessionMarkdownCopyController {
       let markdown: string
       try {
         markdown = await preparation
-      } catch {
-        if (!this.isCancelled()) this.publishNotice('preparationFailed')
+      } catch (error) {
+        if (!this.isCancelled()) this.publishNotice('preparationFailed', captureFailure('session.exportMarkdown', error))
         return
       }
       if (this.isCancelled()) return
       let accepted = false
       try {
         accepted = await this.clipboard.writeText(markdown)
-      } catch {
-        accepted = false
+      } catch (error) {
+        if (!this.isCancelled()) this.publishNotice('clipboardFailed', captureFailure('clipboard.write', error))
+        return
       }
       if (this.isCancelled()) return
-      this.publishNotice(accepted ? 'success' : 'clipboardFailed')
+      if (accepted) this.publishNotice('success')
+      else this.publishNotice('clipboardFailed', captureFailure('clipboard.write', { code: 'clipboard/rejected' }))
     } finally {
       this.store.update((state) => { state.copying = false })
     }
@@ -193,9 +197,9 @@ export class SessionMarkdownCopyController {
     return this.disposed
   }
 
-  private publishNotice(kind: SessionMarkdownCopyNoticeKind): void {
+  private publishNotice(kind: SessionMarkdownCopyNoticeKind, failure?: FailureDetails): void {
     this.store.update((state) => {
-      state.notice = { kind, seq: ++this.noticeSeq }
+      state.notice = { kind, seq: ++this.noticeSeq, ...failure === undefined ? {} : { failure } }
     })
   }
 }

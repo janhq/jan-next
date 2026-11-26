@@ -1,5 +1,5 @@
 /** File-drag failure presentation in the existing application overlay. */
-import { Toast } from '@janhq/jan-client-ui-primitives'
+import { Toast, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { InjectFace } from '@janhq/jan-client-ui-slots'
 
@@ -7,6 +7,7 @@ import type { InjectFace } from '@janhq/jan-client-ui-slots'
 export interface FileDragFailure {
   readonly text: string
   readonly sequence: number
+  readonly details: FailureDetails
 }
 
 /** Registration-owned feedback source and dismissal callback. */
@@ -22,5 +23,5 @@ export interface FileDragFeedbackInjected {
  */
 export function FileDragFeedback({ useFailure, dismiss }: InjectFace<FileDragFeedbackInjected>) {
   const failure = useFailure(value => value)
-  return failure === null ? null : <Toast key={failure.sequence} text={failure.text} onDone={dismiss} />
+  return failure === null ? null : <Toast key={failure.sequence} text={failure.text} failure={failure.details} onDone={dismiss} />
 }

@@ -5,6 +5,7 @@ window.__ModuleLoader__.load({
     const { createElement: h, useEffect, useState } = require('react')
     const { Button } = require('@janhq/jan-client-ui-primitives')
     const id = 'jan-onboarding'
+    const BOTS = 'jan-always-on'
 
     return {
       inject: ['slots', 'locale', 'remote', 'remote.agentPresets', 'remote.pluginManager', 'remote.settings'],
@@ -23,6 +24,15 @@ window.__ModuleLoader__.load({
             const result = await ctx.remote.pluginManager.setBundleEnabled(name, true)
             return result.ok ? result.value.application : 'failed'
           },
+          // Bots ships inside the desktop bundle as a row that starts off, so it is a plugin switch, not a bundle.
+          async enablePlugin(name) {
+            const plugins = await ctx.remote.pluginManager.listPlugins()
+            const row = plugins.ok ? plugins.value.find(item => item.moduleName === name) : undefined
+            if (row === undefined || row.readOnlyReason !== undefined) return 'failed'
+            if (row.enabled) return 'applied'
+            const result = await ctx.remote.pluginManager.setPluginEnabled(row.entryId, true)
+            return result.ok ? result.value.application : 'failed'
+          },
           setDefault: selectedDefault => settings('agent-preset-registry', { selectedDefault }),
           saveProfile: profile => settings(id, profile),
           // The first-run model choice, run once onboarding has closed. Each route uses the app's own
@@ -32,6 +42,24 @@ window.__ModuleLoader__.load({
             if (route === 'local') return void openLocalChat(model)
             if (route === 'account') return void ctx.get('accountSignIn')?.start().catch(() => {})
             if (route === 'api-key') ctx.get('settingsNavigation')?.open('models')
+          },
+          // Assistant mode's sidebar; without jan-theme the stock sidebar has no pins to change.
+          layout: kind => { ctx.get('janSidebar')?.setLayout(kind) },
+          // Land on Bots once its page is up: a plugin enabled just now registers it a moment later.
+          openBots() {
+            const layout = ctx.get('layout')
+            if (layout === undefined) return
+            const open = () => {
+              if (!ctx.slots.entries('main').some(entry => entry.options.key === BOTS)) return false
+              layout.selectPanel(BOTS)
+              return true
+            }
+            if (open()) return
+            const stop = ctx.effect(() => {
+              const unsubscribe = ctx.slots.subscribe('main', () => { if (open()) stop() })
+              const timer = setTimeout(() => { stop() }, 10_000)
+              return () => { unsubscribe(); clearTimeout(timer) }
+            }, 'jan-onboarding: open Bots once registered')
           },
           localAvailable: () => llama !== undefined,
           // The curated models the Host offers, with how each fits this machine.

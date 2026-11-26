@@ -351,7 +351,11 @@ declare module '@janhq/jan-client-ui-slots' {
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe'; owner: HeroAgentPresetOwnerProps }
     /** Agent-preset control under a started Session's composer, beside the workspace chip. */
     'conversation.composer.agentPreset': { kind: 'single'; scope: 'session'; owner: ComposerAgentPresetOwnerProps }
-    /** Compact options right-aligned in the New Session row after the workspace and preset controls; rendered only with a Session. */
+    /** Agent-profile control for the next chat or its blank Session. */
+    'conversation.hero.agentProfile': { kind: 'single'; scope: 'session-maybe'; owner: HeroAgentProfileOwnerProps }
+    /** Agent-profile control beside a started Session's mode. */
+    'conversation.composer.agentProfile': { kind: 'single'; scope: 'session'; owner: ComposerAgentProfileOwnerProps }
+    /** Compact options after the workspace, preset and agent controls; rendered only with a Session. */
     'conversation.hero.options': { kind: 'list'; scope: 'session' }
     /**
      * Full-width entries above the composer card; fixed overlays must portal to the document body
@@ -436,6 +440,8 @@ declare module '@janhq/jan-client-ui-slots' {
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
         'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
         'conversation.composer.agentPreset': { kind: 'single'; scope: 'session' }
+        'conversation.hero.agentProfile': { kind: 'single'; scope: 'session-maybe' }
+        'conversation.composer.agentProfile': { kind: 'single'; scope: 'session' }
         'conversation.hero.options': { kind: 'list'; scope: 'session' }
       }
       inject: ConversationInjected
@@ -491,6 +497,19 @@ export interface ComposerAgentPresetOwnerProps {
   children?: never
 }
 
+/** Target Workspace for the profile catalog in a conversation. */
+export interface ComposerAgentProfileOwnerProps {
+  readonly workspaceId: WorkspaceId | undefined
+}
+
+/** Draft profile staging belongs to the individual hero occurrence. */
+export interface HeroAgentProfileOwnerProps extends ComposerAgentProfileOwnerProps {
+  /** Undefined inherits the project default; null explicitly chooses plain Jan. */
+  readonly pending: string | null | undefined
+  /** Stage the requested id, tied to the picked Workspace for project profiles only. */
+  readonly onPick: (id: string | null, scope?: 'project' | 'global') => void
+}
+
 /** Header actions derive their state from standard Session props. */
 export interface ConversationHeaderActionOwnerProps {
   /** Marker field: entries receive no owner-specific values. */
@@ -544,9 +563,9 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 export interface ConversationInjected {
   pickSuggestion: (text: string) => void
   /** Connect and open a blank Session in the selected Workspace. */
-  selectWorkspace: (workspaceId: WorkspaceId, readText?: () => string) => Promise<void>
+  selectWorkspace: (workspaceId: WorkspaceId, readText?: () => string, agentProfile?: string | null) => Promise<void>
   /** Open the default project draft, taking text from the resident editor before it binds. */
-  openDefaultDraft?: (readText: () => string) => Promise<void>
+  openDefaultDraft?: (readText: () => string, agentProfile?: string | null) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
   hooks: {
     composerBlock: ObservableSnapshot<ComposerBlock | undefined>

@@ -1,13 +1,14 @@
 // Skills, the global instruction file, and the items that stay behind, read from another agent app.
 import { constants } from 'node:fs'
-import { copyFile, cp, lstat, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises'
+import { copyFile, cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, relative, isAbsolute } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 // A copied skill leaves out installed dependencies and version-control data; the skill folder works without them.
 const NOT_COPIED = new Set(['node_modules', '.git'])
 const missing = error => error?.code === 'ENOENT'
+const digest = data => createHash('sha256').update(data).digest('hex')
 
 /**
  * Where one app keeps its skills, its global instruction file, and app-only items Jan cannot run.
@@ -63,7 +64,7 @@ const inside = (parent, child) => {
  * @param {{ janHome: string, agentsHome: string, home?: string, env?: Record<string, string | undefined> }} options Jan's folders, and the home and environment the source paths come from.
  * @returns {Promise<object>} Folders read, skill rows, the instruction file row, items that stay behind, and why skills cannot be copied when that is the case.
  */
-export async function readSkillSource(source, { janHome, agentsHome, home = homedir(), env = process.env }) {
+export async function readSkillSource(source, { janHome, agentsHome, home = homedir(), env = process.env, approval = false }) {
   const spec = skillSpecs(source, { home, env })
   const target = join(janHome, 'skills')
   const looked = [spec.skills, spec.instructions].filter(Boolean)
@@ -75,21 +76,23 @@ export async function readSkillSource(source, { janHome, agentsHome, home = home
     for (const entry of (await entriesOf(spec.skills) ?? []).sort((a, b) => a.name.localeCompare(b.name))) {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
       const path = await realOrSelf(join(spec.skills, entry.name))
-      if (!await regularFile(join(path, 'SKILL.md'))) continue
-      skills.push({ name: entry.name, path, status: known.has(entry.name) ? 'already here' : 'ready' })
+      const definition = join(path, 'SKILL.md')
+      if (!await regularFile(definition)) continue
+      skills.push({ name: entry.name, path, status: known.has(entry.name) ? 'already here' : 'ready',
+        ...(approval ? { digest: digest(await readFile(definition)) } : {}) })
     }
     // Jan's skills folder can be a link to this app's folder or to a folder outside Jan's home; copying
     // there would write into another app's files, so skills are left where they are.
     const targetReal = await realOrSelf(target)
     if (targetReal === sourceReal) for (const row of skills) row.status = 'already here'
     else if (await exists(target) && !inside(await realOrSelf(janHome), targetReal) && skills.some(row => row.status === 'ready')) {
-      return { looked, target, skills, linked: targetReal, instructions: await instructionRow(spec.instructions, janHome), others: await otherRows(spec.others) }
+      return { looked, target, skills, linked: targetReal, instructions: await instructionRow(spec.instructions, janHome, approval), others: await otherRows(spec.others) }
     }
   }
-  return { looked, target, skills, instructions: await instructionRow(spec.instructions, janHome), others: await otherRows(spec.others) }
+  return { looked, target, skills, instructions: await instructionRow(spec.instructions, janHome, approval), others: await otherRows(spec.others) }
 }
 
-async function instructionRow(path, janHome) {
+async function instructionRow(path, janHome, approval) {
   if (!path) return undefined
   let source, text
   try {
@@ -100,7 +103,7 @@ async function instructionRow(path, janHome) {
   let current
   try { current = await readFile(target, 'utf8') } catch (error) { if (!missing(error)) throw error }
   const status = current === undefined ? 'ready' : current === text ? 'already here' : 'kept yours'
-  return { name: basename(path), path: source, target, status, bytes: Buffer.byteLength(text) }
+  return { name: basename(path), path: source, target, status, bytes: Buffer.byteLength(text), ...(approval ? { digest: digest(text) } : {}) }
 }
 
 async function otherRows(others) {
@@ -157,4 +160,54 @@ export async function importSkills(scan, { skills, names, instructions }) {
     }
   }
   return result
+}
+
+const skillSlug = name => {
+  const slug = name.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '').slice(0, 64).replace(/-+$/g, '')
+  return /^(?:aux|con|nul|prn|com[1-9]|lpt[1-9])$/u.test(slug) ? `skill-${slug}` : slug
+}
+
+/** Install complete user-invocable export skills without replacing any existing skill. */
+export async function installExportSkills(entries, { janHome, agentsHome, skills }) {
+  const failed = reason => entries.map(({ id, name, botId }) => ({ id, name, botId, status: 'failed', reason }))
+  if (!skills) return failed('skills-unavailable')
+  let root, known
+  try {
+    await mkdir(janHome, { recursive: true, mode: 0o700 })
+    const home = await realpath(janHome), target = join(home, 'skills')
+    try { await mkdir(target, { mode: 0o700 }) } catch (error) { if (error.code !== 'EEXIST') throw error }
+    root = await realpath(target)
+    if (root === home || !inside(home, root)) return failed('skills-outside-home')
+    known = new Set((await skills.list?.() ?? []).map(row => row.name.toLowerCase()))
+    for (const folder of [root, ...(agentsHome ? [join(agentsHome, 'skills')] : [])]) {
+      for (const entry of await entriesOf(folder) ?? []) known.add(entry.name.replace(/\.md$/iu, '').toLowerCase())
+    }
+  } catch { return failed('skill-import-failed') }
+  const outcomes = []
+  for (const { id, name, botId, description, instruction } of entries) {
+    const row = { id, name, botId }
+    const slug = skillSlug(name)
+    if (!slug) { outcomes.push({ ...row, status: 'failed', reason: 'skill-name-unsupported' }); continue }
+    if (known.has(slug)) { outcomes.push({ ...row, status: 'already-here' }); continue }
+    const folder = join(root, slug)
+    let created = false
+    try {
+      await mkdir(folder, { mode: 0o700 })
+      created = true
+      await writeFile(join(folder, 'SKILL.md'), `---\nname: ${JSON.stringify(slug)}\ndescription: ${JSON.stringify(description || name)}\ndisable-model-invocation: true\n---\n\n${instruction}\n`, { flag: 'wx', mode: 0o600 })
+      known.add(slug)
+      outcomes.push({ ...row, status: 'imported' })
+    } catch (error) {
+      if (!created && error.code === 'EEXIST') { outcomes.push({ ...row, status: 'already-here' }); continue }
+      if (created) await rm(folder, { recursive: true, force: true }).catch(() => {})
+      outcomes.push({ ...row, status: 'failed', reason: 'skill-import-failed' })
+    }
+  }
+  if (outcomes.some(row => row.status === 'imported')) {
+    try { await skills.refresh() } catch {
+      for (const row of outcomes) if (row.status === 'imported') row.reason = 'skill-refresh-failed'
+    }
+  }
+  return outcomes
 }

@@ -229,11 +229,11 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
     expect(stages.some(stage => stage.startsWith('run release:pack --family jan'))).toBe(!unsigned)
     const preparePackages = stages.indexOf('run prepare:packages')
     for (const directory of [
-      'plugins/agent-desktop', 'plugins/agent-settings', 'plugins/status-bar', 'plugins/wall-of-quotes',
-      'plugins/annotate',
-      'plugins/desktop-app', 'plugins/diagnostics', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
+      'plugins/agent-browser', 'plugins/agent-desktop', 'plugins/agent-settings', 'plugins/status-bar', 'plugins/wall-of-quotes',
+      'plugins/annotate', 'plugins/cli-proxy',
+      'plugins/desktop-app', 'plugins/diagnostics', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
       'plugins/hosts', 'plugins/jan-always-on',
-      'plugins/jan-browser', 'plugins/jan-onboarding', 'plugins/notifications', 'plugins/tokamak',
+      'plugins/jan-browser', 'plugins/jan-onboarding', 'plugins/notifications', 'plugins/orchestration', 'plugins/tokamak',
       'plugins/preset-square', 'packages/credentials/tokamak-account', 'packages/llm/llama-cpp',
       'packages/api/llama-cpp-controller', 'packages/client/ui-settings-local-model', 'packages/web/web-search',
     ]) {

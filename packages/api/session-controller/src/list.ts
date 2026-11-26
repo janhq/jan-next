@@ -58,6 +58,18 @@ export function applySessionListMetadata(
 }
 
 /**
+ * Advance the latest-turn failure flag by one committed event.
+ * @param state - flag before the event.
+ * @param event - next committed Session event.
+ * @returns true after a turn ends in an error, false once another turn starts or ends otherwise.
+ */
+function applyLastTurnFailed(state: boolean, event: SessionEvent): boolean {
+  if (event.type === 'turn/start') return false
+  if (event.type === 'turn/end') return event.data.reason.kind === 'error'
+  return state
+}
+
+/**
  * Return the longest prefix containing at most `maximum` Unicode code points.
  * @param value - source text.
  * @param maximum - maximum number of Unicode code points.
@@ -95,6 +107,14 @@ export class ApiSessionList {
       init: () => ({ blank: true, lastPromptAt: null }),
       apply: applySessionListMetadata,
       wire: { viewSchema: sessionListMetadataSchema, view: state => state },
+      stateVersion: 1,
+    })
+    await this.ctx.sessionProjections.register<'lastTurnFailed', boolean>({
+      key: 'lastTurnFailed',
+      stateSchema: z.boolean(),
+      init: () => false,
+      apply: applyLastTurnFailed,
+      wire: { viewSchema: z.boolean(), view: state => state },
       stateVersion: 1,
     })
     await this.ctx.sessionProjections.register<'imageLimits', null>({

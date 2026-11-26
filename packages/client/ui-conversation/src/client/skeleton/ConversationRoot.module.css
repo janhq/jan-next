@@ -648,7 +648,7 @@
    Slot seats are `display: contents`, so their rendered children move. */
 :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
 :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
-  animation: conversation-welcome-in 350ms var(--ds-ease-emphasized) 120ms backwards;
+  animation: conversation-welcome-in var(--ds-transition-duration-slow) var(--ds-ease-emphasized) 120ms backwards;
 }
 
 :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child {

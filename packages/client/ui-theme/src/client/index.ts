@@ -27,17 +27,18 @@ import { installIconSprite, type IconReplacements } from './icon-sprite.ts'
 import { installThemeStyles } from './styles.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
-  fontFamilyVariable, isFontSize, isThemePreference, normalizeFontFamily, sectionFontSizes,
+  CODE_THEME_ATTRIBUTE, CODE_THEME_FIELD, DEFAULT_CODE_THEME, DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE,
+  FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
+  fontFamilyVariable, isCodeTheme, isFontSize, isThemePreference, normalizeFontFamily, sectionFontSizes,
   THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
-  type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings,
+  type CodeTheme, type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings,
 } from '../theme-settings.ts'
 
 export type { AppearanceRowComponentProps, AppearanceRowInjected } from './AppearanceRow.tsx'
 export type { FontSettingsGroupProps, FontSettingsInjected } from './FontSettingsGroup.tsx'
 export type { AppearanceRowState, FontRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
-export type { FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export type { CodeTheme, FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings } from '../theme-settings.ts'
 
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.theme'
@@ -98,6 +99,8 @@ export interface ThemeDefinition {
 export interface ThemeSnapshot {
   /** The persisted preference (may be `system`). */
   preference: ThemePreference
+  /** Syntax theme selecting the code-block token palette. */
+  codeTheme: CodeTheme
   /** Integer px font sizes by role, each within its `FONT_SIZE_SPECS` range (`text` is the conversation content size). */
   fontSizes: FontSizes
   /** Normalized user font lists by role; `''` selects the role's built-in stack. */
@@ -181,6 +184,7 @@ export class ThemeRuntime {
   private readonly host: ConfigForm<ThemeSettings>
   private themes: ThemeDefinition[] = [...BUILTIN_THEMES]
   private preference: ThemePreference
+  private codeTheme: CodeTheme = bootstrapCodeTheme()
   private fontSizes: FontSizes = bootstrapFontSizes()
   private fontFamilies: FontFamilies = bootstrapFontFamilies()
   private revision = 0
@@ -292,6 +296,19 @@ export class ThemeRuntime {
     this.publish()
   }
 
+  /**
+   * Change the syntax theme. Accepted values are written through the settings
+   * scope and emit `theme/change`.
+   * @param theme - a built-in syntax theme; unknown ids throw.
+   */
+  setCodeTheme(theme: CodeTheme): void {
+    if (!isCodeTheme(theme)) throw new Error(`code theme "${String(theme)}" is not a built-in syntax theme`)
+    if (this.codeTheme === theme) return
+    this.codeTheme = theme
+    this.write(() => this.host.set(CODE_THEME_FIELD, theme))
+    this.publish()
+  }
+
   /** Queue one settings write, then adopt the durable section once no own write remains. */
   private write(operation: () => Promise<boolean>): void {
     this.pendingWrites += 1
@@ -308,9 +325,10 @@ export class ThemeRuntime {
     if (section === undefined) return
     const fontFamilies = durableFontFamilies(section)
     const fontSizes = sectionFontSizes(section)
-    if (this.preference === section.preference
+    if (this.preference === section.preference && this.codeTheme === section.codeTheme
       && FONT_ROLES.every(role => this.fontSizes[role] === fontSizes[role] && this.fontFamilies[role] === fontFamilies[role])) return
     this.preference = section.preference
+    this.codeTheme = section.codeTheme
     this.fontSizes = fontSizes
     this.fontFamilies = fontFamilies
     this.publish()
@@ -382,6 +400,7 @@ export class ThemeRuntime {
     if (active === undefined) throw new Error(`theme registry lost "${resolvedId}"`)
     return Object.freeze({
       preference: this.preference,
+      codeTheme: this.codeTheme,
       fontSizes: this.fontSizes,
       fontFamilies: this.fontFamilies,
       active: this.composeActive(active),
@@ -429,6 +448,14 @@ function bootstrapFontSizes(): FontSizes {
     return isFontSize(role, parsed) ? parsed : FONT_SIZE_SPECS[role].default
   }
   return Object.freeze({ text: read('text'), code: read('code'), terminal: read('terminal') })
+}
+
+/** Syntax theme the Host boot script wrote on `body`, read for the same first-paint reason as {@link bootstrapFontSizes}. */
+function bootstrapCodeTheme(): CodeTheme {
+  /* v8 ignore next -- needs a documentless run (node e2e booting the client tree), not constructible under jsdom */
+  if (typeof document === 'undefined') return DEFAULT_CODE_THEME
+  const value = document.body.getAttribute(CODE_THEME_ATTRIBUTE)
+  return isCodeTheme(value) ? value : DEFAULT_CODE_THEME
 }
 
 /** Font lists the Host boot script wrote on `body`, read for the same first-paint reason as {@link bootstrapFontSizes}. */
@@ -548,7 +575,7 @@ export function apply(ctx: ClientContext): void {
   let fontBound: BoundActions<typeof fontStore> | undefined
   const sync = (snapshot: ThemeSnapshot): void => {
     bound?.sync(snapshot.preference, snapshot.revision)
-    fontBound?.sync(snapshot.fontSizes, snapshot.fontFamilies, snapshot.revision)
+    fontBound?.sync(snapshot.fontSizes, snapshot.fontFamilies, snapshot.codeTheme, snapshot.revision)
   }
   ctx.on('theme/change', sync)
   const injected = (actions: BoundActions<typeof store>): AppearanceRowInjected => {
@@ -581,6 +608,7 @@ export function apply(ctx: ClientContext): void {
       return {
         setFontFamily: (role, value) => { theme.setFontFamily(role, value) },
         setFontSize: (role, px) => { theme.setFontSize(role, px) },
+        setCodeTheme: (codeTheme) => { theme.setCodeTheme(codeTheme) },
       }
     },
   }, FontSettingsGroup))

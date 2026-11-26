@@ -35,7 +35,8 @@ describe('StateDot.module.css', () => {
     expect(css).toContain('.spinnerArc')
     expect(css).toContain('@keyframes jan-state-dot-spin')
     expect(css).toContain('@keyframes jan-state-dot-dash')
-    expect(css).toMatch(/\.spinnerMotion[^{]*\{[^}]*animation: jan-state-dot-spin 1\.5s linear infinite/su)
+    const rotation = /animation: jan-state-dot-spin var\(--ds-transition-duration-ambient\) linear infinite/u
+    expect(css.match(/\.spinnerMotion\s*\{[^}]*\}/su)?.[0]).toMatch(rotation)
     expect(css).not.toMatch(/\.spinner\s*\{[^}]*animation:/su)
     expect(css).toContain('stroke-dasharray: 12 150')
     expect(css).toContain('stroke-dasharray: 24 150')

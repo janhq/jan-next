@@ -12,12 +12,12 @@ Optional `cwd` selects the child's initial directory; relative paths resolve aga
 /**
  * Start-time options supported by a registered backend. The manager checks
  * every requested option before preparing a local child or starting an external
- * execution. depthLimit controls maxDepth; the remaining flag names match
- * SubagentStartRequest fields.
+ * execution. `depthLimit` controls `maxDepth`; `agentPreset` also controls
+ * persona and tool restriction overrides.
  */
 interface SubagentCapabilities {
   readonly agentOptions: boolean
-  /** Supports selecting a preset independently of the parent's composition. */
+  /** Supports composition overrides (preset, persona, and tool filter) without inheriting parent context. */
   readonly agentPreset: boolean
   readonly outputSchema: boolean
   readonly depthLimit: boolean
@@ -82,6 +82,14 @@ interface SubagentStartRequest {
    * parent context.
    */
   readonly agentPreset?: string
+  /** Id of the profile already resolved by the caller. Records identity only; requires independent composition. */
+  readonly agent?: string
+  /** Literal child system-prompt persona; omission leaves the preset or deployment persona intact. Requires independent composition. */
+  readonly persona?: string
+  /** Restrict by tool name or `mcp:<server>` selector. Requires independent composition. */
+  readonly toolFilter?: ToolRestriction
+  /** Maximum sandbox mode, never a grant beyond the parent's effective mode. Requires in-process independent composition. */
+  readonly sandboxMode?: SandboxMode
   /** Optional short display label persisted with a session-backed child. */
   readonly label?: string
   /** Content delivered as the child's user message. */
@@ -134,6 +142,8 @@ interface ResolvedSubagentStartRequest extends SubagentStartRequest {
 ## Local children and activations
 
 Spawn alone supports an independent `agentPreset`; omission and fork inherit the parent's active composition. The [child preset rules](../../packages/subagent/subagent/README.md#restoring-child-composition) define explicit selection, event ordering, and historical restoration.
+
+Only in-process providers with independent composition accept `sandboxMode`; others reject it with `PROFILE_UNSUPPORTED`. The ceiling is the narrowest of the requested mode, the parent's effective mode at delegation, and any read-only requirement from the composed preset. A capped child pins approval to `never` and rejects tools when the standing or requested mode exceeds that ceiling. If the cap reduces the parent's effective mode, the child does not inherit its permission preset id. The child descriptor retains the ceiling for cold continuation, and the parent catalog exposes it on the continuable entry for the roster.
 
 A local child has a durable Session and at most one live activation. The manager reserves identity and capacity, prepares the child through its backend, and owns input admission, cold resume, and child-first disposal. The activation result settles after resource release and completion notification. Disposal reports cleanup failure separately without replacing a captured result. Structured capture closes input for that activation; a later cold resume does not inherit the output schema.
 
@@ -354,8 +364,8 @@ interface SubagentProvider {
   /** The start-time features this provider supports (see {@link SubagentCapabilities}). */
   readonly capabilities: SubagentCapabilities
   /**
-   * Whether the child sees the parent's completed-turn prefix. This is descriptive, not a
-   * service-validated start capability: the model-facing tool derives truthful wording from it.
+   * Whether the child sees the parent's completed-turn prefix. Providers that inherit
+   * it cannot accept independent preset, persona, or tool filter overrides.
    * It says nothing about tool registration, injected services, or authority inheritance.
    */
   readonly inheritsParentContext: boolean

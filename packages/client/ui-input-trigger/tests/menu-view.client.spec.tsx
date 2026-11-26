@@ -63,6 +63,7 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
   const menu = createSnapshotStore<MenuState>(state)
   const headers = createSnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>>(crumbs)
   const onPick = vi.fn()
+  const onStar = vi.fn()
   const onCrumb = vi.fn()
   const onHover = vi.fn()
   const onDismiss = vi.fn()
@@ -71,13 +72,14 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
       menu={menu}
       headers={headers}
       onPick={onPick}
+      onStar={onStar}
       onCrumb={onCrumb}
       onHover={onHover}
       onDismiss={onDismiss}
       t={t}
     />,
   )
-  return { menu, headers, onPick, onCrumb, onHover, onDismiss, view }
+  return { menu, headers, onPick, onStar, onCrumb, onHover, onDismiss, view }
 }
 
 /** The bounded menu shell: it owns the height clamp, the listbox scrolls inside it. */
@@ -228,6 +230,28 @@ describe('MenuView', () => {
     expect(onPick).toHaveBeenCalledWith('reference', 0)
   })
 
+  it('renders a star only on starrable rows and toggles it without picking the row', () => {
+    const { onPick, onStar } = mount(openState({
+      groups: [{
+        source: 'command',
+        status: 'ready',
+        items: [
+          { name: 'opus', value: '/model opus', complete: true, star: { on: true } },
+          { name: 'sonnet', value: '/model sonnet', complete: true, star: { on: false } },
+          { name: 'goal' },
+        ],
+      }],
+      highlight: { source: 'command', index: 0 },
+    }))
+    const remove = screen.getByRole('button', { name: zh['star.remove'] })
+    const add = screen.getByRole('button', { name: zh['star.add'] })
+    expect(remove.getAttribute('aria-pressed')).toBe('true')
+    expect(add.getAttribute('aria-pressed')).toBe('false')
+    expect(fireEvent.mouseDown(add)).toBe(false)
+    expect(onStar).toHaveBeenCalledExactlyOnceWith('command', 1)
+    expect(onPick).not.toHaveBeenCalled()
+  })
+
   it('exposes the highlight via aria-activedescendant and aria-selected', () => {
     mount(openState({ highlight: { source: 'command', index: 1 } }))
     const listbox = screen.getByRole('listbox')
@@ -310,6 +334,7 @@ describe('MenuView', () => {
           menu={menu}
           headers={createSnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>>(new Map())}
           onPick={vi.fn()}
+          onStar={vi.fn()}
           onCrumb={vi.fn()}
           onHover={vi.fn()}
           onDismiss={onDismiss}

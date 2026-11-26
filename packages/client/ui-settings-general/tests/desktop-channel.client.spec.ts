@@ -44,7 +44,7 @@ it('rolls back a rejected save and retains a toast across shell broadcasts', asy
   f.emit(nightly)
   f.set.resolve({ kind: 'failed', state: nightly, reason: 'format' })
   await pending
-  expect(f.source.store.getSnapshot()).toEqual({ state: nightly, failed: false, notice: { sequence: 1, outcome: 'format' } })
+  expect(f.source.store.getSnapshot()).toMatchObject({ state: nightly, failed: false, notice: { sequence: 1, outcome: 'format', failure: { operation: 'desktop.channel.select' } } })
   f.emit(stable)
   expect(f.source.store.getSnapshot().notice?.outcome).toBe('format')
   await f.source.select('nightly')
@@ -63,7 +63,7 @@ it('reports generic save failure after transport rejection without flagging glob
   f.emit(stable)
   f.set.reject(new Error('IPC closed'))
   await pending
-  expect(f.source.store.getSnapshot()).toEqual({ state: stable, failed: false, notice: { sequence: 1, outcome: 'save' } })
+  expect(f.source.store.getSnapshot()).toMatchObject({ state: stable, failed: false, notice: { sequence: 1, outcome: 'save', failure: { errors: [expect.objectContaining({ message: 'IPC closed' })] } } })
   f.source.dispose()
 })
 
@@ -149,7 +149,7 @@ it('announces startup file errors once and keeps their state after the toast clo
   const state: DesktopChannelState = { ...nightly, channel: null, error: 'format' }
   f.get.resolve(state)
   await f.get.promise
-  expect(f.source.store.getSnapshot().notice).toEqual({ sequence: 1, outcome: 'configuration' })
+  expect(f.source.store.getSnapshot().notice).toMatchObject({ sequence: 1, outcome: 'configuration', failure: { operation: 'desktop.channel.configure' } })
   f.source.dismissNotice(1)
   f.emit(state)
   expect(f.source.store.getSnapshot()).toEqual({ state, failed: false })

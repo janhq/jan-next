@@ -16,6 +16,10 @@ export interface AgentPresetRow {
   readonly description?: string
   /** Menu icon: a product glyph name such as `code-outline`, or one emoji. */
   readonly icon?: string
+  /** Sort position; unranked presets follow ranked ones. */
+  readonly order?: number
+  /** Whether to offer the preset in the mode picker. Omit to show it. */
+  readonly showInModePicker?: boolean
   /** Why this preset cannot compose a session; absent when it can. */
   readonly broken?: string
 }

@@ -100,6 +100,73 @@ describe('in-process policy inheritance', () => {
     }
   })
 
+  it('caps a full-access parent delegation at read-only and refuses writes and escalation', async () => {
+    const filePath = join(workspace, 'profile-must-not-write.txt')
+    const { ctx, parent } = await setupWalled([
+      toolCallResponse('write', 'write', { file_path: filePath, content: 'must not land' }),
+      toolCallResponse('escalate', 'write', {
+        file_path: filePath, content: 'must not land', sandbox_permissions: 'workspace-write', justification: 'write the file',
+      }),
+      textResponse('review completed'),
+    ])
+    setSandboxMode(parent.session, 'danger-full-access')
+    ctx.provide('permissionPresets', {
+      current: (session: Session) => session === parent.session ? 'danger-full-access' : 'custom',
+    } as never)
+
+    const run = await startPreparedActivation({ ...spawnRequest(parent), sandboxMode: 'read-only' }, {})
+    try {
+      await run.result
+      expect(toolResultTexts(run.localAgent)).toEqual([
+        expect.stringContaining(READ_ONLY_DENIAL),
+        expect.stringContaining("This subagent's agent profile limits it to read-only access."),
+      ])
+      await expect(readFile(filePath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+      expect(ctx.sandboxPolicy.resolve({ session: run.localAgent.session }).mode).toBe('read-only')
+      expect(ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog)
+        .toEqual([expect.objectContaining({ id: run.childId, sandboxMode: 'read-only' })])
+      expect(run.localAgent.session.snapshotEvents().filter(event => event.type === 'permission/preset')).toEqual([])
+    } finally {
+      await run.dispose()
+    }
+  })
+
+  it.each([
+    { parentMode: 'read-only', cap: 'workspace-write', expected: 'read-only' },
+    { parentMode: 'danger-full-access', cap: 'workspace-write', expected: 'workspace-write' },
+  ] as const)('delegates $expected from $parentMode with cap $cap', async ({ parentMode, cap, expected }) => {
+    const { ctx, parent } = await setupWalled([textResponse('child done')])
+    setSandboxMode(parent.session, parentMode)
+    const starting = startPreparedActivation({ ...spawnRequest(parent), sandboxMode: cap }, {})
+    setSandboxMode(parent.session, 'danger-full-access')
+    const run = await starting
+    try {
+      await run.result
+      expect(ctx.sandboxPolicy.resolve({ session: run.localAgent.session }).mode).toBe(expected)
+      expect(ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog)
+        .toEqual([expect.objectContaining({ id: run.childId, sandboxMode: expected })])
+    } finally {
+      await run.dispose()
+    }
+  })
+
+  it('combines a workspace-write cap with a read-only preset', async () => {
+    const { ctx, parent } = await setupWalled([textResponse('child done')])
+    await ctx.plugin(Loader)
+    await ctx.plugin(AgentPresets, { default: 'reviewer' })
+    await ctx.agentPresets.register({ id: 'reviewer', readOnlyDelegation: true, plugins: [] })
+
+    const run = await startPreparedActivation({ ...spawnRequest(parent), agentPreset: 'reviewer', sandboxMode: 'workspace-write' }, {})
+    try {
+      await run.result
+      expect(ctx.sandboxPolicy.resolve({ session: run.localAgent.session }).mode).toBe('read-only')
+      expect(ctx.sessionProjections.snapshot(parent.session).values.subagentCatalog)
+        .toEqual([expect.objectContaining({ id: run.childId, sandboxMode: 'read-only' })])
+    } finally {
+      await run.dispose()
+    }
+  })
+
   it.each(['auto', 'danger-full-access'] as const)(
     'records the parent %s identity before publishing a Jan in-process child',
     async (preset) => {

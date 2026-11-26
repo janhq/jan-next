@@ -1,6 +1,6 @@
-# Harness plugin practices
+# Jan plugin practices
 
-These rules follow from Harness mechanisms. Confirm every Service method, Event name, and dispatch mode named here with `cordis_inspect_query` (`Service`, `Event`) before relying on it; the installed Harness is the authority.
+Confirm the Service methods, Event names, and dispatch modes you need with `cordis_inspect_query` (`Service`, `Event`). The running Jan installation is the authority.
 
 ## Principles
 
@@ -8,8 +8,8 @@ These rules follow from Harness mechanisms. Confirm every Service method, Event 
 2. **Registrations are effects owned by a context.** Plugin unload, agent disposal, slot collapse, and profile patches remove what was registered on the corresponding context. Choose the owning context. A registration on another context, such as `agent.ctx`, has two owners: keep its disposer in your plugin's own effect too, so either teardown removes it.
 3. **The framework drives; the plugin computes.** Session projections, Conversation assembly, and slot rendering subscribe, cache, and publish for you. A plugin that subscribes, rescans, or writes DOM itself bypasses that incremental machinery.
 4. **Extension points are shared; use the weakest mechanism that suffices.** From weakest to strongest: `ctx.tools.restrict()` can only remove tools; `ctx.tools.guard()` can only deny; waterfall listeners can rewrite and depend on registration order; `system-prompt/assemble` replaces the whole assembly. The stronger the mechanism, the more of other plugins' contributions you must preserve.
-5. **Other plugins and other Harness versions read your data.** Unknown event types, older readers, and older cached state meet what you write; declare compatibility with the envelope fields and versions the Harness provides.
-6. **Plugin UI is part of the Harness UI.** Users see one application, so a plugin uses the host's theme tokens, locale, and layout patterns, and matches the look and behavior of host components. Whether that is possible is decided by where the UI renders, so choose the rendering surface before writing any view; later styling inside the wrong surface cannot recover consistency.
+5. **Other plugins and Jan versions read your data.** Preserve the envelope fields and compatibility guarantees Jan documents for each extension point.
+6. **Plugin UI is Jan UI.** Choose a slot that fits the requested view. Match Jan's theme, locale, and layout conventions.
 
 ## Stability
 
@@ -31,8 +31,8 @@ These rules follow from Harness mechanisms. Confirm every Service method, Event 
 ## UI
 
 - Render plugin pages as React components in a slot. Do not serve an HTML page from the Host and embed it in an iframe: an iframe document does not receive the host's theme tokens, light/dark switching, or `ctx.locale`.
-- Style with the theme tokens that `cordis_inspect_query` `Theme` lists (`--dsw-alias-*`); literal colors are for artwork only. Tokens are the lowest-risk way to match the host: a renamed token degrades appearance but never breaks rendering. Copy spacing, type sizes, and row patterns from an existing host page of the same kind; the Plugin Manager page is the reference for management lists.
-- Do not `require('@janhq/jan-client-ui-primitives')` or load any other Harness Client package as a module; `jan.client.inject` entries only order activation and stay allowed. They change without notice, a plain-JS plugin has no type check, and a throwing component blanks your slot entry (console: `slot entry crashed in '<slot>'`). Write your own controls and match the host instead: copy markup, CSS, and behavior from the primitive into the plugin (`src/*.tsx` and `*.module.css` in a Jan source checkout, or the installed package's `lib/index.js` and `lib/**/*.css`), or inspect the rendered host control in the connected page. Rename copied classes under your plugin's prefix, keep only `--dsw-alias-*` token references, and keep the behavior that users rely on, such as Modal focus and Escape handling, `role="switch"` with `aria-checked`, and Tooltip placement. Tokens then remain the only shared styling dependency.
+- Style with the theme tokens that `cordis_inspect_query` `Theme` lists, including `--dsw-alias-*`. Use literal colors only for artwork. Match spacing, typography, and row patterns to the closest existing Jan page; Customize > Plugins is the reference for management views.
+- Reuse shared primitives from Jan's browser module table when the active installation provides them. For a source example, see `plugins/status-bar/client.js`. Do not import runtime values from another feature plugin or rely on undocumented exports; use services and slots instead. If a shared control is unavailable, preserve its keyboard and accessibility behavior in the plugin's own component.
 - Contribute through slots: `ctx.slots.inject(ownerKey, () => ctx.slots.register(...))`. The callback's registrations are disposed when the owning declaration collapses and reinstalled when it returns. Read session data through the slot props' selector hooks, subscribing to the smallest slice. Do not write DOM outside your component or append to `document.body`.
 - Add a Chat row by registering an event definition with `ctx.uiConversation.events.register()` and its view in the `conversation.chat.node` slot under the definition's `kind`, which is the renderer key; the Conversation layer owns paging, Turn and Step placement, and incremental assembly.
 - When the Client needs a value derived from a session, declare `wire.view` on the Host projection. The value reaches the Client already computed; the Client does not fold session events itself.

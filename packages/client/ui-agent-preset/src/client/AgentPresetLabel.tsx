@@ -10,9 +10,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast, captureFailure, type FailureDetails,
 } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only: pulls the ui-conversation SlotMap merge (the composer preset seat).
@@ -20,9 +20,8 @@ import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-agent-preset-registry/types'
 import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
-import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import { modeMenuItems, modePickerOptions, runModeAction } from './mode-actions.tsx'
 import type { AgentPresetModeAction } from './index.ts'
 import { PresetIcon } from './PresetIcon.tsx'
 
@@ -50,6 +49,7 @@ export interface AgentPresetLabelInjected {
 /** Full component props. */
 export type AgentPresetLabelProps =
   PropsRuntime<'conversation.composer.agentPreset'>
+  & PropsRenderFactories
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetLabelInjected>
 
@@ -62,7 +62,7 @@ const REFUSAL_HOLD_MS = 8000
  * @returns the control, or null when the session records no preset.
  */
 export function AgentPresetLabel({
-  sessionId, useSessions, useAgentPresets, useDeveloperTools, useModeActions, load, select, t,
+  sessionId, useSessions, useAgentPresets, useDeveloperTools, useModeActions, load, select, renderFactorySlot, t,
 }: AgentPresetLabelProps) {
   const preset = useSessions((state) => {
     const value = state.byId[sessionId]?.projectionValues?.agentPreset
@@ -74,7 +74,7 @@ export function AgentPresetLabel({
   const developerTools = useDeveloperTools(value => value)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [refusal, setRefusal] = useState<{ seq: number; id: string; reason: string } | null>(null)
+  const [refusal, setRefusal] = useState<{ seq: number; id: string; reason: string; failure: FailureDetails } | null>(null)
   const refusalSeq = useRef(0)
   const control = useRef<HTMLButtonElement | null>(null)
 
@@ -85,7 +85,7 @@ export function AgentPresetLabel({
   }, [preset, load])
 
   const choices = useMemo(
-    () => options.filter(option => developerTools || !requiresCodingTools(option)),
+    () => modePickerOptions(options, developerTools),
     [options, developerTools],
   )
 
@@ -107,19 +107,7 @@ export function AgentPresetLabel({
       <Menu
         open={open && !running}
         onClose={() => { setOpen(false) }}
-        items={[...choices.map((entry) => {
-          const display = presetDisplayText(entry, t)
-          return {
-            id: entry.id,
-            icon: <PresetIcon icon={entry.icon} size={14} />,
-            label: (
-              <span className={css.item}>
-                <span className={css.itemName}>{display.name}</span>
-                <span className={css.itemDesc}>{display.description ?? t('noDescription')}</span>
-              </span>
-            ),
-          }
-        }), ...modeActionItems(modeActions)]}
+        items={modeMenuItems(choices, modeActions, t, preset, renderFactorySlot)}
         selectedId={preset}
         onSelect={(id) => {
           setOpen(false)
@@ -128,10 +116,13 @@ export function AgentPresetLabel({
           void select(sessionId, id).then((reason) => {
             if (reason === undefined) return
             refusalSeq.current += 1
-            setRefusal({ seq: refusalSeq.current, id, reason })
+            setRefusal({ seq: refusalSeq.current, id, reason, failure: captureFailure('agentPreset.select', new Error(reason)) })
           }).catch((error: unknown) => {
             refusalSeq.current += 1
-            setRefusal({ seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error) })
+            setRefusal({
+              seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error),
+              failure: captureFailure('agentPreset.select', error),
+            })
           }).finally(() => { setBusy(false) })
         }}
         align="start"
@@ -163,6 +154,7 @@ export function AgentPresetLabel({
             reason: refusal.reason,
           })}
           icon={<IconWarningOutlineRegular />}
+          failure={refusal.failure}
           holdMs={REFUSAL_HOLD_MS}
           onDone={() => { setRefusal(null) }}
         />

@@ -3,12 +3,12 @@ import { apply as applyMenus, inject as injectMenus } from '@janhq/jan-client-ui
 /** Conversation assembly acceptance independent of Tool presentation. */
 import './control-row-dom.ts'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import type { ISession } from '@janhq/jan-api-session-controller/client'
-import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
   RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubConfigForm,
 } from '@janhq/jan-client-test-runtime'
@@ -221,6 +221,102 @@ describe('resident composer', () => {
 })
 
 describe('multitask conversation', () => {
+  async function tabMenuBench() {
+    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
+      root: { axis: 'row', sizes: [0.5, 0.5], children: [
+        { tabs: [SID, 'blue', 'copper', 'denim'], active: 0 },
+        { tabs: ['history'], active: 0 },
+      ] },
+      active: 0,
+    }))
+    const runtime = await bench({ listPending: true })
+    onTestFinished(() => runtime.dispose())
+    for (const [id, title] of [['blue', 'Blue'], ['copper', 'Copper'], ['denim', 'Denim'], ['history', 'History']] as const) {
+      await runtime.sessions.add({ id, summary: { title, displayTitle: title } })
+    }
+    act(() => { runtime.sessions.list.update((draft) => { draft.phase = 'ready' }) })
+    const view = runtime.renderRoot()
+    const strips = () => view.getAllByRole('tablist', { name: '对话标签页' }).map(strip => within(strip))
+    return { view, strips }
+  }
+
+  it.each([
+    { action: '关闭其他标签页', remaining: ['Copper'], selected: 'Copper' },
+    { action: '关闭左侧标签页', remaining: ['Copper', 'Denim'], selected: 'Copper' },
+    { action: '关闭右侧标签页', remaining: ['S', 'Blue', 'Copper'], selected: 'S' },
+    { action: '关闭右侧标签页', remaining: ['S', 'Blue', 'Copper'], selected: 'Copper', activateDenim: true },
+  ])('$action leaves $remaining and selects $selected', async ({ action, remaining, selected, activateDenim }) => {
+    const { view, strips } = await tabMenuBench()
+    if (activateDenim === true) fireEvent.click(strips()[0]!.getByRole('tab', { name: /^Denim\b/u }))
+    fireEvent.contextMenu(strips()[0]!.getByRole('tab', { name: /^Copper\b/u }))
+    const menu = within(view.getByRole('menu'))
+    const row = menu.getByRole<HTMLButtonElement>('menuitem', { name: action })
+    expect(row.disabled).toBe(false)
+    fireEvent.click(row)
+
+    expect(view.queryByRole('menu')).toBeNull()
+    expect(strips().map(strip => strip.getAllByRole('tab').map(tab => tab.textContent))).toEqual([remaining, ['History']])
+    expect(strips()[0]!.getByRole('tab', { selected: true }).textContent).toBe(selected)
+    expect(strips()[1]!.getByRole('tab', { selected: true }).textContent).toBe('History')
+  })
+
+  it('groups the close actions, disables empty ranges, and keeps keyboard dismissal', async () => {
+    const { view, strips } = await tabMenuBench()
+    const first = strips()[0]!.getByRole('tab', { name: /^S\b/u })
+    first.focus()
+    fireEvent.keyDown(first, { key: 'F10', shiftKey: true })
+    const menu = view.getByRole('menu')
+    expect(Array.from(menu.querySelectorAll('[role="menuitem"], [role="separator"]'), row => (
+      row.getAttribute('role') === 'separator' ? 'separator' : row.textContent
+    ))).toEqual(['关闭对话标签页', '关闭其他标签页', '关闭左侧标签页', '关闭右侧标签页', 'separator', '向右拆分', '向下拆分'])
+
+    const disabledStates = () => ['关闭其他标签页', '关闭左侧标签页', '关闭右侧标签页'].map(name => (
+      within(view.getByRole('menu')).getByRole<HTMLButtonElement>('menuitem', { name }).disabled
+    ))
+    expect(disabledStates()).toEqual([false, true, false])
+    const other = within(menu).getByRole('menuitem', { name: '关闭其他标签页' })
+    other.focus()
+    fireEvent.keyDown(other, { key: 'Escape' })
+    expect(view.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(first)
+
+    fireEvent.contextMenu(strips()[0]!.getByRole('tab', { name: /^Denim\b/u }))
+    expect(disabledStates()).toEqual([false, false, true])
+    fireEvent.keyDown(view.getByRole('menu'), { key: 'Escape' })
+
+    fireEvent.contextMenu(strips()[1]!.getByRole('tab', { name: /^History\b/u }))
+    expect(disabledStates()).toEqual([true, true, true])
+  })
+
+  it('opens history with its own Session binding in a restored background pane', async () => {
+    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
+      root: { axis: 'column', sizes: [0.5, 0.5], children: [{ tabs: [SID], active: 0 }, { tabs: ['second'], active: 0 }] },
+      active: 0,
+    }))
+    const runtime = await bench({ listPending: true })
+    onTestFinished(() => runtime.dispose())
+    const history = Promise.withResolvers<undefined>()
+    onTestFinished(() => { history.resolve(undefined) })
+    const opened = vi.fn(() => history.promise)
+    const second = await runtime.sessions.add({ id: 'second', snapshot: { openState: 'loading' }, initialOpen: opened })
+    function HistoryProbe({ sessionId, useSession }: PropsRuntime<'conversation.view'>) {
+      const openState = useSession(value => value.openState)
+      return <output data-session={sessionId} data-open={openState} />
+    }
+    runtime.slots.register({ name: 'conversation.view', id: 'chat', label: 'History probe' }, HistoryProbe)
+    const view = runtime.renderRoot()
+    act(() => { runtime.sessions.list.update((draft) => { draft.phase = 'ready' }) })
+    const background = view.container.querySelector<HTMLElement>('[data-dockkit-pane]:not([data-dockkit-pane-active])')!
+    const probe = await within(background).findByRole('status')
+    expect(probe.getAttribute('data-session')).toBe(second)
+    expect(probe.getAttribute('data-open')).toBe('loading')
+    expect(opened).toHaveBeenCalledOnce()
+
+    history.resolve(undefined)
+    await runtime.sessions.updateSessionSnapshot(second, (draft) => { draft.openState = 'open' })
+    expect(probe.getAttribute('data-open')).toBe('open')
+  })
+
   it('gives a split pane its own composer and releases its Session when its tab closes', async () => {
     localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
       root: { axis: 'row', sizes: [0.5, 0.5], children: [{ tabs: [SID], active: 0 }, { tabs: ['second'], active: 0 }] },

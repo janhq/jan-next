@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "エージェントプロファイル",
+    "description": "独自の指示、モデル、ツールを持つ名前付きエージェント。Claude Code、opencode、Codex と共有できます。"
+  }
+}

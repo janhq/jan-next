@@ -4,7 +4,7 @@ Use this guide to install, configure and operate dsh-superagent. It covers accou
 
 ## What runs
 
-- **A dedicated DeepSeek Harness profile**, called `superagent` in this guide. Create it from the Web profile template. It loads the bundle and serves its panel on `127.0.0.1`. Keep it separate from the profile you work in: the plugin changes process-wide `PATH` and git settings, and its process needs independent restarts and upgrades.
+- **A dedicated Jan Web profile**, called `superagent` in this guide. Use a Jan Host with scoped shell environment support. The profile loads the bundle and serves its panel on `127.0.0.1`. Keep it separate from the profile you work in so the service can restart and upgrade independently.
 - **An agent GitHub account.** The agent comments, pushes branches and opens pull requests as this account, through a GitHub CLI signed in only as that account.
 - **Optional:** a Feishu bot for chat requests.
 
@@ -20,10 +20,10 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 
 ## Prerequisites
 
-- Node.js 22.19+ or 24+, pnpm, git 2.32+, Python 3.8+ and tmux
+- Node.js 24.9 or later (the Jan checkout's requirement), pnpm, git 2.32+, Python 3.8+, tmux and `jq` for the startup health check
 - GitHub CLI (`gh`) 2.48 or later. Source CLI fields must point to `gh` or `lark-cli` wrappers; the host relies on their subcommands and output formats.
 - A repository on github.com; GitHub Enterprise Server is not supported. To create a checkout per Ticket, keep a local clone from which the prepare command can add worktrees. Install `git-lfs` if that repository uses Git LFS.
-- A model provider configured for DeepSeek Harness. dsh-superagent uses the profile's default model unless the Eval or Execution settings name another.
+- A model provider configured in Jan. dsh-superagent uses the profile's default model unless the Eval or Execution settings name another.
 - For Feishu: `lark-cli` (tested with 1.0.90) and a Feishu or Lark app with a bot
 
 ## Accounts
@@ -70,75 +70,60 @@ Both presets run with `danger-full-access` as the operator's OS user and read me
 
 ## Install
 
-Run this block once, on a machine that has no `superagent` profile yet:
+This package runs only on a Jan Host: it requires `shellEnv.registerOverrides`, which the DeepSeek Harness (`dsh`) Host does not provide, and refuses to start without it. Install and start it with the `jan` CLI of a Jan checkout that contains this package under `vendor/dsh-superagent`.
+
+Run this block once, from the root of that checkout, on a machine that has no `superagent` profile yet:
 
 ```sh
-npm install -g @deepseek-ai/dsh@0.2.1-rc.3
-git clone <this repository> dsh-superagent && cd dsh-superagent
-pnpm install && pnpm build
-dsh superagent --from-default-profile web --dump-config > /dev/null
-dsh plugin --profile superagent add "link:$PWD"
+pnpm install && pnpm run build
+pnpm --filter @janhq/dsh-superagent build
+pnpm jan superagent --from-default-profile web --dump-config > /dev/null
+pnpm jan plugin --profile superagent add "link:$PWD/vendor/dsh-superagent"
 ```
 
-The pinned version above is public; other versions must satisfy `engines.dsh` in `package.json`.
-
-The fourth command creates `~/.dsh/profiles/superagent` from the DeepSeek Harness Web template. The fifth installs this bundle. Set `DSH_HOME` to relocate the default `~/.dsh` directory.
+The third command creates `~/.config/jan-alpha/profiles/superagent` from Jan's Web template. The fourth installs this bundle. Set `JAN_HOME` to relocate the default `~/.config/jan-alpha` directory.
 
 Run the profile-creation command only for a new installation. If the profile already exists, that command replaces it and deletes its `cordis.patch.yml`, including machine configuration. Do not use it for upgrades.
 
 ## Machine configuration
 
-Copy [examples/profile.cordis.patch.yml](../examples/profile.cordis.patch.yml) to `~/.dsh/profiles/superagent/cordis.patch.yml`, replacing that file, and replace every `<placeholder>`. For Feishu, also enable the `dsh-superagent-feishu` entry there. The `webserver` entry sets the panel's port.
+Copy [examples/profile.cordis.patch.yml](../examples/profile.cordis.patch.yml) to `~/.config/jan-alpha/profiles/superagent/cordis.patch.yml`, replacing that file, and replace every `<placeholder>`. For Feishu, also enable the `dsh-superagent-feishu` entry there. The `webserver` entry sets the panel's port.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `stateDir` | yes | Absolute path: the database, the lock, the command shims in `worker-bin`, the agent's git configuration and, by default, the Ticket directories in `work`. Back it up before upgrades |
 | `promptMaxChars`, `admissionContextMaxPages`, `admissionContextTimeoutMs` | no | The largest saved prompt configuration, and how many Thread pages one assessment reads within what time |
 
-After the first start, edit machine limits in **Settings → Deployment** or the DeepSeek Harness Plugin Manager. Changes apply without restart. `stateDir` cannot be changed there. Invalid values or unknown configuration keys prevent startup; the log identifies the key.
+After the first start, edit machine limits in **Settings → Deployment** or the Plugin Manager. Changes apply without restart. `stateDir` cannot be changed there. Invalid values or unknown configuration keys prevent startup; the log identifies the key.
 
 ## Start and stop
 
+Run the profile in its own tmux session from the Jan checkout, then read its state through the Management API:
+
 ```sh
-scripts/dsh-superagent start
-scripts/dsh-superagent status
+tmux new-session -d -s jan-superagent "cd '$PWD' && pnpm jan --profile superagent --no-open"
+curl -s -H 'x-orchestrator-request: 1' http://127.0.0.1:3082/orchestrator/api/state | jq '{setup, health}'
 ```
 
-`start` runs `dsh --profile superagent` in tmux session `dsh-superagent`, or `dsh-<profile>` for another profile. It waits up to one minute for the runtime to become ready or report a setup requirement. On a first run it prints the missing setup information. It refuses duplicate instances, including ones started outside this script.
+The service is ready when `health.runtime.state` is `ready` and `setup.problem` is `null`. While `setup.problem` is set, the service waits for setup and the overview links to the fix. Another `error` entry under `health` names a part that a restart does not fix. No answer means the process is not running or is restarting; `tmux attach -t jan-superagent` shows its log.
 
-`stop` and `restart` request graceful shutdown and wait up to five minutes for Executors. They never force-kill the process or touch other tmux sessions.
+To stop, attach and press Ctrl-C once: dsh-superagent shuts down gracefully and waits for Executors. To restart, stop it and run the `tmux new-session` command again.
 
-`status` prints process ids, health and setup problems. For a different profile or port, use `--profile` and `--url`, or set `DSH_SUPERAGENT_PROFILE` and `DSH_SUPERAGENT_URL`.
+Open `http://127.0.0.1:3082/`, then choose **Superagent** in the sidebar.
 
-`status`, `start` and `restart` exit with one of four codes:
+### Upstream launcher (unsupported)
 
-| Code | Meaning |
-| --- | --- |
-| 0 | The service runs normally |
-| 1 | It does not run, runs twice, does not answer, or its runtime reports an error; a restart may fix it |
-| 2 | It runs, but a part other than the runtime, such as a Source or a Policy sync (`sync:<source id>`), reports an error; a restart does not fix it |
-| 3 | It runs and waits for setup; a restart does not fix it |
-
-A Source that is still starting counts as normal operation. So does a Feishu bot that setup could not check.
-
-`status` returns failed parts and their details under `errors`, and setup requirements under `setup`. `start` and `restart` print those problems as lines; they exit 1 if the service never comes up. Only an intentional `stop` pauses automatic recovery.
-
-Each profile stores logs and control files under `.artifacts/`:
-
-- Startup logs: `dsh-superagent-<profile>-<date>-<time>-<pid>.log`, where the pid belongs to the script. The newest 20 are kept.
-- Control files: `control/profiles/<profile>/`, containing the stop marker, lock and process id.
-
-Open the URL printed in the log, then choose **Superagent** in the sidebar.
+`scripts/dsh-superagent` is the upstream DeepSeek Harness launcher. It starts `dsh`, whose Host lacks the scoped shell environment this package requires, so this package does not support it. Do not use it, or schedule it, to start, check or restart a Jan installation.
 
 ### Hourly check
 
-Create the hourly check in the DeepSeek Harness profile you normally use, not in `superagent`. It must keep running when the agent service is down. Ask an agent in that profile to create an hourly schedule using this prompt, with the checkout path filled in:
+Create the hourly check in the Jan profile you normally use, not in `superagent`. It must keep running when the agent service is down. Ask an agent in that profile to create an hourly schedule using this prompt, with the checkout path filled in:
 
 ```text
-Check dsh-superagent: run `scripts/dsh-superagent --profile superagent status` in <checkout>. Exit 0: do nothing and say nothing. Exit 2: do not restart; tell me each part under `errors` with its detail, unless you already told me about the same ones. Exit 3: do not restart; tell me what `setup` says setup needs, unless you already told me. If it reports manually_stopped: true, leave it stopped. Otherwise (exit 1) run `scripts/dsh-superagent --profile superagent --respect-stop restart`, which exits the same way: 0 means it recovered, so say nothing; 2 and 3 are reported as above; if it exits 1 or fails otherwise, read the newest .artifacts/dsh-superagent-superagent-*.log and the Troubleshooting section of docs/006-deployment.md, fix what you can, and tell me what was wrong and what you did.
+Check dsh-superagent: run `curl -s -H 'x-orchestrator-request: 1' http://127.0.0.1:3082/orchestrator/api/state`. If setup.problem is set or any health entry has state error, do not restart; report each problem and its detail unless you already told me about it. If health.runtime.state is ready, setup.problem is null and no health entry has state error, do nothing and say nothing. If there is no answer, wait a minute and check again; if there is still none, run `tmux new-session -d -s jan-superagent "cd '<checkout>' && pnpm jan --profile superagent --no-open"` and check once more after a minute. If it still does not answer, read its output with `tmux capture-pane -p -t jan-superagent` and the Troubleshooting section of vendor/dsh-superagent/docs/006-deployment.md, fix what you can, and tell me what was wrong and what you did.
 ```
 
-`--respect-stop` preserves an intentional stop. Only `stop` writes the marker; `start` clears it. `restart` writes no marker, so the check can recover a restart whose shutdown timed out.
+To keep the service stopped on purpose, pause this schedule first.
 
 ## Settings
 
@@ -158,7 +143,7 @@ Setup must succeed before polling or work starts. Overview lists missing require
 
 ### Management API
 
-The panel uses a local HTTP API that agents can also call. `SETUP.md` uses it to save settings, and the service script reads `GET state`.
+The panel uses a local HTTP API that agents can also call. `SETUP.md` uses it to save settings, and Start and stop reads `GET state`.
 
 Send requests to `http://127.0.0.1:<port>/orchestrator/api/` with `x-orchestrator-request: 1`. The host must be `127.0.0.1:<port>` or `localhost:<port>`. Missing headers or an `Origin` from another site receive 403.
 
@@ -217,9 +202,9 @@ curl -s -X PUT -H 'x-orchestrator-request: 1' -H 'content-type: application/json
 
 Setup uses the DeepSeek Harness subprocess service, as worker shells do. It removes environment variables whose names contain KEY, PASSWORD, SECRET or TOKEN.
 
-Setup verifies the GitHub repository and the agent's push access, writes the worker environment, and checks that git uses only the agent credentials for github.com. A Feishu setup failure disables only the Feishu Source.
+Setup verifies the GitHub repository and the agent's push access, writes the worker shims and git configuration, and checks that worker git uses only the agent credentials for github.com. A Feishu setup failure disables only the Feishu Source.
 
-The process environment that setup writes:
+Superagent's subprocesses use the following settings without changing the Jan Host environment:
 
 - **Command shims** in `<stateDir>/worker-bin`, first on `PATH`: `gh` runs the agent's CLI; `lark-cli` runs the bot's CLI; blocked commands fail. A shim removes its own directory from `PATH` before it runs its target.
 - **git configuration** in `<stateDir>/worker-gitconfig`: replaces the operator's global and system git configuration. It selects the agent CLI as the github.com credential helper, rewrites GitHub SSH addresses to HTTPS and defines Git LFS filters. Personal git settings such as an HTTP proxy do not apply. No commit identity is set here, git never prompts for credentials, and `GH_TOKEN` and `GITHUB_TOKEN` are removed.
@@ -234,12 +219,12 @@ From an allowed GitHub account, open an Issue or post a comment containing `@<ag
 
 1. Wait until no Executor is in the middle of a turn.
 2. Back up `<stateDir>/orchestrator.sqlite`.
-3. Run `git pull && pnpm install && pnpm build`.
-4. Run `scripts/dsh-superagent restart` and inspect its status.
+3. In the Jan checkout, run `git pull && pnpm install && pnpm run build && pnpm --filter @janhq/dsh-superagent build`.
+4. Restart the service as in Start and stop, and read `GET state`.
 
 A restart ends running Assignments and starts replacements with recovery notes. Team text and overridden prompt parts are retained; parts without overrides follow the new defaults. Review parts marked **Default updated** after upgrading.
 
-A database migrated by a newer version cannot be opened by an older one. Rollback therefore requires the pre-upgrade backup. After upgrading DeepSeek Harness itself, restart the running instance so the panel loads matching artifacts.
+A database migrated by a newer version cannot be opened by an older one. Rollback therefore requires the pre-upgrade backup.
 
 ### Agent presets
 
@@ -263,12 +248,12 @@ Setup problems appear on the overview with a link to the fix, in the panel's lan
 | `The bot lark-cli allows user identities` | Point the Feishu Source at a bot-only configuration, as in Feishu bot above |
 | `The bot lark-cli does not work.` or `The bot identity of app … is …` | Check the configuration's app id and secret |
 | `The Feishu bot is not a member of the chat.` | Add the bot to the chat in the chat's settings; the next attempt succeeds |
-| `status` exits 2 | A part reports an error, which a restart does not fix: `errors` names each part, as listed under Management API, with its detail; each part clears its own entry once it works again |
-| `status` exits 3 | Setup waits: `setup` says what is missing, and the overview links to the setting that fixes it |
-| `status` exits 1 | The service does not run, runs twice, does not answer, or its runtime reports an error; the output and the newest log say which |
+| `GET state` shows an `error` entry under `health` other than `runtime` | A part reports an error, which a restart does not fix: the entry names the part, as listed under Management API, with its detail; each part clears its own entry once it works again |
+| `GET state` shows a `setup.problem` | Setup waits: the problem says what is missing, and the overview links to the setting that fixes it |
+| `GET state` does not answer, or `health.runtime` is `error` | The service does not run, is restarting, or its runtime failed; the tmux session's output says which |
 | `… timed out after 90 s`, `… was stopped by …`, `… exited with code …` or `… could not run: …` | A CLI failed without printing why; run the named program by hand as the operator's user to see its own message |
-| The panel says dsh-superagent is not answering | It is restarting, or did not start because of its configuration; the DeepSeek Harness log names the cause |
+| The panel says dsh-superagent is not answering | It is restarting, or did not start because of its configuration; the Jan log in the tmux session names the cause |
 | `dsh-superagent configuration has keys it does not use` (log) | Remove the named keys; the message says where each value lives now |
-| The log says the plugin is incompatible with the running dsh | Install a DeepSeek Harness version within the `engines.dsh` range |
-| The panel shows "Failed to load plugins" after a DeepSeek Harness upgrade | Restart the running instance |
+| The log says dsh-superagent requires a Jan Host with scoped shell environment overrides | The profile runs on another Host, such as `dsh` started by `scripts/dsh-superagent`; start it with `pnpm jan` as in Start and stop |
+| The panel shows "Failed to load plugins" after a Jan upgrade | Restart the running instance |
 | Nothing happens after a mention | Check that the author is on the Source's allowed list, the Source is on, and processing is not paused. On GitHub, a mention added by editing an Issue's body is not received; mention the agent in a comment |

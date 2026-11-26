@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { fetchNew, normalizeSources } from '../sources.mjs'
 import { openWatch } from '../watch.mjs'
+import { createTriage } from '../triage.mjs'
 
 const json = (body, init = {}) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
 const issue = number => ({ number, title: `Issue ${number}`, user: { login: 'octo' }, html_url: `https://github.com/janhq/jan/issues/${number}`, body: 'Crash on start' })
@@ -87,4 +88,49 @@ test('a paused bot does not poll unless asked to check now', async () => {
   assert.equal(calls, 0)
   await watch.tick({ force: true })
   assert.equal(calls, 1)
+})
+
+test('Jev triage drops only items it is confident the bot ignores, so an all-noise check wakes nothing', async () => {
+  const queue = fakeQueue()
+  let rows = [issue(1)]
+  const bodies = []
+  const answers = { 'Issue 2': 0.96, 'Issue 3': 0.05, 'Issue 4': 0.3 }
+  const triage = createTriage({ profile: () => ({ name: 'QA', role: 'Release QA', agentProfile: 'qa', workspaceId: 'project-a' }),
+    agentProfiles: { async get(query) {
+      assert.deepEqual(query, { id: 'qa', workspaceId: 'project-a' })
+      return { description: 'Crashes and regressions' }
+    } },
+    request: async body => {
+      bodies.push(body)
+      return { answers: Object.fromEntries(Object.entries(body.state).filter(([key]) => key.startsWith('item_'))
+        .map(([key, text]) => [key, { type: 'noul', noul: answers[text.match(/"(Issue \d+)"/u)[1]] }])) }
+    } })
+  let now = 0
+  const watch = openWatch({ queue, sources: () => [{ kind: 'github', target: 'janhq/jan', everyMinutes: 15 }], token: async () => undefined,
+    triage, fetch: async () => json(rows), now: () => now })
+  await watch.tick()
+  assert.equal(bodies.length, 0, 'the first check returns no items, so nothing is asked')
+  rows = [issue(4), issue(3), issue(2), issue(1)]
+  now = 15 * 60_000
+  await watch.tick()
+  // 0.05 is confidently unrelated; 0.3 is unsure and still reaches the bot.
+  assert.deepEqual([...queue.events.keys()], ['source:github:janhq/jan:2', 'source:github:janhq/jan:4'])
+  assert.match(bodies[0].state.bot, /Release QA\. Crashes and regressions/u)
+  assert.deepEqual(watch.status()[0], { kind: 'github', target: 'janhq/jan', everyMinutes: 15, lastCheckAt: now,
+    nextCheckAt: now + 15 * 60_000, lastError: null, lastFound: 2, lastSkipped: 1 })
+})
+
+test('Jev triage keeps every item when it cannot answer or the selected agent is missing and the bot has no role', async () => {
+  const items = [{ id: 'a', text: 'x' }, { id: 'b', text: 'y' }]
+  const profile = () => ({ role: 'Release QA' })
+  for (const request of [
+    async () => { throw new Error('This needs a Tokamak account.') },
+    async () => ({ answers: { item_0: { noul: 'low' }, item_1: { noul: 7 } } }),
+    async () => ({}),
+  ]) assert.equal((await createTriage({ request, profile })(items)).size, 0)
+  let asked = false
+  const unasked = createTriage({ request: async () => { asked = true; return {} }, profile: () => ({ name: 'Bot', role: '', agentProfile: 'missing' }),
+    agentProfiles: { async get() { throw Object.assign(new Error('No such agent'), { code: 'agent-profiles/not-found' }) } } })
+  assert.equal((await unasked(items)).size, 0)
+  assert.equal(asked, false)
 })

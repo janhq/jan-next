@@ -2,8 +2,12 @@
 
 /** English strings (the key-set source of truth for this pair). */
 export const en = {
-  nav: 'Models',
-  title: 'Models',
+  nav: 'AI Models',
+  title: 'AI Models',
+  setupTitle: 'Choose how to use models',
+  setupLocal: 'Local models',
+  setupAPI: 'OpenAI-compatible API',
+  setupSubscription: 'Bring your own subscription',
   intro: 'Enter your API keys to use models from the following providers.',
   edit: 'Edit',
   editProvider: 'Edit {provider}',
@@ -148,8 +152,12 @@ export type ModelsKey = keyof typeof en
 
 /** Chinese strings (same keys as {@link en}). */
 export const zh: { [Key in keyof typeof en]: string } = {
-  nav: '模型',
-  title: '模型',
+  nav: 'AI 模型',
+  title: 'AI 模型',
+  setupTitle: '选择模型的使用方式',
+  setupLocal: '本地模型',
+  setupAPI: 'OpenAI 兼容 API',
+  setupSubscription: '使用自己的订阅',
   intro: '填入各提供商的 API 密钥即可使用其模型。',
   edit: '编辑',
   editProvider: '编辑 {provider}',
@@ -291,8 +299,12 @@ export const zh: { [Key in keyof typeof en]: string } = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
-  'nav': 'モデル',
-  'title': 'モデル',
+  'nav': 'AIモデル',
+  'title': 'AIモデル',
+  'setupTitle': 'モデルの使い方を選択',
+  'setupLocal': 'ローカルモデル',
+  'setupAPI': 'OpenAI互換API',
+  'setupSubscription': 'お持ちのサブスクリプションを使う',
   'intro': '以下のプロバイダーのモデルを使用するには、APIキーを入力してください。',
   'edit': '編集',
   'editProvider': '{provider}を編集',
@@ -434,8 +446,12 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
-  nav: 'Modelos',
-  title: 'Modelos',
+  nav: 'Modelos de IA',
+  title: 'Modelos de IA',
+  setupTitle: 'Elige cómo usar los modelos',
+  setupLocal: 'Modelos locales',
+  setupAPI: 'API compatible con OpenAI',
+  setupSubscription: 'Usa tu propia suscripción',
   intro: 'Ingrese sus claves API para usar modelos de los siguientes proveedores.',
   edit: 'Editar',
   editProvider: 'Editar {provider}',
@@ -577,8 +593,12 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
-  nav: 'Modèles',
-  title: 'Modèles',
+  nav: 'Modèles d’IA',
+  title: 'Modèles d’IA',
+  setupTitle: 'Choisissez comment utiliser les modèles',
+  setupLocal: 'Modèles locaux',
+  setupAPI: 'API compatible avec OpenAI',
+  setupSubscription: 'Utilisez votre propre abonnement',
   intro: 'Entrez vos clés API pour utiliser les modèles des fournisseurs suivants.',
   edit: 'Modifier',
   editProvider: 'Modifier {provider}',
@@ -720,8 +740,12 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
-  nav: 'Modelle',
-  title: 'Modelle',
+  nav: 'KI-Modelle',
+  title: 'KI-Modelle',
+  setupTitle: 'Wähle, wie du Modelle nutzen möchtest',
+  setupLocal: 'Lokale Modelle',
+  setupAPI: 'OpenAI-kompatible API',
+  setupSubscription: 'Eigenes Abonnement verwenden',
   intro: 'Geben Sie Ihre API-Schlüssel ein, um Modelle der folgenden Anbieter zu verwenden.',
   edit: 'Bearbeiten',
   editProvider: 'Bearbeiten Sie {provider}',
@@ -863,8 +887,12 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
-  nav: 'Модели',
-  title: 'Модели',
+  nav: 'Модели ИИ',
+  title: 'Модели ИИ',
+  setupTitle: 'Выберите, как использовать модели',
+  setupLocal: 'Локальные модели',
+  setupAPI: 'API, совместимый с OpenAI',
+  setupSubscription: 'Используйте свою подписку',
   intro: 'Введите ключи API, чтобы использовать модели следующих поставщиков.',
   edit: 'Редактировать',
   editProvider: 'Редактировать {provider}',
@@ -1006,8 +1034,12 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
-  nav: 'Modelos',
-  title: 'Modelos',
+  nav: 'Modelos de IA',
+  title: 'Modelos de IA',
+  setupTitle: 'Escolha como usar os modelos',
+  setupLocal: 'Modelos locais',
+  setupAPI: 'API compatível com OpenAI',
+  setupSubscription: 'Use sua própria assinatura',
   intro: 'Insira suas chaves API para usar modelos dos seguintes fornecedores.',
   edit: 'Editar',
   editProvider: 'Editar {provider}',

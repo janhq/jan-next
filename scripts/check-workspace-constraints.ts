@@ -196,6 +196,7 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@janhq/jan-experimental-subagent-oar': ['LICENSE-OAR'],
   // CUA publishes its client API and attributed native source for local macOS builds.
   '@janhq/jan-cua': ['lib/remote-types.js', 'lib/api.js', 'lib/bridge.js', 'lib/native-client.js', 'lib/protocol.js'],
+  '@janhq/jan-downloads': ['client.js'],
   '@janhq/jan-experimental-cua-macos': ['native/bin', 'cua-helper.json', 'native/Package.swift', 'native/Info.plist', 'native/JANComputerUse.icns', 'native/build_app.py', 'native/Sources', 'native/tests/swift', 'native/tests/test_swift.py', 'native/LICENSE.cua-driver', 'native/LICENSE.computer-use-icon', 'native/upstream.json', 'native/README.md', 'native/protocol.schema.json'],
   '@janhq/jan-webhook-github': ['examples/github-review/cordis.yml', 'examples/github-review/github-ready-review-rule.mjs'],
   // Liveshare publishes its built Relay gateway entry and the shared runtime
@@ -234,6 +235,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@janhq/jan-experimental-inspector': ['lib/client.*.js', 'lib/worker.js', 'lib/devtools/**'],
   // Creator's composition guidance travels with the declaration package.
   '@janhq/jan-agent-preset': ['skills'],
+  // Built-in agent profiles are Markdown files read from the package at runtime.
+  '@janhq/jan-agent-profiles': ['agents'],
   // Personalized pages ship the location guidance used by their Creator.
   '@janhq/jan-creation-recommendations': ['references/*.md', 'skills/*.md'],
   // Official-plugin recommendations ship the skill text their provider loads.
@@ -370,7 +373,9 @@ export function expectedJanPackageFiles(manifest: PackageManifest, detailFiles: 
     // browser-safe source channels rehomed off src so plain Node can import
     // them without type stripping) publish the emitted JS alongside the
     // declarations.
-    ...usesEmittedTreeDefaults(manifest) ? ['lib/types/**/*.js'] : [],
+    ...usesEmittedTreeDefaults(manifest)
+      ? [standaloneTypesPackages[manifest.name ?? ''] ? 'lib/types/types.js' : 'lib/types/**/*.js']
+      : [],
     'lib/types/**/*.d.ts',
     ...hasExportPair(manifest, './typert', './lib/typert.host.d.ts', './lib/typert.host.js')
       ? ['lib/typert.host.js', 'lib/typert.host.d.ts']
@@ -416,6 +421,14 @@ function exportDefault(manifest: PackageManifest, subpath: string): string | und
 function exportCondition(manifest: PackageManifest, subpath: string, condition: string): string | undefined {
   const target = exportFields(manifest.exports?.[subpath])?.[condition]
   return typeof target === 'string' ? target : undefined
+}
+
+// These dual-face packages bundle both implementations and only expose the
+// self-contained, shared types module from the emitted JavaScript tree.
+const standaloneTypesPackages: Readonly<Record<string, true | undefined>> = {
+  '@janhq/jan-agent-profiles': true,
+  '@janhq/jan-context-usage': true,
+  '@janhq/jan-scoped-settings': true,
 }
 
 /** Whether any export's runtime default points into the tsc-emitted lib/types tree. */

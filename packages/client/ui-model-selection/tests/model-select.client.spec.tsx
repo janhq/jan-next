@@ -11,6 +11,7 @@ import type { ModelDirectoryState } from '../src/client/directory.ts'
 import type { ModelOptionsOwner } from '../src/client/slots.ts'
 import { ModelSelect as Picker } from '../src/client/ModelSelect.tsx'
 import { zh } from '../src/client/locales.ts'
+import { recentStore } from '../src/client/model-rank.ts'
 import { DockModelSelection, apply, inject } from '../src/client/index.ts'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
@@ -100,7 +101,11 @@ beforeEach(() => {
   })
 })
 
-afterEach(cleanup)
+// Selections record recents in a shared persisted store; each test starts without any.
+afterEach(() => {
+  cleanup()
+  recentStore.set([])
+})
 
 describe('ModelSelect label slot', () => {
   it('distinguishes identical model names and ids by provider across all placements and restores labels on unload', async () => {
@@ -724,7 +729,7 @@ describe('ModelSelect keyboard walk', () => {
   it('omits missing credentials from the composer picker but reports discovery failures', () => {
     const directory = createSnapshotStore<ModelDirectoryState>(state({
       failures: [
-        { id: 'relay', name: 'Relay', message: 'no credential for provider route "relay"', code: 'MISSING_CREDENTIAL' },
+        { id: 'tokamak', name: 'Tokamak', message: 'no credential for provider route "tokamak"', code: 'MISSING_CREDENTIAL' },
         { id: 'gateway', name: 'Gateway', message: 'answered 503', code: 'DISCOVERY_FAILED' },
       ],
     }))
@@ -737,7 +742,8 @@ describe('ModelSelect keyboard walk', () => {
       t={t}
     />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
-    expect(screen.queryByText(/Relay/)).toBeNull()
+    // The signed-out provider gets no warning row; its listed models still render.
+    expect(screen.queryByText(/Tokamak 加载失败/)).toBeNull()
     expect(screen.queryByText(/no credential/)).toBeNull()
     expect(screen.getByText('Gateway 加载失败：answered 503')).toBeTruthy()
   })

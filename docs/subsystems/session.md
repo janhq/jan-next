@@ -828,6 +828,27 @@ The optional `application` selects a registered file handler without changing th
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxbtwruntime--btwruntime"></a>
+
+### `ctx.btwRuntime` — `BtwRuntime`
+
+A tool-free side exchange sharing the main request's conversation prefix.
+
+```ts cordis-catalog
+/**
+ * Stream a side answer without starting or joining the main agent's turn.
+ * @param agent - Chat whose model and conversation prefix the answer uses.
+ * @param question - Temporary user question appended to the snapshot only.
+ * @param signal - Cancellation for this side request only.
+ * @returns Answer text deltas, in provider order.
+ */
+@Remote({ mode: 'stream' }) async *ask(agent: Agent, question: string, signal: AbortSignal): AsyncIterable<string>
+```
+
+Types: [Agent](core.md)
+
+Source: [`packages/session/btw/src/index.ts`](../../packages/session/btw/src/index.ts)
+
 <a id="ctxsessioncontroller--sessioncontroller"></a>
 
 ### `ctx.sessionController` — `SessionController`
@@ -862,7 +883,7 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
 
 /**
  * Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.
- * @param request - optional blank Session to reuse, location, and Agent preset.
+ * @param request - optional blank Session to reuse, location, preset and agent profile.
  * @returns the created or reused Session identity and its preset when configured.
  */
 @Remote('create') create(request: SessionCreateRequest): Promise<SessionCreateValue>

@@ -14,6 +14,7 @@ import type {} from '@janhq/jan-plugin-manager/types'
 import type {} from '@janhq/jan-host-plugin-i18n/types'
 import type {} from '@janhq/jan-plugin-market/types'
 import type {} from '@janhq/jan-schedule/client'
+import type {} from '@janhq/jan-skill'
 import type { TypertForwardableEventEntry } from '@janhq/jan-typert-protocol'
 import type {} from '@janhq/jan-web/types'
 
@@ -55,6 +56,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   { event: 'plugin-market/changed', mode: 'emit' },
   { event: 'settings/document-updated', mode: 'emit' },
   { event: 'schedule/changed', mode: 'emit' },
+  { event: 'skills/change', mode: 'emit' },
   { event: 'user-questions/request', mode: 'waterfall' },
   { event: 'web/providers-changed', mode: 'emit' },
 ] as const satisfies readonly TypertForwardableEventEntry[]

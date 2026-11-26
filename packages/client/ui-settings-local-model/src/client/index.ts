@@ -19,8 +19,8 @@ function registerUi(ctx: Context): void {
   const mirror = observeLocalModel(ctx)
   ctx.effect(() => mirror.dispose, 'local-model: state stream')
   const injected = (): LocalModelInjected => ({ hooks: { localModel: mirror.store }, actions: createActions(ctx) })
-  ctx.slots.inject('settings.models.footer', () => ctx.slots.register({
-    name: 'settings.models.footer', id: 'local-model', locale: NS, inject: injected,
+  ctx.slots.inject('settings.models.setup-local', () => ctx.slots.register({
+    name: 'settings.models.setup-local', locale: NS, inject: injected,
   }, LocalModelCard))
   ctx.slots.inject('settings.models.local-setup', () => ctx.slots.register({
     name: 'settings.models.local-setup', locale: NS, inject: injected,

@@ -51,6 +51,10 @@ This Host signs in to each other computer with `forward=local`, so that Jan answ
 
 A chat running on another computer reads only chats on that computer with `read_chat`; a chat on this computer reads every connected computer's.
 
+Other plugins can use `ctx.get('janHosts')` to list saved peers with `peers()` and call a peer's authenticated plugin route with `callPlugin(id, feature, method, params, signal)`. A failure carries a `code`: `not-connected` when the computer has no working connection, and `rejected` when the other computer answered with a 4xx and the operation's message, meaning it refused the request. A 5xx answer is a temporary failure on that computer: it keeps the operation's message, has no code, and is worth retrying. Other failures, such as a dropped network, are passed through as they are.
+
+The `jan-hosts/removed` event carries the saved Host id after the entry and its credentials are removed. Disconnecting does not emit it.
+
 ## Sync setup to another computer
 
 In **Settings → Hosts**, connect to an SSH Host and choose **Sync setup…**. Jan compares the two setups without writing to the destination. Review the changes, then choose **Apply**. For each conflict, **Keep remote** is the default; choose **Use this computer** only for items you want to replace. New items that may contain credentials, including provider keys, are not selected by default. Identical and remote-only items are left untouched.
@@ -68,7 +72,9 @@ Each Jan serves its own page, so Open in browser always runs the Client that mat
 | Index without login | HTTP 401 with `jan web authentication required` | Releases before 2026-11-16 say `dsh web`; both are accepted. |
 | Sign-in | `GET /connect?token=…&interactions=none` answers 302 with a cookie | Same since 2026-10-10. |
 | Live connection | WebSocket `api/remote.mux` opens with that cookie | Same since 2026-08-22. |
-| Projects in this window | That Jan's Gateway forwards calls (`registerForwarder`) | A Gateway without it still answers copies and folder browsing; its projects stay out of this window. |
+| Projects in this window | That Jan's Gateway forwards calls (`registerForwarder`) | A Gateway without it still answers compatible setup requests and folder browsing; its projects stay out of this window. |
+
+This Jan still answers `setupState`, `receiveSetup`, and `customizationState` requests from older peers. New setup syncs use `syncPreview` and `syncApply` to review and apply changes on a connected SSH Host.
 
 An SSH entry saved by an earlier Hosts also carried a command, profile and port; they are ignored, and dropped when the entry is edited. The hosts files carry `"version": 1`; a file of another version is refused rather than rewritten.
 

@@ -53,7 +53,7 @@ export function replyError(what, status, text) {
 }
 
 /**
- * @typedef {{ method?: string, body?: BodyInit, json?: unknown, headers?: Record<string, string>, signal?: AbortSignal, timeoutMs?: number }} RequestOptions
+ * @typedef {{ method?: string, body?: BodyInit, json?: unknown, headers?: Record<string, string>, signal?: AbortSignal, timeoutMs?: number, beforeSend?: () => void }} RequestOptions
  * @typedef {{ root: string, request(path: string, what: string, options?: RequestOptions): Promise<Response>, keyFor(url: string): Promise<{ token: string, fromAccount: boolean }> }} TokamakApi
  */
 
@@ -85,13 +85,15 @@ export function createTokamakApi(ctx, configured) {
    * A 401 on the account's key signs the account out, as web search does.
    * @param {string} path - endpoint path under the root, such as `/audio/speech`.
    * @param {string} what - the capability named in an error.
-   * @param {RequestOptions} [options] - method, body and limits.
+   * @param {RequestOptions} [options] - Method, body and limits. If provided, `beforeSend` runs synchronously
+   * after token lookup and immediately before sending; a thrown error cancels the request without sending it.
    * @returns {Promise<Response>} the 2xx reply, body unread.
    */
   async function request(path, what, options = {}) {
     const url = `${root}${path}`
     const { token, fromAccount } = await keyFor(url)
     const signals = [AbortSignal.timeout(options.timeoutMs ?? 60_000), ...options.signal ? [options.signal] : []]
+    options.beforeSend?.()
     const reply = await fetch(url, {
       method: options.method ?? 'POST',
       headers: {

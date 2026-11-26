@@ -149,7 +149,7 @@ describe('menu contribution lifecycle', () => {
     const first = registry.resolve(target)
     expect(first.source.getSnapshot().map(item => item.id)).toEqual(['a/throw', 'z/none'])
     first.select('a/throw')
-    expect(failed).toHaveBeenCalledWith('Could not copy. Try again.')
+    expect(failed).toHaveBeenCalledWith('contextMenu.runAction', 'Could not copy. Try again.', expect.objectContaining({ message: 'clipboard denied' }))
     const second = registry.resolve(target)
     second.select('z/none')
     registry.dispose()

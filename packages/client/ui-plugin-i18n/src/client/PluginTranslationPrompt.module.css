@@ -34,7 +34,7 @@ body:has([role='dialog'][aria-modal='true']) .prompt {
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+  animation: spin var(--ds-transition-duration-loop) linear infinite;
 }
 
 .message {

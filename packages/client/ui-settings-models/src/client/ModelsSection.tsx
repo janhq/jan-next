@@ -21,9 +21,11 @@
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, IconPlusOutlineRegular, Modal, SegmentedControl, SelectMenu } from '@janhq/jan-client-ui-primitives'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { SettingsSectionOwnerProps } from '@janhq/jan-client-ui-settings/client'
 import type { InjectFace, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { LlmNativeAuth, SettingsNamespaceView } from '@janhq/jan-api-remotes/client'
-// Type-only: pulls this package's SlotMap merge (the two Models child slots).
+// Type-only: pulls this package's child-slot declarations.
 import type {} from './slot-contract.ts'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, protocolChoices, reasoningLevelChoices } from './store.ts'
@@ -41,6 +43,9 @@ export interface ModelsSectionInjected {
   hooks: {
     /** Page snapshot bound by the UI renderer as useSnapshot. */
     snapshot: ModelsSettingsStore['store']
+    /** Availability of the local and subscription setup contributions. */
+    localSetup: ObservableSnapshot<boolean>
+    subscriptionSetup: ObservableSnapshot<boolean>
   }
   /** The Host operations the section and its cards invoke. */
   operations: ModelsOperations
@@ -58,9 +63,15 @@ type AddMode = 'catalog' | 'custom'
 
 /** The child slots this section declares and dispatches (see ./slot-contract.ts). */
 type ModelsChildSlots = 'settings.models.provider-card' | 'settings.models.footer'
+  | 'settings.models.setup-local' | 'settings.models.setup-subscription'
 
 /** The child-slot dispatch function the renderer binds for the section. */
 type ModelsRenderSlot = PropsRenderSlots<ModelsChildSlots>['renderSlot']
+
+type SetupPanel = 'local' | 'subscription'
+type SetupReveal = SettingsSectionOwnerProps['reveal']
+
+const unavailableSetup = <T,>(select: (value: boolean) => T): T => select(false)
 
 /**
  * Props delivered by the slot outlet: the inject face spread flat (the
@@ -70,8 +81,9 @@ type ModelsRenderSlot = PropsRenderSlots<ModelsChildSlots>['renderSlot']
  * direct render that forgets it fails to compile instead of mounting nothing.
  */
 export type ModelsSectionProps = Partial<InjectFace<ModelsSectionInjected>> & PropsRenderSlots<ModelsChildSlots>
+  & Pick<SettingsSectionOwnerProps, 'reveal'>
 
-type ModelsSectionFace = InjectFace<ModelsSectionInjected>
+type ModelsSectionFace = Omit<InjectFace<ModelsSectionInjected>, 'useLocalSetup' | 'useSubscriptionSetup'>
 
 /** Provider identity shared by row actions and confirmation copy. */
 export interface ProviderIdentity {
@@ -218,15 +230,26 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, operations, schema, t, renderSlot } = props
+  const { controller, useSnapshot, operations, schema, t, renderSlot, reveal } = props
+  const useLocalSetup = props.useLocalSetup ?? unavailableSetup
+  const useSubscriptionSetup = props.useSubscriptionSetup ?? unavailableSetup
+  const local = useLocalSetup(value => value)
+  const subscription = useSubscriptionSetup(value => value)
   if (
     controller === undefined || useSnapshot === undefined || operations === undefined
     || schema === undefined || t === undefined
   ) return null
-  return <Loaded injected={{ controller, useSnapshot, operations, schema, t }} renderSlot={renderSlot} />
+  return <Loaded injected={{ controller, useSnapshot, operations, schema, t }} renderSlot={renderSlot}
+    local={local} subscription={subscription} reveal={reveal} />
 }
 
-function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
+function Loaded({ injected, renderSlot, local, subscription, reveal }: {
+  injected: ModelsSectionFace
+  renderSlot: ModelsRenderSlot
+  local: boolean
+  subscription: boolean
+  reveal: SetupReveal
+}): ReactNode {
   const { controller, operations, schema, t } = injected
   const state = injected.useSnapshot(value => value)
   /** A new or failed surface waits for a current snapshot; background refreshes preserve its drafts. */
@@ -236,6 +259,14 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [addOpen, setAddOpen] = useState(false)
   const [addMode, setAddMode] = useState<AddMode>('catalog')
+  const [directAPI, setDirectAPI] = useState(false)
+  const [panel, setPanel] = useState<SetupPanel | undefined>(reveal?.id === 'subscription' ? 'subscription' : undefined)
+  const [revealSequence, setRevealSequence] = useState(reveal?.sequence)
+  if (reveal?.sequence !== revealSequence) {
+    setRevealSequence(reveal?.sequence)
+    if (reveal?.id === 'subscription') setPanel('subscription')
+  }
+  const panelId = useId()
   /** The modes shown since the add card opened; each keeps its panel mounted. */
   const [visited, setVisited] = useState<ReadonlySet<AddMode>>(() => new Set())
   /** Whether each add panel has a write or an interrogation in flight. */
@@ -267,6 +298,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
     setAddOpen(false)
     setCatalogBusy(false)
     setCustomBusy(false)
+    setDirectAPI(false)
   }
 
   const closeEditor = (changed: boolean, target: ProviderIdentity): void => {
@@ -297,11 +329,56 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   }
 
   if (state.status === 'idle') void controller.load()
+  const piAi = state.namespaces.get('llm-pi-ai')
+  const protocols = protocolChoices(piAi, schema)
+  const customEnabled = protocols.length > 0
+  const catalogOffered = state.rows.some(row => state.namespaces.has(row.entry.settingsNs))
+  const customSelected = addOpen && (addMode === 'custom' || !catalogOffered)
+  const setup = (
+    <div className={styles['section']}>
+      <h2 className={styles['setupHeading']}>{t('setupTitle')}</h2>
+      <div className={styles['setupChoices']}>
+        {local && <Button variant="outline" aria-expanded={panel === 'local'} aria-controls={`${panelId}-local`}
+          onClick={() => { setPanel(panel === 'local' ? undefined : 'local') }}>
+          {t('setupLocal')}
+        </Button>}
+        <Button variant="outline" aria-expanded={panel === undefined && customSelected}
+          aria-controls={`${panelId}-api`}
+          disabled={!state.writable || state.status !== 'ready' || !customEnabled || catalogBusy || customBusy}
+          onClick={() => {
+            setPanel(undefined)
+            if (panel === undefined && customSelected) { closeAdd(); return }
+            if (!addOpen) {
+              setSavedTarget(undefined)
+              setEditing(undefined)
+              setDirectAPI(true)
+            }
+            setAddMode('custom')
+            setVisited(previous => new Set([...(addOpen ? previous : []), 'custom']))
+            setAddOpen(true)
+          }}>
+          {t('setupAPI')}
+        </Button>
+        {subscription && <Button variant="outline" aria-expanded={panel === 'subscription'} aria-controls={`${panelId}-subscription`}
+          onClick={() => { setPanel(panel === 'subscription' ? undefined : 'subscription') }}>
+          {t('setupSubscription')}
+        </Button>}
+      </div>
+      {local && <div id={`${panelId}-local`} hidden={panel !== 'local'}>
+        {panel === 'local' && renderSlot('settings.models.setup-local', {})}
+      </div>}
+      {subscription && <div id={`${panelId}-subscription`} hidden={panel !== 'subscription'}
+        data-settings-search-row="subscription" tabIndex={-1}>
+        {panel === 'subscription' && renderSlot('settings.models.setup-subscription', {})}
+      </div>}
+    </div>
+  )
   if (state.status === 'error') {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const errorText = state.error ?? ''
     return (
       <div className={styles['section']}>
+        {setup}
         <p className={styles['error']}>{`${t('loadFailed')}: ${errorText}`}</p>
         <button type="button" className={styles['secondaryButton']} onClick={() => { void controller.load() }}>
           {t('retry')}
@@ -312,6 +389,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   if (!hasReadySnapshot && state.status !== 'ready') {
     return (
       <div className={styles['section']}>
+        {setup}
         <p className={styles['intro']}>{t('intro')}</p>
       </div>
     )
@@ -329,16 +407,10 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
     : { provider: savedRow.entry.provider, displayName: savedRow.entry.displayName }
 
   const configured = state.rows.filter(row => row.configured)
-  const configurable = state.rows.filter(row => state.namespaces.has(row.entry.settingsNs))
   const addable: AddableRow[] = state.rows.flatMap((row) => {
     const namespace = state.namespaces.get(row.entry.settingsNs)
     return namespace === undefined || row.configured ? [] : [{ row, namespace }]
   })
-  // Hand-declared routes live in the pi-ai namespace, which is also the only
-  // one whose schema names the protocols one may speak; without it mounted
-  // there is nothing to declare and the mode is not offered.
-  const piAi = state.namespaces.get('llm-pi-ai')
-  const protocols = protocolChoices(piAi, schema)
   const reasoningLevels = reasoningLevelChoices(piAi, schema)
   // Each mode is offered while its namespace is mounted and enabled while it
   // has something to offer; the card shows the chosen mode where both are
@@ -346,10 +418,8 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   // the shown mode or has been shown since the card opened — derived, so a
   // refresh that changes which modes are offered can never leave the card
   // without a panel.
-  const catalogOffered = configurable.length > 0
   const catalogEnabled = addable.length > 0
   const customOffered = piAi !== undefined
-  const customEnabled = protocols.length > 0
   const bothOffered = catalogOffered && customOffered
   const mode: AddMode = bothOffered ? addMode : customOffered ? 'custom' : 'catalog'
   const mounted = (candidate: AddMode): boolean => mode === candidate || visited.has(candidate)
@@ -375,6 +445,10 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
 
   return (
     <div className={styles['section']}>
+      {setup}
+      <div id={`${panelId}-api`} hidden={!addOpen || panel !== undefined}>
+        {addOpen ? renderAddProvider() : null}
+      </div>
       <p className={styles['intro']}>{t('intro')}</p>
       {!state.writable && state.status === 'ready' ? <p className={styles['notice']}>{t('readOnly')}</p> : null}
       {savedIdentity === undefined
@@ -489,7 +563,15 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
           )
         })}
       </ul>
-      <div className={styles['addBlock']}>
+      {addOpen ? null : <div className={styles['addBlock']}>{renderAddProvider()}</div>}
+      {renderSlot('settings.models.footer', {})}
+      {renderDeleteConfirmation()}
+    </div>
+  )
+
+  function renderAddProvider(): ReactNode {
+    return (
+      <>
         {addOpen
           ? (
             <div className={styles['addCard']}>
@@ -595,7 +677,9 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                   >
                     <CustomProviderCard
                       taken={state.rows.map(row => row.entry.provider)}
-                      protocols={protocols}
+                      protocols={directAPI && protocols.includes('openai-completions')
+                        ? ['openai-completions', ...protocols.filter(protocol => protocol !== 'openai-completions')]
+                        : protocols}
                       reasoningLevels={reasoningLevels}
                       revision={piAi.revision}
                       operations={operations}
@@ -627,6 +711,8 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                     const initial: AddMode = catalogEnabled ? 'catalog' : 'custom'
                     setSavedTarget(undefined)
                     setEditing(first === undefined ? undefined : targetOf(first.row))
+                    setPanel(undefined)
+                    setDirectAPI(false)
                     setAddMode(initial)
                     setVisited(new Set([initial]))
                     setAddOpen(true)
@@ -638,8 +724,12 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
               </div>
             )
             : null}
-      </div>
-      {renderSlot('settings.models.footer', {})}
+      </>
+    )
+  }
+
+  function renderDeleteConfirmation(): ReactNode {
+    return (
       <Modal
         open={deleteTarget !== undefined}
         onClose={closeDelete}
@@ -674,6 +764,6 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
       >
         {deleteFailure === undefined ? null : <p className={styles['error']}>{deleteFailure}</p>}
       </Modal>
-    </div>
-  )
+    )
+  }
 }

@@ -27,8 +27,32 @@ test('ships all bot dialogue and activity keys in eight product languages', () =
 
 test('derives a repeatable default avatar from a bot name', () => {
   const modules = { react: {}, '@janhq/jan-client-ui-primitives': {} }
-  const { appearanceFor } = loadChunk('client.bots.js', id => modules[id])
+  const { appearanceFor } = loadChunk('client.avatar.js', id => modules[id])
   assert.deepEqual(appearanceFor('  NOVA  '), appearanceFor('Nova'))
   assert.notDeepEqual(appearanceFor('Nova'), appearanceFor('Archivist'))
   assert.match(appearanceFor('Nova').color, /^#[0-9a-f]{6}$/)
+})
+
+test('offers the localized import action in the empty roster only when the destination exists', () => {
+  const button = Symbol('button')
+  const react = { createElement: (type, props, ...children) => ({ type, props, children }), useState: value => [value] }
+  const modules = { react, '@janhq/jan-client-ui-primitives': { Button: button } }
+  const { Roster } = loadChunk('client.bots.js', id => modules[id])
+  const { fr } = loadChunk('client.copy.js')
+  const opened = []
+  function findAction(node) {
+    if (Array.isArray(node)) return node.map(findAction).find(Boolean)
+    if (!node || typeof node !== 'object') return undefined
+    if (node.children.includes(fr.importBot)) return node
+    return node.children.map(findAction).find(Boolean)
+  }
+  const view = available => Roster({ t: key => fr[key], useRoster: pick => pick({ rows: [], failed: false }),
+    avatar: {},
+    useLanguage: pick => pick('fr'), useWorkspaces: pick => pick({ items: [] }), useImportAvailable: pick => pick(available),
+    openImport: () => opened.push('jan-import') })
+  assert.equal(findAction(view(false)), undefined)
+  const action = findAction(view(true))
+  assert.equal(action.children[0], 'Importer un bot')
+  action.props.onClick()
+  assert.deepEqual(opened, ['jan-import'])
 })

@@ -25,6 +25,7 @@ export function PluginRefreshToast({ usePluginManager, dismissNotice, t }: Plugi
     <Toast
       key={notice.seq}
       text={noticeText(notice, t)}
+      failure={notice.failure}
       icon={<IconWarningOutlineRegular />}
       onDone={dismissNotice}
     />

@@ -6,6 +6,7 @@
  * @module @janhq/jan-client-web/src/boot
  */
 import { Context } from '@janhq/cordis'
+import { registerFailureEnvironment } from '@janhq/jan-client-ui-primitives'
 import type {
   BootManifest, ClientModuleCreateOptions, ClientModuleSystem, JanWindow,
 } from '@janhq/jan-client-modules/client'
@@ -82,6 +83,10 @@ export class AppWebEntry {
       const prefetching = this.prefetchImmediateTier()
       const ctx = new Context()
       this.ctx = ctx
+      ctx.effect(() => registerFailureEnvironment(() => {
+        const connection = ctx.get('connection') as { state?: { getSnapshot(): string | undefined } } | undefined
+        return { version: this.manifest.release?.version, connection: connection?.state?.getSnapshot() }
+      }), 'web boot: failure environment facts')
       this.page.setTotal(this.manifest.plugins.length)
       await prefetching
       await bootClient({

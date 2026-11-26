@@ -27,6 +27,11 @@ describe('builtDeclarationPath', () => {
       .toBe('./packages/experimental/claude-code-mods/examples/*')
   })
 
+  it('keeps a source-shipped client entry without emitted declarations', () => {
+    expect(builtDeclarationPath('./packages/host/downloads/client.js'))
+      .toBe('./packages/host/downloads/client.js')
+  })
+
   it('rejects aliases without a supported source target', () => {
     expect(() => builtDeclarationPath('./packages/core/session/source/index.ts'))
       .toThrow('cannot map workspace source path')

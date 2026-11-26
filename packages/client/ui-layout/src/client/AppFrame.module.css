@@ -328,7 +328,7 @@
   visibility: hidden;
   transition:
     transform var(--ds-transition-duration-slow) var(--ds-ease-in-out),
-    visibility 0s linear var(--ds-transition-duration-slow);
+    visibility 0s var(--ds-transition-duration-slow);
 }
 
 .frame[data-sidebar-drawer][data-sidebar-instant] .sidebarCol {

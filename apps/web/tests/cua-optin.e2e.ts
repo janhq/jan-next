@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
 import { readProfileManifest } from '@janhq/jan-app-boot'
 import { SessionId } from '@janhq/jan-session'
-import type {} from '@janhq/jan-ptc-runtime'
-import type {} from '@janhq/jan-agent-preset-registry'
+import type { } from '@janhq/jan-ptc-runtime'
+import type { } from '@janhq/jan-agent-preset-registry'
 import { load } from 'js-yaml'
 import { expect, it, vi } from 'vitest'
 import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, webSnapshotMode, type WebScaffold } from './scaffold.ts'
@@ -38,7 +38,8 @@ it.skipIf(process.platform !== 'darwin').each([
       profile: { packages: script ? [{ dir: defaults, enabled: true }] : [] },
       harnessHome, extraOverlayPath: [
         fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)), patch,
-      ] })
+      ],
+    })
     const initialDefault = selectedDefault ?? 'standard'
     if (selectedDefault !== undefined) await scaffold.ctx.settings.update('agent-preset-registry', { selectedDefault })
     await scaffold.ctx.settings.update('ui-settings', { enabled: codingTools })
@@ -104,7 +105,7 @@ it.skipIf(process.platform !== 'darwin').each([
     expect(await setup.getByText('Computer use is enabled, but system permissions could not be checked. Open the plugin details to see the error and retry.', { exact: true }).count()).toBe(1)
     await compareOrRefreshGolden(fileURLToPath(new URL('./expected/cua-permissions/setup.expected.md', import.meta.url)),
       await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd), webSnapshotMode())
-    expect(await setup.getByRole('button', { name: 'Set to PTC', exact: true }).count()).toBe(0)
+    expect(await setup.getByRole('button', { name: 'Set to PTC mode', exact: true }).count()).toBe(0)
     expect(scaffold.ctx.agentPresets.defaultId).toBe(initialDefault)
     expect(selected()).toContain('@janhq/jan-cua-bundle')
     expect(profileManifest().dependencies).toEqual(dependencies)
@@ -116,8 +117,10 @@ it.skipIf(process.platform !== 'darwin').each([
     const description = await card.getByRole('button', { name: 'View Computer use', exact: true }).evaluate((button) => {
       const element = document.getElementById(button.getAttribute('aria-describedby')!)!
       const style = getComputedStyle(element)
-      return { lines: style.webkitLineClamp, height: element.getBoundingClientRect().height,
-        lineHeight: Number.parseFloat(style.lineHeight) }
+      return {
+        lines: style.webkitLineClamp, height: element.getBoundingClientRect().height,
+        lineHeight: Number.parseFloat(style.lineHeight),
+      }
     })
     expect(description.lines).toBe('1')
     expect(description.height).toBeLessThanOrEqual(description.lineHeight + 1)
@@ -215,10 +218,10 @@ it.skipIf(process.platform !== 'darwin').each([
       return
     }
     const defaultSetting = page.getByRole('group', { name: 'Default mode for new sessions', exact: true })
-    await expect.poll(() => defaultSetting.getByRole('button', { name: 'Set to PTC', exact: true }).isEnabled()).toBe(true)
+    await expect.poll(() => defaultSetting.getByRole('button', { name: 'Set to PTC mode', exact: true }).isEnabled()).toBe(true)
     await compareOrRefreshGolden(fileURLToPath(new URL('./expected/cua-permissions/default-mode.expected.md', import.meta.url)),
       await captureStableAria(page, '[role="group"][aria-label="Default mode for new sessions"]', scaffold.workspaceCwd), webSnapshotMode())
-    await defaultSetting.getByRole('button', { name: 'Set to PTC', exact: true }).click()
+    await defaultSetting.getByRole('button', { name: 'Set to PTC mode', exact: true }).click()
     await expect.poll(() => scaffold.ctx.agentPresets.defaultId).toBe('ptc')
     expect(scaffold.ctx.agentPresets.composedPreset(originalAgent.ctx)).toBe(initialDefault)
     expect(scaffold.ctx.agentPresets.composedPreset(freshDefault.ctx)).toBe(initialDefault)
@@ -241,7 +244,7 @@ it.skipIf(process.platform !== 'darwin').each([
     await toggle.and(page.locator('[aria-checked="true"]')).waitFor({ state: 'visible' })
     await setup.waitFor()
     expect(await setup.getByText('Computer use is enabled, but system permissions could not be checked. Open the plugin details to see the error and retry.', { exact: true }).count()).toBe(1)
-    expect(await setup.getByRole('button', { name: 'Set to PTC', exact: true }).count()).toBe(0)
+    expect(await setup.getByRole('button', { name: 'Set to PTC mode', exact: true }).count()).toBe(0)
     expect(await readFile(settingsPath, 'utf8')).toBe(confirmedSettings)
     expect(scaffold.ctx.settings.describe().find(row => row.ns === 'ui-settings')?.value).toMatchObject({ enabled: codingTools })
     await runtime.release(owner)

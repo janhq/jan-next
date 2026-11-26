@@ -18,7 +18,8 @@ window.__ModuleLoader__.load({
       + '.jan-tokamak-voice{position:relative;display:inline-flex;align-items:center;gap:6px}'
       + '.jan-tokamak-voice-options{width:24px;padding-inline:0}'
       + '@keyframes jan-tokamak-pulse{0%,100%{opacity:1}50%{opacity:.45}}'
-      + '.jan-tokamak-voice[data-live] .jan-tokamak-action{color:var(--dsw-alias-state-business-primary);animation:jan-tokamak-pulse 1.6s ease-in-out infinite}'
+      + '.jan-tokamak-voice[data-live] .jan-tokamak-action{color:var(--dsw-alias-state-business-primary);animation:jan-tokamak-pulse var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite}'
+      + '@media(prefers-reduced-motion:reduce){.jan-tokamak-voice[data-live] .jan-tokamak-action{animation:none}}'
 
     async function call(method, params) {
       const response = await fetch(new URL('jan-api/tokamak', document.baseURI), { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })

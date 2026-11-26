@@ -795,6 +795,72 @@ async fn a_thread_switch_parks_the_first_threads_cache_and_restores_it() {
     assert_eq!(saved_states(&dir), expected);
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn overlapping_threads_park_only_their_own_slot_contents() {
+    let Some(model) = model_path() else { return };
+    let (base, dir, server) = serve_with_state(&model, 4096).await;
+    let path = "/v1/chat/completions";
+    let turn = |thread: &str, word: &str, count: usize| {
+        serde_json::json!({
+            "model": MODEL_ID, "thread_id": thread, "id_slot": 0,
+            "max_tokens": 1, "messages": [{ "role": "user", "content": (word.to_owned() + " ").repeat(count) }],
+        })
+    };
+    let mut a = turn("thread-a", "alpha", 330);
+    a["stream"] = true.into();
+    a["stream_options"] = serde_json::json!({"include_usage": true});
+    a["return_progress"] = true.into();
+    a["max_tokens"] = 96.into();
+    a["ignore_eos"] = true.into();
+    let a = reqwest::Client::new()
+        .post(format!("{base}{path}"))
+        .bearer_auth(KEY)
+        .json(&a)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(a.status(), 200);
+
+    // A is still generating while both B and C try to take the same slot.
+    let b_body = turn("thread-b", "banana", 510).to_string();
+    let c_body = turn("thread-c", "cherry", 690).to_string();
+    let (a, (b_status, b), (c_status, c)) = tokio::join!(
+        a.text(),
+        post(&base, path, &b_body, Some(KEY)),
+        post(&base, path, &c_body, Some(KEY)),
+    );
+    assert_eq!(b_status, 200, "{b}");
+    assert_eq!(c_status, 200, "{c}");
+    let a = a.unwrap();
+    let a = a
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("data: ")
+                .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+        })
+        .find(|frame| frame["usage"]["prompt_tokens"].is_u64())
+        .unwrap();
+    let b: serde_json::Value = serde_json::from_str(&b).unwrap();
+    let c: serde_json::Value = serde_json::from_str(&c).unwrap();
+    server.save_resident_slots().await;
+
+    for (thread, completion, max_tokens) in
+        [("thread-a", a, 96), ("thread-b", b, 1), ("thread-c", c, 1)]
+    {
+        let key = state_key(MODEL_ID, thread);
+        let meta = std::fs::read(dir.join(format!("{key}.json")))
+            .unwrap_or_else(|err| panic!("missing saved cache for {thread}: {err}"));
+        let meta: serde_json::Value = serde_json::from_slice(&meta).unwrap();
+        let prompt_tokens = completion["usage"]["prompt_tokens"].as_u64().unwrap();
+        let cached = meta["n_tokens"].as_u64().unwrap();
+        assert!(
+            (prompt_tokens..=prompt_tokens + max_tokens).contains(&cached),
+            "{thread} saved {cached} cached tokens for its {prompt_tokens}-token prompt"
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 /// The condition the request names: a state saved by another model is refused
 /// rather than restored as plausible-looking nonsense.
 #[tokio::test(flavor = "multi_thread")]

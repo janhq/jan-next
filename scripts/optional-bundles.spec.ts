@@ -9,7 +9,7 @@ import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { readPluginMeta } from '../packages/boot/app-boot/src/package-meta.ts'
 import { bundlePatchPaths, composeEntries, initProfile, readProfileManifest } from '../packages/boot/app-boot/src/profile.ts'
-import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '../packages/util/official-bundles/src/bundles.ts'
+import { OPTIONAL_BUNDLES, PROFILE_BUNDLE_ADDITIONS, PROFILE_TEMPLATES } from '../packages/util/official-bundles/src/bundles.ts'
 import { readWorkspaceManifests } from './check-workspace-constraints.ts'
 import { createPluginProfile } from '../apps/desktop/src/project-manager.ts'
 
@@ -141,7 +141,9 @@ describe('optional bundles', () => {
   it('offers the forge panel and model worktree tool together with their separate worktree services', () => {
     const name = '@janhq/jan-experimental-forge-bundle'
     expect(OPTIONAL_BUNDLES).toContain(name)
-    for (const template of Object.values(PROFILE_TEMPLATES)) expect(template.bundles).not.toContain(name)
+    // Desktop selects Forge and adds it once to existing profiles, so a removal sticks; no other template does.
+    for (const [template, { bundles }] of Object.entries(PROFILE_TEMPLATES)) expect(bundles.includes(name)).toBe(template === 'desktop')
+    expect(PROFILE_BUNDLE_ADDITIONS['desktop']?.map(addition => addition.bundle)).toContain(name)
     const rows = flattenRows(composeEntries([...shipped, bundle(name).patches]))
     for (const moduleName of [
       '@janhq/jan-experimental-forge',

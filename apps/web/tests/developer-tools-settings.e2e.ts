@@ -1,7 +1,7 @@
 /** Coding Tools persist while Standard, Creator, and custom presets remain selectable when disabled. */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type {} from '@janhq/jan-api-session-controller'
+import type { } from '@janhq/jan-api-session-controller'
 import { chromium } from 'playwright'
 import { expect, it, onTestFinished } from 'vitest'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
@@ -45,7 +45,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await settings.getByRole('button', { name: 'New task default: Minimal mode', exact: true }).waitFor()
   await scaffold.ctx.settings.update('ui-settings', { enabled: false })
   await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
-  await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).waitFor()
+  await settings.getByRole('button', { name: 'New task default: Code mode', exact: true }).waitFor()
   await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('standard')
   await expect.poll(() => settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).isEnabled()).toBe(true)
   await settings.getByRole('button', { name: 'Close', exact: true }).last().click()
@@ -53,7 +53,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await expect.poll(livePresets).toEqual(['standard'])
 
   const menu = page.getByRole('menu')
-  await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
+  await page.getByRole('button', { name: 'Code mode', exact: true }).click()
   await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
   expect(await menu.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
   expect(await menu.getByRole('menuitem', { name: /^Custom mode/ }).count()).toBe(1)
@@ -86,13 +86,13 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await page.getByRole('button', { name: 'PTC mode', exact: true }).click()
   await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
   expect(await menu.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
-  await menu.getByRole('menuitem', { name: /^Standard mode/ }).click()
+  await menu.getByRole('menuitem', { name: /^Code mode/ }).click()
   await expect.poll(livePresets, { timeout: 15_000 }).toEqual(['standard'])
 
   await page.reload()
   // The sessionless preset chip is replaced when the saved Session is restored.
   await page.locator('[data-composer-input][contenteditable="true"]').waitFor()
-  await page.getByRole('button', { name: 'Standard mode', exact: true }).click()
+  await page.getByRole('button', { name: 'Code mode', exact: true }).click()
   await expect.poll(() => menu.getByRole('menuitem').count()).toBe(3)
   await page.keyboard.press('Escape')
   await openSettings(page, 'en')
@@ -100,7 +100,7 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('false')
   await settings.getByRole('button', { name: 'Agent presets', exact: true }).click()
   await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
-  await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).waitFor()
+  await settings.getByRole('button', { name: 'New task default: Code mode', exact: true }).waitFor()
   await settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).click()
   await settings.waitFor({ state: 'detached' })
   await expect.poll(livePresets, { timeout: 15_000 }).toContain('cordis')

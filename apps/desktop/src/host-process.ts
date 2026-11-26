@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { TokamakPlatformSession } from '@janhq/jan-tokamak-account'
 import { desktopNodeEnvironment } from './node-environment.ts'
 import { parsePluginOperationRecord, type PluginOperationRecord, type PluginOperationRunId } from '@janhq/jan-plugin-manager/diagnostic'
+import { parseNativeDownloadAction, type DesktopDownloads, type NativeDownloadPublisher, type NativeDownloadSubscription } from './native-downloads.ts'
 
 interface ReadyEvent {
   readonly type: 'ready'
@@ -193,6 +194,7 @@ export class DesktopHostProcess {
    * @param packageManager - Bundled pnpm entry and Node launcher directory, scoped to package operations.
    * @param onPlatformSession - Private credential updates for embedded Platform views.
    * @param onPluginOperation - Optional diagnostic sink; malformed records are ignored without failing the Host.
+   * @param downloads - Optional native download producer and action owner for this shell session.
    */
   constructor(
     private readonly node: string,
@@ -206,6 +208,7 @@ export class DesktopHostProcess {
 
     private readonly onPlatformSession?: (session: TokamakPlatformSession | null) => void,
     private readonly onPluginOperation?: (record: PluginOperationRecord) => void,
+    private readonly downloads?: DesktopDownloads,
   ) {}
 
   /**
@@ -232,7 +235,45 @@ export class DesktopHostProcess {
     child.stderr?.setEncoding('utf8')
     child.stderr?.on('data', (chunk: string) => { this.stderr = (this.stderr + chunk).slice(-MAX_HOST_DIAGNOSTIC_CHARS) })
     child.stdout?.pipe(process.stdout)
+    let downloadSubscription: NativeDownloadSubscription | undefined
+    const reportDownload: NativeDownloadPublisher = (event) => {
+      if (!child.connected || this.stopping || this.failureReported || downloadSubscription === undefined) return
+      child.send({ ...event, subscription: downloadSubscription }, (error) => {
+        if (error !== null && child.connected && !this.stopping) console.error('desktop: failed to report native download to Host', error)
+      })
+    }
+    const disconnectDownloads = (): void => {
+      downloadSubscription = undefined
+      this.downloads?.disconnect(reportDownload)
+    }
+    child.once('disconnect', disconnectDownloads)
     child.on('message', (message: unknown) => {
+      if (typeof message === 'object' && message !== null && 'type' in message) {
+        if (message.type === 'native-download-subscribe' || message.type === 'native-download-unsubscribe') {
+          if (!('subscription' in message) || !runIdSchema.safeParse(message.subscription).success) return
+          if (message.type === 'native-download-subscribe') {
+            if (this.stopping || this.failureReported || downloadSubscription === message.subscription) return
+            disconnectDownloads()
+            downloadSubscription = message.subscription as NativeDownloadSubscription
+            this.downloads?.connect(reportDownload)
+          } else if (downloadSubscription === message.subscription) disconnectDownloads()
+          return
+        }
+        if (message.type === 'native-download-action') {
+          const request = parseNativeDownloadAction(message)
+          const downloads = this.downloads
+          if (request === undefined || this.stopping || this.failureReported || request.subscription !== downloadSubscription) return
+          const reply = (ok: boolean): void => {
+            if (!child.connected || request.subscription !== downloadSubscription) return
+            child.send({ type: 'native-download-action-result', subscription: request.subscription, requestId: request.requestId, ok }, (error) => {
+              if (error !== null && child.connected && !this.stopping) console.error('desktop: failed to report native download action result', error)
+            })
+          }
+          if (downloads === undefined) reply(false)
+          else void downloads.act(reportDownload, request).then(() => { reply(true) }, () => { reply(false) })
+          return
+        }
+      }
       if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'plugin-operation') {
         const record = 'record' in message ? parsePluginOperationRecord(message.record) : undefined
         if (record !== undefined && record.runId === this.runId) {
@@ -266,6 +307,7 @@ export class DesktopHostProcess {
     child.once('error', (error) => { this.fail(error) })
     this.exitPromise = new Promise<void>((resolve) => {
       child.once('close', (code) => {
+        disconnectDownloads()
         const suffix = this.stderr.trim() === '' ? '' : `: ${this.stderr.trim()}`
         if (code !== 0 && code !== null) this.fail(new Error(`jan desktop host exited with ${String(code)}${suffix}`))
         else this.fail(new Error(`jan desktop host stopped${suffix}`))

@@ -25,6 +25,8 @@ import { snapshotJsonValue } from '@janhq/jan-util-values'
 import type { SessionEvent } from '@janhq/jan-session'
 import type { ReasoningEffortId } from '@janhq/jan-llm'
 import type { ToolRestriction } from '@janhq/jan-tools'
+import type { SandboxMode } from '@janhq/jan-sandbox'
+import { isSandboxMode } from './sandbox-mode.ts'
 
 declare module '@janhq/jan-session/types' {
   interface SessionEventMap {
@@ -42,8 +44,7 @@ declare module '@janhq/jan-session/types' {
 /**
  * The current descriptor format version, stamped into every appended
  * `subagent/descriptor` event and required verbatim by {@link foldSubagentDescriptor}.
- * Supporting another composition input is a deliberate version change, never
- * an implicit extra field.
+ * Optional additions require safe handling by readers that do not recognize them.
  */
 export const SUBAGENT_DESCRIPTOR_VERSION = 3
 
@@ -73,16 +74,20 @@ export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBas
   readonly mode: 'continuable'
   /** The initial delegation's short `description`, used for durable enumeration. */
   readonly label: string
+  /** Profile id selected at creation, independent of the current profile file. */
+  readonly agent?: string
   /** Resolved child `agentOptions.provider`, when one was declared. */
   readonly agentProvider?: string
   /** Resolved child `agentOptions.model`, when one was declared. */
   readonly agentModel?: string
   /** Resolved child `agentOptions.reasoningEffort`, when one was declared. */
   readonly agentReasoningEffort?: ReasoningEffortId
-  /** Per-child persona that shadows the deployment persona on resume. */
+  /** Literal per-child persona applied at start and on cold resume. */
   readonly persona?: string
-  /** Child tool scoping reapplied on resume. */
+  /** Child tool names and MCP server selectors reapplied to its composition on cold resume. */
   readonly toolFilter?: ToolRestriction
+  /** Effective sandbox ceiling fixed at delegation; absent when no profile cap was requested. */
+  readonly sandboxMode?: SandboxMode
 }
 
 /** The supported durable subagent identity and optional continuation composition. */
@@ -102,11 +107,13 @@ const DESCRIPTOR_BASE_KEYS = [
 const ONE_SHOT_DESCRIPTOR_KEYS = new Set(DESCRIPTOR_BASE_KEYS)
 const CONTINUABLE_DESCRIPTOR_KEYS = new Set([
   ...DESCRIPTOR_BASE_KEYS,
+  'agent',
   'agentProvider',
   'agentModel',
   'agentReasoningEffort',
   'persona',
   'toolFilter',
+  'sandboxMode',
 ])
 const TOOL_FILTER_KEYS = new Set(['allow', 'deny'])
 
@@ -201,6 +208,7 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
   if (typeof label !== 'string') {
     throw new Error('persisted subagent descriptor label must be a string')
   }
+  const agent = optionalString(value, 'agent')
   const agentProvider = optionalString(value, 'agentProvider')
   const agentModel = optionalString(value, 'agentModel')
   const agentReasoningEffort = optionalString(value, 'agentReasoningEffort') as ReasoningEffortId | undefined
@@ -208,16 +216,22 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
   const toolFilter = Object.hasOwn(value, 'toolFilter')
     ? parseToolFilter(value['toolFilter'])
     : undefined
+  const sandboxMode = optionalString(value, 'sandboxMode')
+  if (sandboxMode !== undefined && !isSandboxMode(sandboxMode)) {
+    throw new Error('persisted subagent descriptor sandboxMode must be a supported sandbox mode')
+  }
   return {
     version: SUBAGENT_DESCRIPTOR_VERSION,
     mode,
     provider,
     label,
+    ...agent !== undefined ? { agent } : {},
     ...agentProvider !== undefined ? { agentProvider } : {},
     ...agentModel !== undefined ? { agentModel } : {},
     ...agentReasoningEffort !== undefined ? { agentReasoningEffort } : {},
     ...persona !== undefined ? { persona } : {},
     ...toolFilter !== undefined ? { toolFilter } : {},
+    ...sandboxMode !== undefined ? { sandboxMode } : {},
   }
 }
 
@@ -235,11 +249,13 @@ export function snapshotSubagentDescriptor(
     mode: input.mode,
     provider: input.provider,
     label: input.label,
+    ...input.agent !== undefined ? { agent: input.agent } : {},
     ...input.agentProvider !== undefined ? { agentProvider: input.agentProvider } : {},
     ...input.agentModel !== undefined ? { agentModel: input.agentModel } : {},
     ...input.agentReasoningEffort !== undefined ? { agentReasoningEffort: input.agentReasoningEffort } : {},
     ...input.persona !== undefined ? { persona: input.persona } : {},
     ...input.toolFilter !== undefined ? { toolFilter: input.toolFilter } : {},
+    ...input.sandboxMode !== undefined ? { sandboxMode: input.sandboxMode } : {},
   }
   const snapshot = snapshotJsonValue(candidate)
   if (snapshot === undefined) {

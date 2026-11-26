@@ -35,7 +35,7 @@ A message that mentions other chats is followed immediately by a `## Mentioned c
 
 ### Reading a mentioned chat
 
-`read_chat` takes `session_id` and optional `query` (case-insensitive substring), `before` (message number cursor), and `limit` (1 to 50, default 20). It returns the chat's visible user and assistant text, newest last, numbered `#<index>`, with a `before=<n>` cursor line when older messages remain. Compact checkpoints stand in for the messages they summarize; tool traffic, reasoning, and injected context are left out. Each message is cut at 2,000 characters and a page at 24 KiB of text. A chat is readable only when a recorded `session-reference` message of the calling chat names it, so a session id the model writes itself grants nothing.
+`read_chat` takes `session_id` and optional `query` (case-insensitive substring), `before` (message number cursor), and `limit` (1 to 50, default 20). It returns the chat's visible user and assistant text, newest last, numbered `#<index>`. When older messages remain, the response gives the next call's arguments, preserving the chat, history mode, and query. Compact checkpoints stand in for the messages they summarize; tool traffic, reasoning, and injected context are left out. Each message is cut at 2,000 characters and a page at 24 KiB of text. Omit `session_id` to search the current chat's recorded history. For another chat, pass `include_history: true` to include original messages replaced by checkpoints. Another chat is readable only when a recorded `session-reference` message of the calling chat names it.
 
 ### Finding sessions to reference
 

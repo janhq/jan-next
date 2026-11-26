@@ -5,6 +5,9 @@
 - id: headless-runner
   disabled: true
 
+- id: session-title-llm
+  disabled: true
+
 - id: agent-loop
   config:
     agents:

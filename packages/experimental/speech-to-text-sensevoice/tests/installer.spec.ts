@@ -8,6 +8,7 @@ import { Context } from '@janhq/cordis'
 import LocalSubprocess from '@janhq/jan-subprocess-local'
 import SpeechToText from '@janhq/jan-experimental-speech-to-text'
 import { afterEach, expect, it, vi } from 'vitest'
+import type { DownloadHandle, DownloadStore } from '@janhq/jan-downloads/types'
 import type { SpeechPreparationState } from '@janhq/jan-experimental-speech-to-text/types'
 import { inspectRuntime, prepareRuntime, type Asset } from '../src/runtime.ts'
 import { Config } from '../src/config.ts'
@@ -200,4 +201,36 @@ it('reports the final source when every download fails', async () => {
     download: { source: 'https://hf-mirror.com', reason: 'http', status: 503 },
   })
   expect(fetcher.mock.calls.filter(([, init]) => init?.method !== 'HEAD')).toHaveLength(2)
+})
+
+it('starts one row per fetched asset across mirrors and none for verified caches', async () => {
+  const { root, fetcher } = await fixture(), ctx = new Context()
+  const update = vi.fn<DownloadHandle['update']>()
+  const finish = vi.fn<DownloadHandle['finish']>()
+  const start = vi.fn<DownloadStore['start']>(() => ({ update, finish }))
+  ctx.provide('downloads', { start })
+  try {
+    const config = Config({ dataRoot: root })
+    const signal = new AbortController().signal
+    const vad = join(root, 'models', 'silero', 'silero_vad.onnx')
+    fetcher.mockImplementation(async (url, init) => {
+      const mirror = url.startsWith('https://hf-mirror.com/')
+      if (init?.method === 'HEAD') {
+        if (mirror && url.endsWith('/silero_vad.onnx')) {
+          await mkdir(join(root, 'models', 'silero'), { recursive: true })
+          await writeFile(vad, bytes)
+        }
+        return new Response(null, { status: 405 })
+      }
+      return mirror ? new Response(bytes) : new Response(null, { status: 503 })
+    })
+    await prepareRuntime(ctx, config, signal)
+    expect(start.mock.calls.map(([item]) => [item.kind, item.name, item.actions?.cancel])).toEqual([
+      ['voice', 'model.int8.onnx', undefined], ['voice', 'tokens.txt', undefined],
+    ])
+    expect(finish.mock.calls).toEqual([['done'], ['done']])
+    expect(await readFile(vad)).toEqual(bytes)
+    await prepareRuntime(ctx, config, signal)
+    expect(start).toHaveBeenCalledTimes(2)
+  } finally { await ctx.fiber.dispose() }
 })

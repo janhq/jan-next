@@ -30,7 +30,7 @@ test('a Claude Code session keeps a split assistant message together and pairs e
   assert.equal(events.filter(event => event.type === 'user/message').length, 1, 'meta records are not user turns')
 })
 
-test('an OMP session pairs toolCall blocks with toolResult messages and keeps reasoning', () => {
+test('a short OMP session keeps the tool call, result and reasoning in active context', () => {
   const body = lines([
     { type: 'session', id: 's', timestamp: '2026-11-18T08:58:37.378Z', cwd: 'C:\\proj' },
     { type: 'message', id: 'm1', timestamp: '2026-11-18T08:58:57.000Z', message: { role: 'user', content: [{ type: 'text', text: 'start it' }], timestamp: 1794992336292 } },
@@ -41,7 +41,13 @@ test('an OMP session pairs toolCall blocks with toolResult messages and keeps re
   const session = ompSession(body, 'o1')
   assert.equal(session.thread.title, 'start it')
   assert.equal(session.thread.model.id, 'claude-opus')
-  assert.equal(toolPairs(validate(session)), 1)
+  const events = validate(session)
+  assert.equal(toolPairs(events), 1)
+  assert.equal(events.some(event => event.type === 'compaction/summary'), false)
+  assert.deepEqual(events.find(event => event.type === 'tool/result').data.message.content, [{ type: 'text', text: 'clean' }])
+
+  const long = validate(ompSession(body.replace('"text":"clean"', `"text":"${'x'.repeat(50_000)}"`), 'o2'))
+  assert.ok(long.some(event => event.type === 'compaction/summary'), 'large tool output still triggers a checkpoint')
 })
 
 test('a Codex rollout skips injected context, pairs call_id outputs and keeps summaries only', () => {

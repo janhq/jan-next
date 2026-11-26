@@ -18,6 +18,8 @@ export interface SessionListInjected {
   readonly hooks: {
     /** States by URL; the renderer binds it as `useStates`. */
     readonly states: HostObservable<ChangeRequestStates>
+    /** Whether rows show their forge icons, from the General settings switch; bound as `useSidebarStatus`. */
+    readonly sidebarStatus: HostObservable<boolean>
   }
 }
 

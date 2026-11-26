@@ -63,7 +63,9 @@ export interface ContextBreakdownProjection {
   systemTokens: number
   /** Heuristic tokens of the newest request envelope's tool schemas; 0 before any request. */
   toolsTokens: number
-  /** Heuristic tokens of every other visible surface node, including superseded system prompts. */
+  /** Heuristic tokens of retained skill catalogs and loaded instructions, absent when none are attributed. */
+  skillTokens?: number | undefined
+  /** Heuristic tokens of remaining visible nodes, including superseded system prompts. */
   messageTokens: number
 }
 

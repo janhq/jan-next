@@ -11,7 +11,7 @@ import type { JsonValue } from '@janhq/jan-util-values'
 import type { SessionProjectionSnapshot } from '@janhq/jan-api-session-controller/client'
 import {
   type ArchivedFilter,
-  deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
+  deriveFlat, deriveGroups, deriveSearchResults, deriveWorking, orderByRecency, owningGroupKey, owningParentFolder,
   pinCurrentBlank, reconcileManualOrder, sessionMemberIds, visibleSessionIds, workspaceLabel, UNGROUPED_KEY,
 } from '../src/client/tree.ts'
 import { createWorkspaceViewStore } from '../src/client/stores.ts'
@@ -638,6 +638,31 @@ describe('deriveFlat', () => {
   })
 })
 
+describe('deriveWorking', () => {
+  it('lists running and subagent-running visible Sessions newest first, without waiting, blank, or archived ones', () => {
+    const sessions: SessionListState = {
+      ...list(
+        summary('old-run', 1), summary('new-run', 5), summary('parent', 3), summary('idle', 9), summary('asking', 8),
+        { ...summary('blank-run', 7), blank: true }, summary('archived-run', 6), { ...summary('child', 2), origin: 'subagent' },
+      ),
+      projectionsBySession: { [sid('parent')]: catalog('child') },
+    }
+    const statuses: SessionStatusSnapshot = new Map([
+      [sid('old-run'), status(undefined, { running: true })],
+      [sid('new-run'), status(undefined, { running: true })],
+      [sid('blank-run'), status(undefined, { running: true })],
+      [sid('archived-run'), status(undefined, { running: true })],
+      [sid('child'), status(undefined, { running: true })],
+      [sid('asking'), status({ key: 'question:1', kind: 'question', sessionId: sid('asking') } as SessionPendingInteraction)],
+    ])
+
+    const rows = deriveWorking(sessions, rowState({ archived: ['archived-run'], archivedFilter: 'show' }), statuses)
+
+    expect(rows.map(row => row.id)).toEqual([sid('new-run'), sid('parent'), sid('old-run')])
+    expect(rows.find(row => row.id === sid('parent'))?.runningSubagentCount).toBe(1)
+  })
+})
+
 describe('deriveSearchResults archive filtering', () => {
   it('archived sessions never match — not by title and not via a backend content hit', () => {
     const hit = summary('hit', 2)
@@ -741,6 +766,7 @@ describe('deriveSearchResults', () => {
           runningSubagentCount: 0,
           pendingInteraction: 'plan-review',
           completed: false,
+          failed: false,
           archived: false,
           snippet: 'title session body excerpt',
         },
@@ -751,6 +777,7 @@ describe('deriveSearchResults', () => {
           running: false,
           runningSubagentCount: 0,
           completed: false,
+          failed: false,
           archived: false,
         },
         {
@@ -760,6 +787,7 @@ describe('deriveSearchResults', () => {
           running: false,
           runningSubagentCount: 0,
           completed: false,
+          failed: false,
           archived: false,
           snippet: 'body needle excerpt',
         },

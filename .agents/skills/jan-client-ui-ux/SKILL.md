@@ -25,6 +25,7 @@ These checks apply even to small changes; optional documentation does not make i
 - **Color or opacity:** inspect light and dark themes, including affected foreground/background and state combinations.
 - **Layout, spacing, typography or sizing:** inspect a constrained container and long or wrapping content; check both sides of a changed breakpoint, alignment, clipping and access to actions.
 - **Interaction:** exercise the changed path and affected focus, disabled, loading, error, expanded and overlapping states. Check only states the change can affect, not every possible combination.
+- **Motion:** anything that appears, disappears, expands or reacts to hover/press animates with the [motion tokens](../../../docs/ui-motion.md): enter with `--ds-ease-out`, exit faster with `--ds-ease-in`, state changes with `--ds-ease-in-out`, the duration tier chosen by role, not by number. Watch it in the running app (a row that pops in or a toast that vanishes without motion is a defect), and with reduced motion on.
 - **Shared components or global styles:** trace affected consumers and inspect distinct assembled layouts and states; one isolated example cannot establish coverage.
 
 If a required scene is unavailable, state what was not checked, why and how it can be verified; a labeled production-component fixture can provide partial evidence, not an actual-page pass. Do not claim verification complete while required checks remain missing. Run the original applicable tests; source inspection and passing tests alone do not establish the rendered result.
@@ -62,7 +63,7 @@ Extend existing components, containers and interactions when the capability fits
 
 ## Visual foundation
 
-- Take values from the [Jan design contract](../../../plugins/jan-theme/design/DESIGN.md) first, then tokens and complete treatments from the target page or nearest established sibling, before adding literals; Plugins is the usual full-page reference. A sibling's literal is not a precedent: motion and color literals fail `style-literals.client.spec.ts`.
+- Take values from the [Jan design contract](../../../plugins/jan-theme/design/DESIGN.md) first, then tokens and complete treatments from the target page or nearest established sibling, before adding literals; Plugins is the usual full-page reference. A sibling's literal is not a precedent. Motion and color literals fail the ui-theme style gates, in CSS Modules and in plugin CSS written in JavaScript alike; fix the declaration, never regenerate or extend the gate's expected file to make it pass unless the exception has a reason a reviewer accepts.
 - Verify colors in light and dark themes; keep ink/background pairs readable, especially dimmed text.
 - Feature CSS you add or change uses **font weight ≤500**; emphasize with size or ink. ui-theme markdown typography tokens are the exception.
 - Use theme typography roles, then the page's scale, then a comparable page's size/spacing ratios. Do not invent a size for a single element. Peers share sizes; keep the scale small (13px is the established row/detail size).

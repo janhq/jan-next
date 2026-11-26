@@ -102,7 +102,9 @@ describe('web e2e: plan review takeover round trip', () => {
     expect(await card.getByText('View full plan', { exact: true }).isVisible()).toBe(true)
     expect(await card.getByRole('list').count()).toBe(0)
 
-    const selectedRow = page.locator('[role="treeitem"][aria-selected="true"]')
+    // The awaiting-review row is also held in Working; the project tree's row carries the full detail.
+    const sessionTreeRow = '[role="tree"][aria-label="Sessions"] [role="treeitem"][aria-selected="true"]'
+    const selectedRow = page.locator(sessionTreeRow)
     await expect.poll(() => selectedRow.locator('[data-state="warning"]').count(), { timeout: 10_000 }).toBe(1)
     await expect.poll(() => selectedRow.getByText('Plan awaiting review', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     await expect.poll(() => selectedRow.getByText('Plan review', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
@@ -111,7 +113,7 @@ describe('web e2e: plan review takeover round trip', () => {
     if (MODE !== 'record') {
       const snapshot = await captureStableAria(page, '[data-plan-review-key]', scaffold.workspaceCwd)
       await compareOrRefreshGolden(REVIEW_EXPECTED, snapshot, MODE)
-      const sidebar = await captureStableAria(page, '[role="treeitem"][aria-selected="true"]', scaffold.workspaceCwd)
+      const sidebar = await captureStableAria(page, sessionTreeRow, scaffold.workspaceCwd)
       await compareOrRefreshGolden(SIDEBAR_EXPECTED, sidebar, MODE)
     }
 

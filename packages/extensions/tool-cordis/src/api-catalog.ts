@@ -296,6 +296,95 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'agentProfiles',
+    summary: 'Reads, watches and writes agent profile files, records which profile each chat selected, and adds the selected profile\'s instructions to the chat\'s system prompt.',
+    description: 'Reads, watches and writes agent profile files, records which profile each chat selected, and adds the selected profile\'s instructions to the chat\'s system prompt. Tool limits are applied by scoped settings through AgentProfiles.toolLimitsFor.',
+    methods: [
+      {
+        signature: '@Remote async list(request: AgentProfileListRequest): Promise<AgentProfileList>',
+        description: 'List the profiles one project sees: its own folders first, then the global ones.',
+        parameters: [{ name: 'request', description: 'the project, or none for global profiles only.' }],
+        returns: 'profiles in precedence order, shadowed ones marked, and files that could not be read.',
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) async *watchChanges(signal: AbortSignal): AsyncIterable<number>',
+        description: 'Follow catalog changes: a file change in any folder, a write, or a chat\'s selection change.',
+        parameters: [{ name: 'signal', description: 'stream lifetime.' }],
+        returns: 'one tick per coalesced batch of changes since the previous read.',
+      },
+      {
+        signature: '@Remote async get(request: AgentProfileGetRequest): Promise<AgentProfile>',
+        description: 'Read one profile with its instructions.',
+        parameters: [{ name: 'request', description: 'the id, the project it is resolved in, and optionally the exact listed file.' }],
+        returns: 'the precedence winner, or the named file.',
+      },
+      {
+        signature: '@Remote async save(request: AgentProfileSaveRequest): Promise<AgentProfileSummary>',
+        description: 'Write a Jan profile file, replacing a Jan file with the same id in that folder.',
+        parameters: [{ name: 'request', description: 'the scope, its project, and the fields.' }],
+        returns: 'the profile as listed after the write.',
+      },
+      {
+        signature: '@Remote async deleteProfile(request: AgentProfileRemoveRequest): Promise<void>',
+        description: 'Delete a Jan profile file.',
+        parameters: [{ name: 'request', description: 'the scope, its project, and the id.' }],
+      },
+      {
+        signature: '@Remote async select(request: AgentProfileSelectRequest): Promise<void>',
+        description: 'Select a profile for a chat at a turn boundary and switch the chat to the profile\'s model. The selection is logged; the model is applied on every call, the event only when the id changes.',
+        parameters: [{ name: 'request', description: 'the chat and the profile id, or null for plain Jan.' }],
+      },
+      {
+        signature: 'snapshot(workspaceId?: WorkspaceId): AgentProfileList',
+        description: 'Profiles one project sees, from memory; empty for folders not read yet.',
+        parameters: [{ name: 'workspaceId', description: 'the project, or none for global profiles only.' }],
+        returns: 'the same result {@link list} returns once every folder is read.',
+      },
+      {
+        signature: 'profileForSession(session: Session): string | null',
+        description: 'Profile id a chat selected.',
+        parameters: [{ name: 'session', description: 'the chat\'s session.' }],
+        returns: 'the id, or null when the chat runs as plain Jan.',
+      },
+      {
+        signature: 'hasSelection(session: Session): boolean',
+        description: 'Whether a chat ever recorded a profile choice, plain Jan included.',
+        parameters: [{ name: 'session', description: 'the chat\'s session.' }],
+        returns: 'true once any selection was logged, so a project default must leave the chat alone.',
+      },
+      {
+        signature: 'projectOf(agent: Agent): WorkspaceId | undefined',
+        description: 'Project a chat belongs to.',
+        parameters: [{ name: 'agent', description: 'the chat.' }],
+        returns: 'the project listing the chat, else the innermost project folder holding its folder.',
+      },
+      {
+        signature: 'selectedProfile(agent: Agent): AgentProfile | undefined',
+        description: 'Profile a live chat selected, pinned as first read for the chat\'s lifetime. Later edits to the file reach the chat only when the profile is picked again or the chat is reopened, so a hot edit never rewrites a running chat\'s system prompt or tool set and its cached prompt prefix stays reusable.',
+        parameters: [{ name: 'agent', description: 'the chat.' }],
+        returns: 'the profile, or undefined for plain Jan or a selection no visible profile matches.',
+      },
+      {
+        signature: 'toolLimitsFor(agent: Agent): AgentToolLimits',
+        description: 'Tool limits of a chat\'s selected profile.',
+        parameters: [{ name: 'agent', description: 'the chat.' }],
+        returns: 'Jan tool names and `mcp:<server>` entries; an empty deny list without a profile.',
+      },
+      {
+        signature: 'toolRestrictionOf(profile: AgentProfileSummary): ToolRestriction | undefined',
+        description: 'Tool restriction for a delegated agent running one profile. The child resolves `mcp:<server>` against its composed tools.',
+        parameters: [{ name: 'profile', description: 'the profile.' }],
+        returns: 'the restriction, or undefined when the profile limits no tool.',
+      },
+      {
+        signature: 'async resolveModel(model: AgentProfileModel): Promise<ResolvedProfileModel | undefined>',
+        description: 'Resolve a profile\'s model against the current model catalog. A `provider/model` route must list the model; a bare id takes the first provider listing it; a Claude alias takes the highest `claude-<alias>-<version>` match, comparing from `claude-` on so route prefixes do not decide, with the earlier provider winning a tie.',
+        parameters: [{ name: 'model', description: 'the profile\'s model.' }],
+        returns: 'the route, or undefined when no available model matches.',
+      },
+    ],
+  },
+  {
     key: 'agents',
     summary: 'Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain.',
     description: 'Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain. Agent *creation* is provided by whichever plugin implements the AgentFactory (`@janhq/jan-agent-loop`), registered via setFactory.\n\nInitiator methods provide same-process causal attribution only. Ambient presence is neither liveness proof nor authorization; subjects and owners remain explicit, as does identity at worker, process, persistence, and wire boundaries. Returned Promise boundaries drain during teardown, except a nested lineage that starts an owning-fiber unload is excluded from its own drain.',
@@ -609,6 +698,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'btwRuntime',
+    summary: 'A tool-free side exchange sharing the main request\'s conversation prefix.',
+    description: 'A tool-free side exchange sharing the main request\'s conversation prefix.',
+    methods: [
+      {
+        signature: '@Remote({ mode: \'stream\' }) async *ask(agent: Agent, question: string, signal: AbortSignal): AsyncIterable<string>',
+        description: 'Stream a side answer without starting or joining the main agent\'s turn.',
+        parameters: [{ name: 'agent', description: 'Chat whose model and conversation prefix the answer uses.' }, { name: 'question', description: 'Temporary user question appended to the snapshot only.' }, { name: 'signal', description: 'Cancellation for this side request only.' }],
+        returns: 'Answer text deltas, in provider order.',
+      },
+    ],
+  },
+  {
     key: 'claudeCodeMods',
     summary: 'The bridge service: loaded mods, their hooks, and the harness listeners that raise their events.',
     description: 'The bridge service: loaded mods, their hooks, and the harness listeners that raise their events. Mods join through ClaudeCodeMods.add, which defineMod calls when a mod plugin mounts. The Remote methods let a Client draw each session\'s band above the prompt and press its buttons.',
@@ -737,6 +839,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'agent', description: 'idle agent whose durable history should be compacted.' }, { name: 'signal', description: 'cancellation scoped to this compaction request.' }, { name: 'sourceCommandId', description: 'initiating command identity for a manual compaction.' }],
         returns: 'the compaction result, or `null` when no safe useful range exists.',
         throws: ['{@link ManualCompactionError} for expected busy, agent-cancellation, changed-span, summarization/shrink, commit-stage, or persistence failures; an aborted request preserves its exact abort reason. Failed attempts remain visible in the log.'],
+      },
+      {
+        signature: 'autoCompactThreshold(_agent: CompactionAgentContext, _signal: AbortSignal): Promise<number | undefined>',
+        description: 'Request pressure at which automatic compaction would run for the agent\'s routed request. Read-only: a display such as `/context` uses it to show the remaining room.',
+        parameters: [{ name: '_agent', description: 'agent whose current route selects the policy.' }, { name: '_signal', description: 'cancels any capacity lookup.' }],
+        returns: 'threshold tokens, or undefined when this engine has no automatic threshold for the route.',
       },
       {
         signature: 'abstract compactRegion( start: SessionSeq, end: SessionSeq, agent: CompactionAgentContext, signal?: AbortSignal, ): Promise<CompactionResult>',
@@ -868,6 +976,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'contextUsage',
+    summary: 'Reads one chat\'s context composition on demand; it adds nothing to the chat.',
+    description: 'Reads one chat\'s context composition on demand; it adds nothing to the chat.',
+    methods: [
+      {
+        signature: '@Remote(\'breakdown\') async breakdown(agent: Agent, signal: AbortSignal): Promise<ContextUsage>',
+        description: 'Break the chat\'s next request down into categories and named entries.',
+        parameters: [{ name: 'agent', description: 'chat to measure.' }, { name: 'signal', description: 'cancels prompt assembly and capacity lookups.' }],
+        returns: 'categories that sum to the occupancy the composer meter shows, plus capacity and threshold.',
+      },
+    ],
+  },
+  {
     key: 'cotTranslation',
     summary: 'Optional reasoning translation delegates Session-bound storage to the translator.',
     description: 'Optional reasoning translation delegates Session-bound storage to the translator.',
@@ -892,9 +1013,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Abstract credential service over two key spaces that answer two questions.\n\nA CredentialRef answers "what is behind this environment-variable name": the provider-managed store first, then ambient fallbacks such as the process environment and `.env` files. One seam-wide rule binds that half: an empty stored value is absent everywhere — `resolve` skips it, `describe` reports it unconfigured — so a blank never masquerades as a configured secret.\n\nA CredentialKey answers "what credential does this plugin hold for this id". Nothing can layer here — an authorization grant has no environment to be read from — so presence of the record is the whole fact, and modifyRecord is the only write path because a correct write depends on the current value (a token refresh is read-decide-replace under one lock).',
     methods: [
       {
-        signature: 'abstract resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined>',
-        description: 'Resolve one reference to its current value. Resolution is per call: consumers re-resolve at each operation and must not cache across operations — that per-operation read is what makes a changed credential reach the next operation without a restart.',
-        parameters: [{ name: 'ref', description: 'the reference to resolve.' }],
+        signature: 'abstract resolve(ref: CredentialRef, options?: { dereference?: boolean }): Promise<ResolvedCredential | undefined>',
+        description: 'Resolve one reference to its current value. Resolution is per call: consumers re-resolve at each operation and must not cache across operations - that per-operation read is what makes a changed credential reach the next operation without a restart.',
+        parameters: [{ name: 'ref', description: 'the reference to resolve.' }, { name: 'options', description: 'set `dereference: false` to read the raw value, for example when preserving a saved password-manager reference.' }],
         returns: 'the value and its source, or `undefined` while unconfigured.',
       },
       {
@@ -1070,6 +1191,52 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'downloads',
+    summary: 'Session-local Host service used by download producers.',
+    description: 'Session-local Host service used by download producers.',
+    methods: [
+      {
+        signature: 'start(initial: DownloadStart): DownloadHandle',
+        description: 'Report a new transfer attempt.',
+        parameters: [{ name: 'initial', description: 'Transfer identity and optional actions.' }],
+        returns: 'Attempt-specific reporting handle.',
+      },
+      {
+        signature: 'snapshot(): DownloadSnapshot',
+        description: 'Read the transfer list and badge state.',
+        parameters: [],
+        returns: 'Current immutable transfer list and badge state.',
+      },
+      {
+        signature: 'subscribe(listener: () => void): () => void',
+        description: 'Observe changes to the transfer list.',
+        parameters: [{ name: 'listener', description: 'Called on changes; byte-only changes are coalesced.' }],
+        returns: 'Removal callback.',
+      },
+      {
+        signature: 'markSeen(sequence: number): void',
+        description: 'Clear the unseen dot for finishes up to a sequence.',
+        parameters: [{ name: 'sequence', description: 'Acknowledge finishes seen up to this sequence.' }],
+      },
+      {
+        signature: 'clearFinished(): void',
+        description: 'Remove terminal rows, never an active or paused transfer.',
+        parameters: [],
+      },
+      {
+        signature: 'act(id: string, action: DownloadAction): Promise<void>',
+        description: 'Run one producer action that the transfer currently offers.',
+        parameters: [{ name: 'id', description: 'Transfer to operate on.' }, { name: 'action', description: 'Current producer callback to run.' }],
+        returns: 'Settles when the producer callback settles.',
+      },
+      {
+        signature: 'dispose(): void',
+        description: 'Withdraw subscriptions and scheduled publications.',
+        parameters: [],
+      },
+    ],
+  },
+  {
     key: 'fileReferences',
     summary: 'Host capability for cancellable file-reference discovery.',
     description: 'Host capability for cancellable file-reference discovery.',
@@ -1197,6 +1364,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['on cancellation, provider disposal, or expiry of this read\'s own `fetchTimeoutMs` deadline.'],
       },
       {
+        signature: 'async fetchAssets(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>',
+        description: 'Read assets for the displayed head without affecting polling.',
+        parameters: [{ name: 'ref', description: 'change request served by a registered provider.' }, { name: 'headSha', description: 'commit whose assets are requested.' }, { name: 'signal', description: 'cancellation of the detail view.' }],
+        returns: 'previews, artifacts, and any failures isolated to their sources.',
+      },
+      {
+        signature: 'async fetchFailureContext(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>',
+        description: 'Read diagnostics for an explicit failure action without affecting polling.',
+        parameters: [{ name: 'ref', description: 'change request served by a registered provider.' }, { name: 'headSha', description: 'commit whose diagnostics are requested.' }, { name: 'selection', description: 'which checks or reviews to enrich.' }, { name: 'signal', description: 'cancellation of the action.' }],
+        returns: 'diagnostics, or a failure if the change request cannot be read.',
+      },
+      {
         signature: 'async diff(ref: ChangeRequestRef, signal: AbortSignal): Promise<string | ForgeFailure>',
         description: 'Read the changes of a change request as its host computes them.',
         parameters: [{ name: 'ref', description: 'change request served by a registered provider.' }, { name: 'signal', description: 'cancellation of the read.' }],
@@ -1311,6 +1490,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'session', description: 'Session retaining the visible binding.' }, { name: 'url', description: 'binding URL.' }, { name: 'headSha', description: 'commit displayed by the card; a different head rejects the result.' }, { name: 'signal', description: 'cancellation when the list closes.' }],
         returns: 'the complete snapshot at the displayed head.',
         throws: ['`forgePanel/not-bound` for an invisible binding, `forgePanel/stale-head` for a moved head, or `forgePanel/checks-failed` when the provider cannot complete the read.'],
+      },
+      {
+        signature: '@Remote async changeRequestAssets(session: Session, url: string, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>',
+        description: 'Read previews and artifacts for a visible change request at the displayed head.',
+        parameters: [{ name: 'session', description: 'Session retaining the visible binding.' }, { name: 'url', description: 'binding URL.' }, { name: 'headSha', description: 'commit displayed by the card.' }, { name: 'signal', description: 'cancellation when the card closes.' }],
+        returns: 'previews, artifacts, and any individual read failures.',
+      },
+      {
+        signature: '@Remote async changeRequestFailureContext(session: Session, url: string, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext>',
+        description: 'Read diagnostics for a fix-context action of a visible change request.',
+        parameters: [{ name: 'session', description: 'Session retaining the visible binding.' }, { name: 'url', description: 'binding URL.' }, { name: 'headSha', description: 'commit displayed by the card.' }, { name: 'selection', description: 'which failures to include.' }, { name: 'signal', description: 'cancellation when the card closes.' }],
+        returns: 'head-verified failure context, or throws if status could not be read.',
       },
       {
         signature: '@Remote async changeRequestDiff(session: Session, url: string, signal: AbortSignal): Promise<ForgeChangeRequestDiff>',
@@ -1653,6 +1844,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Serialize a caller-owned mutation with all automatic reload paths.',
         parameters: [{ name: 'operation', description: 'Work that must not overlap module or configuration replacement.' }],
         returns: 'The operation result after its asynchronous work completes.',
+      },
+      {
+        signature: 'setGate(gate: ReloadGate): () => void',
+        description: 'Install the gate that decides whether changed Host modules apply now; one gate at a time. An external module change no longer exits the process while a gate is installed: `hmr/restart-required` reports it.',
+        parameters: [{ name: 'gate', description: 'Holds changes while it returns a reason.' }],
+        returns: 'Disposer removing the gate and applying anything it held.',
+      },
+      {
+        signature: 'applyHeld(options?: { readonly respectGate?: boolean; readonly beforeApply?: () => void }): Promise<boolean>',
+        description: 'Apply held changes in the reload queue.',
+        parameters: [{ name: 'options', description: 'By default bypass the gate. With `respectGate`, recheck it after entering the queue. `beforeApply` is called synchronously just before a held batch is attempted, even if every refresh then fails.' }],
+        returns: 'Whether any changes applied successfully.',
       },
       {
         signature: 'async watchConfig(filename: string, refresh: () => Promise<void>): Promise<() => Promise<void>>',
@@ -2296,6 +2499,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read configured and registered servers and retained runtime records without mounting or probing.',
         parameters: [],
         returns: 'configured entries in document order, then registered entries, then retained records for removed entries.',
+      },
+      {
+        signature: 'ownsConnection(name: string, connection: Fiber): boolean',
+        description: 'Check the exact registration, since scoped clients may reuse a managed server\'s name.',
+        parameters: [{ name: 'name', description: 'configured or registered server name.' }, { name: 'connection', description: 'MCP client fiber that registered the tool.' }],
+        returns: 'whether that connection is owned by this manager.',
       },
       {
         signature: 'register(name: string, entry: McpServerRegistration): () => void',
@@ -2972,13 +3181,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: 'async createSessionTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create an idempotently named task with a checkpoint for a mounted Session inbox.',
-        parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Session with a registered inbox, stable task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
+        parameters: [{ name: 'request', description: 'Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Session with a registered inbox, stable task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
         returns: 'The stored task without its private payload.',
       },
       {
         signature: 'async createPluginTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly owner: string; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create a plugin-owned task, reusing its original task identity when the owner retries the same key.',
-        parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Registered owner, stable owner-local task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
+        parameters: [{ name: 'request', description: 'Task title, prompt, timing, and initial activity, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Registered owner, stable owner-local task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
         returns: 'The stored task without its private payload.',
       },
       {
@@ -2990,13 +3199,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: '@Remote(\'create\') async remoteCreate(request: ScheduleCreateRequest, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create one task with a Host-generated identity for a human Remote caller.',
-        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, and delivery destination.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
+        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, delivery destination, and initial activity.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
         returns: 'The stored task. Cancellation does not roll back an in-flight write.',
       },
       {
         signature: 'async create( request: ScheduleCreateRequest, actorSessionId?: SessionId, signal?: AbortSignal, ): Promise<ScheduleCatalogEntry>',
         description: 'Create one task and record the acting Agent\'s Session as involved; the Remote form omits that Session.\n\nThe record is built from the clock reading taken before the request joins the serialized queue. A `session` target must exist and must not belong to a delegated child; a `new_once` target reserves its Session identity.',
-        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, and delivery destination.' }, { name: 'actorSessionId', description: 'Session of the acting Agent, or undefined for a human caller.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
+        parameters: [{ name: 'request', description: 'Title, prompt, recurrence, delivery destination, and initial activity.' }, { name: 'actorSessionId', description: 'Session of the acting Agent, or undefined for a human caller.' }, { name: 'signal', description: 'Cancellation checked before the durable write begins, including after FIFO waits.' }],
         returns: 'The stored task. Cancellation does not roll back an in-flight write.',
       },
       {
@@ -3063,6 +3272,85 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'scopedSettings',
+    summary: 'Stores project defaults for new chats and scoped tool and skill switches.',
+    description: 'Stores project defaults for new chats and scoped tool and skill switches. Merges each live agent\'s profile limits with the tool switches and hides switched-off skills from every lookup.',
+    methods: [
+      {
+        signature: 'projectOf(sessionId: SessionId, cwd?: string): WorkspaceId | undefined',
+        description: 'Find the project a chat belongs to.',
+        parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'cwd', description: 'the chat\'s folder, for a chat the project list has not indexed yet.' }],
+        returns: 'the project id, or undefined outside any project.',
+      },
+      {
+        signature: 'projectAt(path: string): WorkspaceId | undefined',
+        description: 'Find the project whose folder holds a path; the innermost one wins when projects nest.',
+        parameters: [{ name: 'path', description: 'absolute folder or file.' }],
+        returns: 'the project id, or undefined outside every project folder.',
+      },
+      {
+        signature: 'resolveModel(sessionId: SessionId, workspaceHint?: WorkspaceId): ScopedModel | undefined',
+        description: 'Model a chat starts on from its project. A model the chat picked itself is recorded in its log and wins.',
+        parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'workspaceHint', description: 'the project a chat being created joins.' }],
+        returns: 'the project\'s model, or undefined to use the global default.',
+      },
+      {
+        signature: 'async resolveMode(workspaceId: WorkspaceId | undefined): Promise<string | undefined>',
+        description: 'Mode (agent preset) a new chat in a project starts in.',
+        parameters: [{ name: 'workspaceId', description: 'the project, or undefined outside any project.' }],
+        returns: 'the project mode if the preset exists, works, and meets the Coding Tools preference; otherwise undefined.',
+      },
+      {
+        signature: 'resolveAgent(workspaceId: WorkspaceId | undefined): string | undefined',
+        description: 'Default agent profile stored for a project\'s new chats.',
+        parameters: [{ name: 'workspaceId', description: 'the project, or undefined outside any project.' }],
+        returns: 'the stored profile id, without checking whether the profile is still available.',
+      },
+      {
+        signature: 'resolveToolsDisabled(sessionId: SessionId, cwd?: string): string[]',
+        description: 'Tool switches in effect for a chat: any scope that switches a tool off switches it off for every narrower one.',
+        parameters: [{ name: 'sessionId', description: 'the chat.' }, { name: 'cwd', description: 'the chat\'s folder, for a chat the project list has not indexed yet.' }],
+        returns: 'sorted tool names and `mcp:<server>` entries.',
+      },
+      {
+        signature: '@Remote async skillCatalog(address: ScopeAddress): Promise<ScopedSkillCatalog>',
+        description: 'List skill candidates grouped by folder, with the selected scope\'s switches and inherited switches. A global listing reads skill folders outside any project.',
+        parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }],
+        returns: 'folders with their skills.',
+      },
+      {
+        signature: 'async skillCatalogForProject(workspaceId: WorkspaceId, agent: Agent): Promise<ScopedSkillCatalog>',
+        description: 'List skill folders visible to a chat\'s preset with the project\'s switches, not the chat\'s own switches.',
+        parameters: [{ name: 'workspaceId', description: 'the project whose switches the chat is editing.' }, { name: 'agent', description: 'the calling chat, which supplies the registry scope and working directory.' }],
+        returns: 'folders with their project and wider switch state.',
+      },
+      {
+        signature: '@Remote read(address: ScopeAddress): ScopedValues',
+        description: 'Read the values one scope stores, without inherited ones.',
+        parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }],
+        returns: 'the stored values; an empty object when the scope stores nothing.',
+      },
+      {
+        signature: '@Remote async write(request: ScopedWriteRequest): Promise<ScopedValues>',
+        description: 'Replace or remove values of one scope.',
+        parameters: [{ name: 'request', description: 'the scope, its id, and the keys to set; `null` or an empty list returns a key to the wider scope.' }],
+        returns: 'the values the scope stores after the write.',
+      },
+      {
+        signature: '@Remote async setSwitch(address: ScopeAddress, key: ScopeListKey, entry: string, off: boolean): Promise<ScopedValues>',
+        description: 'Switch one entry of one list off or back on, reading the list inside the write queue so concurrent switches from the editor and the agent never drop each other.',
+        parameters: [{ name: 'address', description: 'the scope and, for a project or chat, its id.' }, { name: 'key', description: 'the list.' }, { name: 'entry', description: 'a tool name, `mcp:<server>`, skill name or absolute skill folder.' }, { name: 'off', description: 'true adds the entry, false removes it.' }],
+        returns: 'the values the scope stores after the write.',
+      },
+      {
+        signature: '@Remote async toolCatalog(): Promise<ScopedToolCatalog>',
+        description: 'List what a scope can switch off: the global tools plus those the default preset registers inside a new chat\'s Agent scope, which is where shell, file and web tools live.',
+        parameters: [],
+        returns: 'tool names outside MCP and the MCP servers that registered tools.',
+      },
+    ],
+  },
+  {
     key: 'sessionController',
     summary: 'Host service backing the generated `ctx.remote.session` namespace.',
     description: 'Host service backing the generated `ctx.remote.session` namespace.',
@@ -3088,7 +3376,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: '@Remote(\'create\') create(request: SessionCreateRequest): Promise<SessionCreateValue>',
         description: 'Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.',
-        parameters: [{ name: 'request', description: 'optional blank Session to reuse, location, and Agent preset.' }],
+        parameters: [{ name: 'request', description: 'optional blank Session to reuse, location, preset and agent profile.' }],
         returns: 'the created or reused Session identity and its preset when configured.',
       },
       {
@@ -3789,6 +4077,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the disposer that unregisters the contribution.',
       },
       {
+        signature: 'registerOverrides(resolve: (execution: ToolExecution) => Readonly<Record<string, string | undefined>> | undefined): () => void',
+        description: 'Register trusted subprocess environment overrides for matching shell calls. `JAN_*` keys are ignored: the managed snapshot from collect owns that namespace.',
+        parameters: [{ name: 'resolve', description: 'returns ordinary environment entries, or `undefined` values that remove inherited ones, for a call; returns undefined to leave it unchanged.' }],
+        returns: 'the disposer, also invoked automatically with the registering plugin.',
+      },
+      {
+        signature: 'collectOverrides(execution: ToolExecution): Record<string, string | undefined> | undefined',
+        description: 'Collect ordinary environment overrides without changing the managed `JAN_*` snapshot.',
+        parameters: [{ name: 'execution', description: 'the current tool execution.' }],
+        returns: 'a caller-owned overlay without `JAN_*` keys, or undefined if no resolver supplied one.',
+      },
+      {
         signature: 'collect(execution: ToolExecution): JanEnvironment',
         description: 'Build the trusted `JAN_*` snapshot for one shell tool execution.',
         parameters: [{ name: 'execution', description: 'the current tool execution.' }],
@@ -3820,10 +4120,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the exact Cordis effect disposer, preserving composite teardown order and invalidating caches.',
       },
       {
+        signature: 'registerFilter(filter: SkillFilter): () => void',
+        description: 'Register a visibility filter applied to every filtered lookup, in every scope, until the returned disposer runs. Registration and disposal invalidate cached catalogs.',
+        parameters: [{ name: 'filter', description: 'borrowed filter with a registry-unique name.' }],
+        returns: 'the Cordis effect disposer that removes this filter.',
+      },
+      {
         signature: 'async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>',
         description: 'List invocation-neutral skill summaries for a workspace. Consumers apply model or user invocation policy at their operational boundary. Lookup options and provider candidates are readonly same-process values borrowed throughout discovery.',
         parameters: [{ name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects project roots, and `signal` cancels discovery.' }],
-        returns: 'all sorted winning summaries.',
+        returns: 'sorted winning summaries, or all candidates for an unfiltered listing.',
       },
       {
         signature: 'async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot>',
@@ -4545,15 +4851,21 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Concrete tool registry and scoped executor dispatcher.',
     methods: [
       {
+        signature: 'ownerOf(definition: ToolDefinition): string | undefined',
+        description: 'Name the installed package (or, outside the loader, the plugin) that registered a definition.',
+        parameters: [{ name: 'definition', description: 'a definition read from {@link ToolsService.definitions}.' }],
+        returns: 'the registering package name, or undefined for a definition this registry did not record.',
+      },
+      {
         signature: 'register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void',
         description: 'Register globally or in the calling agent scope. Scoped tools shadow globals; duplicates within one layer and the reserved `run_code` name fail.',
         parameters: [{ name: 'definition', description: 'tool schema, execution, and optional finalization/presentation callbacks.' }, { name: 'options', description: 'optional step-time activation condition.' }],
         returns: 'the exact disposer that unregisters the tool.',
       },
       {
-        signature: 'restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void',
-        description: 'Restrict global tools for the calling agent scope. Empty filters, unknown names, scope-local names, and reserved transport names fail. Restrictions intersect; scoped registrations remain visible.',
-        parameters: [{ name: 'filter', description: 'global-tool mask: `allow` (keep only) and/or `deny` (remove).' }, { name: 'options', description: 'permit names whose optional providers have not registered yet.' }],
+        signature: 'restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean; includeScopeLocal?: boolean } = {}): () => void',
+        description: 'Restrict tools for the calling scope. Masks intersect; the viewing scope\'s own registrations are exempt unless a mask opts in to include them.',
+        parameters: [{ name: 'filter', description: '`allow` keeps only named tools, `deny` removes named tools.' }, { name: 'options', description: '`allowUnregistered` permits names that have not registered yet; `includeScopeLocal` also masks the viewing scope\'s own registrations.' }],
         returns: 'the exact disposer that lifts this restriction.',
       },
       {
@@ -4579,6 +4891,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read the visible capability definitions for descriptions and program bindings.',
         parameters: [{ name: 'scope', description: 'viewing Agent or preset; omitted selects the global view.' }, { name: 'toolSet', description: 'step admission; omit only to inspect registered definitions.' }],
         returns: 'definitions after scoped shadowing and restrictions, limited to the step\'s admission when given.',
+      },
+      {
+        signature: 'registeredDefinitions(scope?: ScopeKey): readonly ToolDefinition[]',
+        description: 'Inspect registered tools before restrictions and step admission, for computing masks.',
+        parameters: [{ name: 'scope', description: 'viewing Agent or preset; omitted selects global registrations.' }],
+        returns: 'definitions after scoped shadowing, including currently masked definitions.',
       },
       {
         signature: 'schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[]',
@@ -5239,6 +5557,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'sessionId', description: 'the session whose composition changed.' }, { name: 'agentPreset', description: 'the preset recorded by the committed selection.' }],
   },
   {
+    name: 'agent-profiles/changed',
+    mode: 'emit',
+    signature: '\'agent-profiles/changed\'(): void',
+    summary: 'A profile file was added, changed or removed, or a chat\'s selected profile changed.',
+    description: 'A profile file was added, changed or removed, or a chat\'s selected profile changed. Readers re-list profiles and re-apply tool limits.',
+    parameters: [],
+  },
+  {
     name: 'agent/assistant-stream',
     mode: 'emit',
     signature: '\'agent/assistant-stream\'(this: Scoped<Agent>, payload: { agent: Agent; frame: AssistantStreamFrame }): void',
@@ -5559,6 +5885,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.change - fresh current projection or clear tombstone.' }],
   },
   {
+    name: 'hmr/applied',
+    mode: 'emit',
+    signature: '\'hmr/applied\'(modules: readonly string[]): void',
+    summary: 'Changed modules and include files were applied.',
+    description: 'Changed modules and include files were applied.',
+    parameters: [{ name: 'modules', description: 'Canonical file URLs that were applied.' }],
+  },
+  {
     name: 'hmr/change',
     mode: 'emit',
     signature: '\'hmr/change\'(url: string): void',
@@ -5567,12 +5901,28 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'url', description: 'Canonical file URL.' }],
   },
   {
+    name: 'hmr/held',
+    mode: 'emit',
+    signature: '\'hmr/held\'(held: HeldReload): void',
+    summary: 'The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.',
+    description: 'The reload gate held changed modules; they apply through `applyHeld` or a later open dispatch.',
+    parameters: [{ name: 'held', description: 'Every held module and include file, and the gate\'s reason.' }],
+  },
+  {
     name: 'hmr/reload',
     mode: 'emit',
     signature: '\'hmr/reload\'(reloads: Map<Plugin, Reload>): void',
     summary: 'Module replacements have finished loading.',
     description: 'Module replacements have finished loading.',
     parameters: [{ name: 'reloads', description: 'Replaced plugins and their module locations.' }],
+  },
+  {
+    name: 'hmr/restart-required',
+    mode: 'emit',
+    signature: '\'hmr/restart-required\'(reason: string, modules: readonly string[]): void',
+    summary: 'A change can load only after the process restarts.',
+    description: 'A change can load only after the process restarts. Without a reload gate, an external module change also exits.',
+    parameters: [{ name: 'reason', description: '`external-module` for a change in the process entry point\'s static graph, or the profile reconciliation reason.' }, { name: 'modules', description: 'Canonical file URLs that wait for the restart.' }],
   },
   {
     name: 'llm-pi-ai/prompt-progress',
@@ -5693,6 +6043,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Restore a reminder\'s Session through its embedding\'s owning controller.',
     description: 'Restore a reminder\'s Session through its embedding\'s owning controller. Call next() to use the Web Session controller.',
     parameters: [{ name: 'sessionId', description: 'Original Session receiving the reminder.' }],
+  },
+  {
+    name: 'scoped-settings/changed',
+    mode: 'emit',
+    signature: '\'scoped-settings/changed\'(address: ScopeAddress): void',
+    summary: 'One scope\'s stored values changed.',
+    description: 'One scope\'s stored values changed.',
+    parameters: [{ name: 'address', description: 'the scope that was written.' }],
   },
   {
     name: 'session-telemetry/record',
@@ -6096,7 +6454,67 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentPresetRow',
-    declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly broken?: string;\n}',
+    declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly showInModePicker?: boolean;\n    readonly broken?: string;\n}',
+  },
+  {
+    name: 'AgentProfile',
+    declaration: 'export interface AgentProfile extends AgentProfileSummary {\n    readonly instructions: string;\n}',
+  },
+  {
+    name: 'AgentProfileDraft',
+    declaration: 'export interface AgentProfileDraft {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools?: readonly string[];\n    readonly sandbox?: AgentProfileSandbox;\n    readonly instructions: string;\n}',
+  },
+  {
+    name: 'AgentProfileGetRequest',
+    declaration: 'export interface AgentProfileGetRequest {\n    readonly id: string;\n    readonly workspaceId?: WorkspaceId;\n    readonly path?: string;\n}',
+  },
+  {
+    name: 'AgentProfileList',
+    declaration: 'export interface AgentProfileList {\n    readonly profiles: readonly AgentProfileSummary[];\n    readonly problems: readonly AgentProfileProblem[];\n}',
+  },
+  {
+    name: 'AgentProfileListRequest',
+    declaration: 'export interface AgentProfileListRequest {\n    readonly workspaceId?: WorkspaceId;\n}',
+  },
+  {
+    name: 'AgentProfileModel',
+    declaration: 'export interface AgentProfileModel {\n    readonly provider?: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
+    name: 'AgentProfileProblem',
+    declaration: 'export interface AgentProfileProblem {\n    readonly scope: AgentProfileScope;\n    readonly path: string;\n    readonly reason: string;\n}',
+  },
+  {
+    name: 'AgentProfileRemoveRequest',
+    declaration: 'export interface AgentProfileRemoveRequest {\n    readonly scope: AgentProfileScope;\n    readonly workspaceId?: WorkspaceId;\n    readonly id: string;\n    readonly path?: string;\n}',
+  },
+  {
+    name: 'AgentProfileSandbox',
+    declaration: 'export type AgentProfileSandbox = \'read-only\' | \'workspace-write\' | \'danger-full-access\';',
+  },
+  {
+    name: 'AgentProfileSaveRequest',
+    declaration: 'export interface AgentProfileSaveRequest {\n    readonly scope: AgentProfileScope;\n    readonly workspaceId?: WorkspaceId;\n    readonly profile: AgentProfileDraft;\n    readonly path?: string;\n}',
+  },
+  {
+    name: 'AgentProfileScope',
+    declaration: 'export type AgentProfileScope = \'project\' | \'global\';',
+  },
+  {
+    name: 'AgentProfileSelectRequest',
+    declaration: 'export interface AgentProfileSelectRequest {\n    readonly sessionId: SessionId;\n    readonly id: string | null;\n    readonly keepModel?: boolean;\n}',
+  },
+  {
+    name: 'AgentProfileSource',
+    declaration: 'export type AgentProfileSource = \'jan\' | \'agents\' | \'claude\' | \'opencode\' | \'codex\' | \'builtin\';',
+  },
+  {
+    name: 'AgentProfileSummary',
+    declaration: 'export interface AgentProfileSummary {\n    readonly id: string;\n    readonly description: string;\n    readonly use: AgentProfileUse;\n    readonly scope: AgentProfileScope;\n    readonly source: AgentProfileSource;\n    readonly path: string;\n    readonly writable: boolean;\n    readonly model?: AgentProfileModel;\n    readonly tools?: readonly string[];\n    readonly disallowedTools: readonly string[];\n    readonly sandbox?: AgentProfileSandbox;\n    readonly warnings: readonly string[];\n    readonly shadowedBy?: string;\n}',
+  },
+  {
+    name: 'AgentProfileUse',
+    declaration: 'export type AgentProfileUse = \'primary\' | \'subagent\' | \'all\';',
   },
   {
     name: 'AgentResolver',
@@ -6113,6 +6531,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentStatus',
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
+  },
+  {
+    name: 'AgentToolLimits',
+    declaration: 'export interface AgentToolLimits {\n    readonly allow?: readonly string[];\n    readonly deny: readonly string[];\n}',
   },
   {
     name: 'AnalyticsPreset',
@@ -6355,8 +6777,32 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    vision: boolean;\n    fit?: ModelFit;\n}',
   },
   {
+    name: 'ChangeRequestArtifact',
+    declaration: 'export interface ChangeRequestArtifact {\n    readonly name: string;\n    readonly sizeBytes: number;\n    readonly expiresAt: string;\n    readonly expired: boolean;\n    readonly url: string;\n}',
+  },
+  {
+    name: 'ChangeRequestAssets',
+    declaration: 'export interface ChangeRequestAssets {\n    readonly previews: readonly ChangeRequestPreview[];\n    readonly artifacts: readonly ChangeRequestArtifact[];\n    readonly failures: readonly ForgeFailure[];\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'ChangeRequestBlockingReview',
+    declaration: 'export interface ChangeRequestBlockingReview {\n    readonly author: string | null;\n    readonly body: string;\n    readonly comments: readonly {\n        readonly path: string;\n        readonly line: number | null;\n        readonly body: string;\n    }[];\n}',
+  },
+  {
     name: 'ChangeRequestCheck',
-    declaration: 'export interface ChangeRequestCheck {\n    readonly name: string;\n    readonly state: CheckState;\n    readonly url: string | null;\n    readonly workflow: string | null;\n    readonly startedAt: string | null;\n    readonly completedAt: string | null;\n}',
+    declaration: 'export interface ChangeRequestCheck {\n    readonly name: string;\n    readonly state: CheckState;\n    readonly url: string | null;\n    readonly workflow: string | null;\n    readonly startedAt: string | null;\n    readonly completedAt: string | null;\n    readonly output?: {\n        readonly title: string | null;\n        readonly summary: string | null;\n    };\n}',
+  },
+  {
+    name: 'ChangeRequestFailureContext',
+    declaration: 'export interface ChangeRequestFailureContext {\n    readonly snapshot: ChangeRequestSnapshot;\n    readonly logs: readonly ChangeRequestFailureLog[];\n    readonly reviews: readonly ChangeRequestBlockingReview[];\n    readonly failures: readonly ForgeFailure[];\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'ChangeRequestFailureLog',
+    declaration: 'export interface ChangeRequestFailureLog {\n    readonly url: string;\n    readonly step: string;\n    readonly text: string;\n    readonly truncated: boolean;\n}',
+  },
+  {
+    name: 'ChangeRequestFailureSelection',
+    declaration: 'export type ChangeRequestFailureSelection = {\n    readonly kind: \'all\';\n} | {\n    readonly kind: \'review\';\n} | {\n    readonly kind: \'check\';\n    readonly name: string;\n    readonly workflow: string | null;\n    readonly url: string | null;\n};',
   },
   {
     name: 'ChangeRequestKey',
@@ -6365,6 +6811,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ChangeRequestListener',
     declaration: 'export type ChangeRequestListener = (update: ChangeRequestUpdate) => void;',
+  },
+  {
+    name: 'ChangeRequestPreview',
+    declaration: 'export interface ChangeRequestPreview {\n    readonly label: string;\n    readonly url: string;\n}',
   },
   {
     name: 'ChangeRequestRef',
@@ -6575,8 +7025,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ContentBlockType = keyof ContentBlockMap;',
   },
   {
+    name: 'ContextCategoryId',
+    declaration: 'export type ContextCategoryId = typeof CONTEXT_CATEGORIES[number];',
+  },
+  {
     name: 'ContextPressureProjection',
     declaration: 'export interface ContextPressureProjection {\n    pressureTokens?: number;\n    projectedTokens?: number;\n    contextWindow?: number;\n}',
+  },
+  {
+    name: 'ContextUsage',
+    declaration: 'export interface ContextUsage {\n    readonly model?: {\n        readonly provider: string;\n        readonly model: string;\n    };\n    readonly contextWindow?: number;\n    readonly usedTokens: number;\n    readonly usedSource: \'provider\' | \'estimate\';\n    readonly autoCompactTokens?: number;\n    readonly categories: readonly ContextUsageCategory[];\n}',
+  },
+  {
+    name: 'ContextUsageCategory',
+    declaration: 'export interface ContextUsageCategory {\n    readonly id: ContextCategoryId;\n    readonly tokens: number;\n    readonly entries: readonly ContextUsageEntry[];\n}',
+  },
+  {
+    name: 'ContextUsageEntry',
+    declaration: 'export interface ContextUsageEntry {\n    readonly label: string;\n    readonly tokens: number;\n}',
   },
   {
     name: 'ContinuableCreateRequest',
@@ -6855,6 +7321,46 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface DomainTableSpec<K extends string = string, V = unknown> {\n    readonly valueSchema: ZodType<V>;\n    readonly __key?: K;\n}',
   },
   {
+    name: 'DownloadAction',
+    declaration: 'export type DownloadAction = \'cancel\' | \'pause\' | \'resume\' | \'retry\' | \'open\' | \'reveal\';',
+  },
+  {
+    name: 'DownloadActions',
+    declaration: 'export type DownloadActions = Partial<Record<DownloadAction, () => void | Promise<void>>>;',
+  },
+  {
+    name: 'DownloadActiveState',
+    declaration: 'export type DownloadActiveState = \'queued\' | \'downloading\' | \'paused\';',
+  },
+  {
+    name: 'DownloadFinishState',
+    declaration: 'export type DownloadFinishState = \'done\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'DownloadHandle',
+    declaration: 'export interface DownloadHandle {\n    update(update: DownloadUpdate): void;\n    finish(state: DownloadFinishState, error?: string, actions?: DownloadActions): void;\n}',
+  },
+  {
+    name: 'DownloadItem',
+    declaration: 'export interface DownloadItem {\n    readonly id: string;\n    readonly kind: DownloadKind;\n    readonly name: string;\n    readonly state: DownloadActiveState | DownloadFinishState;\n    readonly actions: readonly DownloadAction[];\n    readonly receivedBytes?: number;\n    readonly totalBytes?: number;\n    readonly percent?: number;\n    readonly bytesPerSecond?: number;\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'DownloadKind',
+    declaration: 'export type DownloadKind = \'model\' | \'update\' | \'backend\' | \'plugin\' | \'voice\' | \'file\';',
+  },
+  {
+    name: 'DownloadSnapshot',
+    declaration: 'export interface DownloadSnapshot {\n    readonly items: readonly DownloadItem[];\n    readonly active: {\n        readonly count: number;\n        readonly percent: number | null;\n    };\n    readonly unseen: {\n        readonly sequence: number;\n        readonly failed: boolean;\n    } | null;\n}',
+  },
+  {
+    name: 'DownloadStart',
+    declaration: 'export interface DownloadStart {\n    readonly id?: string;\n    readonly kind: DownloadKind;\n    readonly name: string;\n    readonly totalBytes?: number;\n    readonly actions?: DownloadActions;\n}',
+  },
+  {
+    name: 'DownloadUpdate',
+    declaration: 'export interface DownloadUpdate {\n    readonly state?: DownloadActiveState;\n    readonly receivedBytes?: number;\n    readonly totalBytes?: number;\n    readonly percent?: number;\n    readonly bytesPerSecond?: number;\n    readonly actions?: DownloadActions;\n}',
+  },
+  {
     name: 'DynamicCordisPackage',
     declaration: 'export interface DynamicCordisPackage {\n    pluginId: CordisDynamicPluginId;\n    packageId: CordisDynamicPackageId;\n    pluginRunId: CordisDynamicPluginRunId;\n    name: string;\n}',
   },
@@ -7040,7 +7546,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ForgeProvider',
-    declaration: 'export interface ForgeProvider {\n    readonly forge: string;\n    submitReview?(ref: ChangeRequestRef, request: ForgeReviewRequest, signal: AbortSignal): Promise<ForgeReviewResult>;\n    repositoryFromRemote(url: string): ForgeRepository | undefined;\n    changeRequestFromUrl(url: string): ChangeRequestRef | undefined;\n    changeRequestUrl(ref: ChangeRequestRef): string;\n    fetch(refs: readonly ChangeRequestRef[], signal: AbortSignal): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>>;\n    fetchChecks?(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>;\n    findByHead(repository: ForgeRepository, branch: string, signal: AbortSignal): Promise<readonly ChangeRequestRef[]>;\n    readiness(host: string, signal: AbortSignal): Promise<ForgeReadiness>;\n    markReady(ref: ChangeRequestRef, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    merge(ref: ChangeRequestRef, request: MergeRequest, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    diff(ref: ChangeRequestRef, signal: AbortSignal): Promise<string | ForgeFailure>;\n    fileText(ref: ChangeRequestRef, commit: string, path: string, signal: AbortSignal): Promise<string | ForgeFailure>;\n    fileUrl(ref: ChangeRequestRef, commit: string, path: string): string;\n}',
+    declaration: 'export interface ForgeProvider {\n    readonly forge: string;\n    submitReview?(ref: ChangeRequestRef, request: ForgeReviewRequest, signal: AbortSignal): Promise<ForgeReviewResult>;\n    repositoryFromRemote(url: string): ForgeRepository | undefined;\n    changeRequestFromUrl(url: string): ChangeRequestRef | undefined;\n    changeRequestUrl(ref: ChangeRequestRef): string;\n    fetch(refs: readonly ChangeRequestRef[], signal: AbortSignal): Promise<ReadonlyMap<ChangeRequestKey, ChangeRequestSnapshot | ForgeFailure>>;\n    fetchChecks?(ref: ChangeRequestRef, signal: AbortSignal): Promise<ChangeRequestSnapshot | ForgeFailure>;\n    fetchAssets?(ref: ChangeRequestRef, headSha: string, signal: AbortSignal): Promise<ChangeRequestAssets>;\n    fetchFailureContext?(ref: ChangeRequestRef, headSha: string, selection: ChangeRequestFailureSelection, signal: AbortSignal): Promise<ChangeRequestFailureContext | ForgeFailure>;\n    findByHead(repository: ForgeRepository, branch: string, signal: AbortSignal): Promise<readonly ChangeRequestRef[]>;\n    readiness(host: string, signal: AbortSignal): Promise<ForgeReadiness>;\n    markReady(ref: ChangeRequestRef, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    merge(ref: ChangeRequestRef, request: MergeRequest, signal: AbortSignal): Promise<ForgeActionFailure | undefined>;\n    diff(ref: ChangeRequestRef, signal: AbortSignal): Promise<string | ForgeFailure>;\n    fileText(ref: ChangeRequestRef, commit: string, path: string, signal: AbortSigna /* …truncated — full shape in source */',
   },
   {
     name: 'ForgeReadiness',
@@ -7156,7 +7662,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GenerateOptions',
-    declaration: 'export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: RequestMessage[];\n    system?: string;\n    tools?: ToolSchema[];\n    toolHistory?: ToolHistory;\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: Purpose;\n}',
+    declaration: 'export interface GenerateOptions<Purpose extends string = LlmRequestPurpose> {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: RequestMessage[];\n    system?: string;\n    tools?: ToolSchema[];\n    toolChoice?: \'none\';\n    toolHistory?: ToolHistory;\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: Purpose;\n    ephemeral?: true;\n}',
   },
   {
     name: 'GenericCallView',
@@ -7209,6 +7715,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'GrantRecord',
     declaration: 'export interface GrantRecord {\n    readonly kind: \'grant\';\n    readonly payload: unknown;\n}',
+  },
+  {
+    name: 'HeldReload',
+    declaration: 'export interface HeldReload {\n    readonly modules: readonly string[];\n    readonly reason: string;\n}',
   },
   {
     name: 'HookBudget',
@@ -7293,6 +7803,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'IndexInjectionPlacement',
     declaration: 'export type IndexInjectionPlacement = \'head\' | \'body\';',
+  },
+  {
+    name: 'InheritedOff',
+    declaration: 'export type InheritedOff = \'global\' | \'project\';',
   },
   {
     name: 'InspectOptions',
@@ -7456,7 +7970,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'JobView',
-    declaration: 'export interface JobView {\n    readonly id: JobId;\n    readonly kind: string;\n    readonly label: string;\n    readonly owner?: SessionId;\n    readonly outputLimitBytes?: number;\n    readonly status: JobStatus;\n    readonly progress?: string;\n    readonly detail?: string;\n    readonly startedAt: number;\n    readonly finishedAt?: number;\n    readonly output: {\n        readonly total: number;\n        readonly earliest: number;\n        readonly spillPaths?: readonly string[];\n    };\n}',
+    declaration: 'export interface JobView {\n    readonly id: JobId;\n    readonly kind: string;\n    readonly label: string;\n    readonly owner?: SessionId;\n    readonly outputLimitBytes?: number;\n    readonly status: JobStatus;\n    readonly progress?: string;\n    readonly detail?: string;\n    readonly startedAt: number;\n    readonly finishedAt?: number;\n    readonly output: {\n        readonly total: number;\n        readonly earliest: number;\n        readonly spillPaths?: readonly string[];\n    };\n    readonly toolCall?: JobToolCall;\n}',
   },
   {
     name: 'JsonSchemaNode',
@@ -7476,7 +7990,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'KnownSubagentCatalogFields',
-    declaration: 'export type KnownSubagentCatalogFields = {\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n} | {\n    readonly mode: \'external\';\n    readonly label?: string;\n    readonly name?: string;\n} | {\n    readonly mode: \'continuable\';\n    readonly label: string;\n    readonly name?: string;\n};',
+    declaration: 'export type KnownSubagentCatalogFields = {\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n} | {\n    readonly mode: \'external\';\n    readonly label?: string;\n    readonly name?: string;\n} | {\n    readonly mode: \'continuable\';\n    readonly label: string;\n    readonly name?: string;\n    readonly sandboxMode?: \'read-only\' | \'workspace-write\' | \'danger-full-access\';\n};',
   },
   {
     name: 'KvFacet',
@@ -8332,7 +8846,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PresetDefinition',
-    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
+    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly showInModePicker?: boolean;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
   },
   {
     name: 'PresetOption',
@@ -8563,6 +9077,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface Reload {\n    filename: string;\n    modules: ReloadModules;\n    runtime?: Plugin.Runtime | undefined;\n}',
   },
   {
+    name: 'ReloadGate',
+    declaration: 'export interface ReloadGate {\n    hold(): string | undefined;\n}',
+  },
+  {
     name: 'RemoteAccessAction',
     declaration: 'export type RemoteAccessAction = RemoteAccessEndpoint | `event:${string}`;',
   },
@@ -8695,6 +9213,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ResolvedNormalRetryPolicy extends ResolvedRetryBackoff {\n    readonly mode: \'normal\';\n    readonly maxRetries: number;\n    readonly retryableCodes: readonly string[];\n}',
   },
   {
+    name: 'ResolvedProfileModel',
+    declaration: 'export interface ResolvedProfileModel {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
     name: 'ResolvedRetryBackoff',
     declaration: 'export interface ResolvedRetryBackoff {\n    readonly initialDelayMs: number;\n    readonly maxDelayMs: number;\n    readonly jitterRatio: number;\n}',
   },
@@ -8792,7 +9314,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScheduleCreateRequest',
-    declaration: 'export interface ScheduleCreateRequest {\n    readonly title: string;\n    readonly prompt: string;\n    readonly timing: ScheduleTiming;\n    readonly target?: ScheduleTargetRequest;\n}',
+    declaration: 'export interface ScheduleCreateRequest {\n    readonly title: string;\n    readonly prompt: string;\n    readonly timing: ScheduleTiming;\n    readonly target?: ScheduleTargetRequest;\n    readonly active?: boolean;\n}',
   },
   {
     name: 'ScheduleDeleteInactiveResult',
@@ -8915,12 +9437,52 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ScheduleWakeSource {\n    next(): number | undefined;\n    deliver(now: number): void | Promise<void>;\n}',
   },
   {
+    name: 'ScopeAddress',
+    declaration: 'export interface ScopeAddress {\n    readonly scope: SettingScope;\n    readonly id?: string;\n}',
+  },
+  {
     name: 'Scoped',
     declaration: 'export type Scoped<T extends object> = object & {\n    readonly [ScopedBrand]: T;\n};',
   },
   {
+    name: 'ScopedModel',
+    declaration: 'export interface ScopedModel {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
+    name: 'ScopedSkillCatalog',
+    declaration: 'export interface ScopedSkillCatalog {\n    readonly folders: readonly ScopedSkillFolder[];\n}',
+  },
+  {
+    name: 'ScopedSkillEntry',
+    declaration: 'export interface ScopedSkillEntry {\n    readonly name: string;\n    readonly description: string;\n    readonly off: boolean;\n    readonly offAt?: InheritedOff;\n}',
+  },
+  {
+    name: 'ScopedSkillFolder',
+    declaration: 'export interface ScopedSkillFolder {\n    readonly path: string | null;\n    readonly label: string | null;\n    readonly off: boolean;\n    readonly offAt?: InheritedOff;\n    readonly skills: readonly ScopedSkillEntry[];\n}',
+  },
+  {
+    name: 'ScopedToolCatalog',
+    declaration: 'export interface ScopedToolCatalog {\n    readonly tools: readonly string[];\n    readonly mcpServers: readonly string[];\n}',
+  },
+  {
+    name: 'ScopedValues',
+    declaration: 'export interface ScopedValues {\n    readonly model?: ScopedModel | undefined;\n    readonly mode?: string;\n    readonly agent?: string | undefined;\n    readonly toolsDisabled?: string[];\n    readonly skillsDisabled?: string[];\n    readonly skillFoldersDisabled?: string[];\n}',
+  },
+  {
+    name: 'ScopedValuesPatch',
+    declaration: 'export interface ScopedValuesPatch {\n    readonly model?: ScopedModel | null;\n    readonly mode?: string | null;\n    readonly agent?: string | null;\n    readonly toolsDisabled?: string[] | null;\n    readonly skillsDisabled?: string[] | null;\n    readonly skillFoldersDisabled?: string[] | null;\n}',
+  },
+  {
+    name: 'ScopedWriteRequest',
+    declaration: 'export interface ScopedWriteRequest extends ScopeAddress {\n    readonly values: ScopedValuesPatch;\n}',
+  },
+  {
     name: 'ScopeKey',
     declaration: 'export type ScopeKey = object;',
+  },
+  {
+    name: 'ScopeListKey',
+    declaration: 'export type ScopeListKey = \'toolsDisabled\' | \'skillsDisabled\' | \'skillFoldersDisabled\';',
   },
   {
     name: 'SearchFileMatches',
@@ -9044,7 +9606,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionCreateRequest',
-    declaration: 'export interface SessionCreateRequest {\n    readonly workspaceId?: WorkspaceId;\n    readonly cwd?: string;\n    readonly sessionId?: SessionId;\n    readonly agentPreset?: string;\n}',
+    declaration: 'export interface SessionCreateRequest {\n    readonly workspaceId?: WorkspaceId;\n    readonly cwd?: string;\n    readonly sessionId?: SessionId;\n    readonly agentPreset?: string;\n    readonly agentProfile?: string | null;\n}',
   },
   {
     name: 'SessionCreateValue',
@@ -9611,6 +10173,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SetShareCapabilitiesRequest {\n    readonly shareId: string;\n    readonly viewerPluginAccess?: ViewerPluginAccess;\n    readonly viewerPlugins?: readonly ViewerPluginPolicy[];\n}',
   },
   {
+    name: 'SettingScope',
+    declaration: 'export type SettingScope = \'global\' | \'project\' | \'session\';',
+  },
+  {
     name: 'SettingsDescribeOptions',
     declaration: 'export interface SettingsDescribeOptions {\n    redactSecrets?: boolean;\n}',
   },
@@ -9680,11 +10246,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ShellExecRequest',
-    declaration: 'export interface ShellExecRequest {\n    command: string;\n    workdir?: string | undefined;\n    timeoutMs?: number | undefined;\n    onExpiry?: ShellExpiryPolicy | undefined;\n    stdoutMaxBytes?: number | undefined;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy?: SandboxExecutionPolicy | undefined;\n}',
+    declaration: 'export interface ShellExecRequest {\n    command: string;\n    workdir?: string | undefined;\n    timeoutMs?: number | undefined;\n    onExpiry?: ShellExpiryPolicy | undefined;\n    stdoutMaxBytes?: number | undefined;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string | undefined> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy?: SandboxExecutionPolicy | undefined;\n}',
   },
   {
     name: 'ShellExecSpec',
-    declaration: 'export interface ShellExecSpec {\n    command: string;\n    workdir: string;\n    timeoutMs: number;\n    onExpiry: ShellExpiryPolicy;\n    stdoutMaxBytes: number;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy: SandboxExecutionPolicy | undefined;\n}',
+    declaration: 'export interface ShellExecSpec {\n    command: string;\n    workdir: string;\n    timeoutMs: number;\n    onExpiry: ShellExpiryPolicy;\n    stdoutMaxBytes: number;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string | undefined> | undefined;\n    janEnv?: JanEnvironment | undefined;\n    sandboxPolicy: SandboxExecutionPolicy | undefined;\n}',
   },
   {
     name: 'ShellExecution',
@@ -9747,6 +10313,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SkillEntry {\n    readonly path?: string;\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly modelInvocable: boolean;\n}',
   },
   {
+    name: 'SkillFilter',
+    declaration: 'export interface SkillFilter {\n    readonly name: string;\n    readonly resolve: (options: SkillViewOptions) => ((skill: SkillSummary) => boolean) | undefined;\n}',
+  },
+  {
     name: 'SkillInvocationPolicy',
     declaration: 'export interface SkillInvocationPolicy {\n    readonly modelInvocable: boolean;\n    readonly userInvocable: boolean;\n}',
   },
@@ -9792,7 +10362,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SkillViewOptions',
-    declaration: 'export interface SkillViewOptions extends SkillLookupOptions {\n    readonly scope?: ScopeKey | undefined;\n}',
+    declaration: 'export interface SkillViewOptions extends SkillLookupOptions {\n    readonly scope?: ScopeKey | undefined;\n    readonly unfiltered?: boolean | undefined;\n}',
   },
   {
     name: 'SpeechCatalog',
@@ -10004,7 +10574,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SubagentStartRequest',
-    declaration: 'export interface SubagentStartRequest {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n    readonly label?: string;\n    readonly prompt: ContentBlock[];\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n    readonly agentOptions?: AgentOptions;\n    readonly outputSchema?: ObjectJsonSchema;\n    readonly maxDepth?: number;\n}',
+    declaration: 'export interface SubagentStartRequest {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n    readonly agent?: string;\n    readonly persona?: string;\n    readonly toolFilter?: ToolRestriction;\n    readonly sandboxMode?: SandboxMode;\n    readonly label?: string;\n    readonly prompt: ContentBlock[];\n    readonly parent: Agent;\n    readonly signal: AbortSignal;\n    readonly agentOptions?: AgentOptions;\n    readonly outputSchema?: ObjectJsonSchema;\n    readonly maxDepth?: number;\n}',
   },
   {
     name: 'SubagentStopReason',
@@ -10432,7 +11002,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolsService',
-    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
+    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    ownerOf(definition: ToolDefinition): string | undefined;\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n        includeScopeLocal?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    registeredDefinitions(scope?: ScopeKey): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
   },
   {
     name: 'ToolUpdate',
@@ -11036,7 +11606,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceView',
-    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
+    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly repository?: string;\n    readonly checkoutRoot?: string;\n    readonly branch?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly hostId?: string;\n    readonly hostName?: string;\n    readonly hostState?: \'live\' | \'lost\';\n}',
   },
 ]
 

@@ -206,6 +206,54 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     }
   })
 
+  // Apple's Vietnamese input sources (Telex, VNI) commit the composed word on
+  // Enter and then forward that same Enter with its real key code. The
+  // forwarded Enter must submit; it must not leave a line break in the draft.
+  // A zero-model command makes the submission observable.
+  it.skipIf(MODE === 'record')('submits the Enter an input source forwards after committing its word', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-ime-forwarded-enter'))
+    const input = page.locator('[data-composer-input]').first()
+    const access = page.locator('button[aria-label^="Access mode"]').first()
+    await access.waitFor({ timeout: 10_000 })
+    const before = await access.getAttribute('aria-label')
+    // Choose the mode the session is not in, so the submission is visible whatever the baseline.
+    const [typed, composed, label] = before === 'Access mode, current: Read Only'
+      ? ['/permission workspace-', 'write', 'Project Write']
+      : ['/permission read-', 'only', 'Read Only']
+    await writeComposerDraft(page, input, typed)
+    await input.press('Escape')
+    const cdp = await page.context().newCDPSession(page)
+    try {
+      await cdp.send('Input.imeSetComposition', { text: composed, selectionStart: composed.length, selectionEnd: composed.length })
+      await expect.poll(() => input.getAttribute('data-composer-composing')).toBe('')
+      // The committing Enter, commit, and forwarded Enter arrive back to back, as the input source sends them.
+      await Promise.all([
+        cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 229 }),
+        cdp.send('Input.insertText', { text: composed }),
+        cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }),
+        cdp.send('Input.dispatchKeyEvent', { type: 'char', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 }),
+        cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }),
+      ])
+    } finally {
+      await cdp.detach()
+    }
+    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 })
+      .toBe(`Access mode, current: ${label}`)
+    await expect.poll(() => input.textContent()).toBe('')
+    expect(await input.locator('br').count()).toBe(0)
+    // Restore the baseline for the scenarios that follow.
+    await access.click()
+    await page.getByRole('menuitem', { name: before!.replace('Access mode, current: ', ''), exact: true }).click()
+    const fullAccess = page.getByRole('dialog', { name: 'Enable Full access?' })
+    if (before === 'Access mode, current: Full access') {
+      await fullAccess.waitFor({ timeout: 10_000 })
+      await fullAccess.getByText('I understand the risks and want to continue', { exact: true }).click()
+      await fullAccess.getByRole('button', { name: 'Enable Full access' }).click()
+    }
+    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 }).toBe(before)
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
   it.skipIf(MODE === 'record')('shows active Plan as the business-state status action', async () => {
     const activeScaffold = await launchWebScaffold()
     const activePage = await newEnglishPage(browser)

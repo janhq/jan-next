@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-This package renders the changed-files card a finished turn ends with — the files the turn changed, with the Host's line counts, each opening the turn's review tab on that file — plus cards for explicitly delivered files, and links matching inline-code references in the closing prose so a mentioned file opens in the right Sidebar. Listed and linked paths come from the recorded summary, successful mutations, and explicit deliveries, never from the prose. Only the shipped Web patch loads this package; removing its cordis.yml entry removes the guidance, cards, and prose links together.
+Review a finished turn's changed files and Host-reported line counts in Web. Select a file on the card to open the turn's review tab at that file. Preview explicit deliveries and matching inline-code file references from the closing reply in the right Sidebar. The changed-files card uses the recorded summary; inline-code links match successful mutations and explicit deliveries instead of guessing paths from the prose.
 
 ## Table of Contents
 
@@ -25,6 +25,8 @@ This package renders the changed-files card a finished turn ends with — the fi
 
 Mount this plugin alongside `ui-conversation` and the Host [workspace-changes](../../deliverables/workspace-changes/README.md) plugin; a finished turn then ends with the changed-files card between the closing message's body and its action footer. Without a served summary — a turn that changed no file, the plugin composed out, or a Host restarted since the turn ran — the card is absent and only deliveries and prose links remain; outside a git repository the summary lists file-tool edits only.
 
+The shipped [Web patch](../../bundle/web-app/cordis.patch.yml) loads this package. Remove its `ui-deliverables` entry to turn off the cards and inline-code links, and remove the separate `deliverable-file-references` entry to turn off the model guidance.
+
 Changed-file and delivery entry cards and hover previews follow the [R16 preview-card rule](../../../docs/ui-radius.md#radius-scale); their file-icon tiles use the same rule’s R10 exception. Each retains the same contour on hover.
 
 <a id="explicit-deliveries"></a>
@@ -37,6 +39,8 @@ The Web `standard`, `ptc`, and `cordis` presets expose `present` for final files
 A turn that delivers exactly one SVG, PNG, JPEG, GIF, WebP, or HTML file also shows that file above its card. An image opens the Sidebar preview on click. Inline HTML uses the Sidebar's static preview policy: sanitized markup in an opaque-origin sandbox that blocks scripts and network resources. The bytes come from the composed workspace Remote; when that read is refused or unavailable, only the card renders. Turns with several deliveries show the cards alone.
 
 The `present` tool row retains its document icon and recorded result across progress, success, failure, and interruption. Native actions share pending state and publish progress or retryable errors on the card. An acknowledged open or reveal immediately restores the file description; failures remain visible until another attempt. Each gesture settles on a discriminated outcome — acknowledged open, acknowledged reveal, named failure, or a request dropped because the same file was already opening or the plugin was disposed — which the contributed control reports according to the mobile success and shared failure policy in [ui-open-in-app](../ui-open-in-app/README.md). Disposing the plugin cancels pending requests and suppresses their announcements. Desktop metadata is loaded when cards mount and invalidated on connection replacement. Without a Host desktop, cards retain Sidebar preview but omit native controls; failed metadata reads offer Retry. Delivery cards and change review expose `deliverables.file.actions` and `deliverables.review.file.actions`, supplied by [ui-open-in-app](../ui-open-in-app/README.md). Association GET requests and native POST actions both validate the recorded file coordinates and Session filesystem mapping before using the Host desktop.
+
+Failed native open and reveal actions pass bounded diagnostic details to the shared `ui-open-in-app` notification.
 
 ### The changed-files card
 

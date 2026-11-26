@@ -26,6 +26,11 @@ const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => (
 /** One stable title view, as the bound hook returns between changes. */
 const TITLES = { display: (text: string) => text, request: () => {} }
 
+// Among the tree's child slots, only the keyed tool view carries a call phase.
+function isToolCallOwner(owner: object): owner is ToolCallOwnerProps {
+  return 'phase' in owner
+}
+
 function props(
   block: ToolCallBlock,
   home?: string,
@@ -33,10 +38,11 @@ function props(
 ): ToolTreeProps {
   const snapshot = {} as SessionSnapshot
   const useSession = ((selector: (value: SessionSnapshot) => unknown) => selector(snapshot)) as ToolTreeProps['useSession']
-  const renderSlot = ((_key: string, owner: ToolCallOwnerProps, options?: { fallback?: React.ReactNode }) => {
-    owners?.push(owner)
+  const renderSlot: ToolTreeProps['renderSlot'] = (key, owner, options) => {
+    if (key !== 'tool.call.toolview') return null
+    if (isToolCallOwner(owner)) owners?.push(owner)
     return options?.fallback ?? null
-  }) as unknown as ToolTreeProps['renderSlot']
+  }
   const fixture: Partial<ToolTreeProps> = {
     useDisclosure,
     useTurnData: () => undefined,
@@ -219,10 +225,10 @@ describe('ToolCallTree', () => {
         reason: 'not authorized',
       },
     }
-    const renderSlot = vi.fn(() => <div data-testid="keyed-skill" />)
+    const renderSlot = vi.fn((key: string) => key === 'tool.call.toolview' ? <div data-testid="keyed-skill" /> : null)
     const view = render(<ToolCallTree {...props(block)} renderSlot={renderSlot as ToolTreeProps['renderSlot']} />)
 
-    expect(renderSlot).not.toHaveBeenCalled()
+    expect(renderSlot.mock.calls.map(([key]) => key)).not.toContain('tool.call.toolview')
     expect(view.queryByTestId('keyed-skill')).toBeNull()
     expect(view.getByText('Auto review 已拒绝')).toBeTruthy()
   })

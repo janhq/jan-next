@@ -365,10 +365,10 @@ describe('Schedule catalog Remote source', () => {
     const dispose = h.source.subscribe(vi.fn())
     await flushed()
     h.remove.mockResolvedValueOnce(failure)
-    await expect(h.entry.onDelete(id)).resolves.toBe('failed')
+    await expect(h.entry.onDelete(id)).resolves.toMatchObject({ failure: { operation: 'schedule.delete' } })
     expect(h.source.getSnapshot()).toMatchObject({ records: [row], deleting: [] })
     h.remove.mockRejectedValueOnce(new Error('disconnected'))
-    await expect(h.entry.onDelete(id)).resolves.toBe('failed')
+    await expect(h.entry.onDelete(id)).resolves.toMatchObject({ failure: { errors: [expect.objectContaining({ message: 'disconnected' })] } })
     expect(h.source.getSnapshot()).toMatchObject({ records: [row], deleting: [] })
     // An already-deleted id is an acknowledged deletion: the outcome is settled
     // even when the refresh it triggers fails, which the status reports.
@@ -390,7 +390,7 @@ describe('Schedule catalog Remote source', () => {
       await flushed()
       if (mode === 'remote') h.remove.mockResolvedValueOnce(failure)
       else h.remove.mockRejectedValueOnce(new Error('lost deletion response'))
-      await expect(h.entry.onDelete(id)).resolves.toBe('failed')
+      await expect(h.entry.onDelete(id)).resolves.toHaveProperty('failure')
       h.remove.mockResolvedValueOnce({ ok: true, value: { id: otherId, deleted: true } })
       h.list.mockResolvedValueOnce(failure)
       removing = h.entry.onDelete(otherId)
@@ -429,7 +429,7 @@ describe('Schedule catalog Remote source', () => {
         const failA = async () => {
           if (mode === 'remote') failed.resolve(failure)
           else failed.reject(new Error('deletion response disconnected'))
-          await expect(removingA).resolves.toBe('failed')
+          await expect(removingA).resolves.toHaveProperty('failure')
         }
         try {
           expect(h.remove.mock.calls).toEqual([[id], [otherId]])
@@ -473,7 +473,7 @@ describe('Schedule catalog Remote source', () => {
     try {
       await flushed()
       h.remove.mockResolvedValueOnce(failure)
-      await expect(h.entry.onDelete(id)).resolves.toBe('failed')
+      await expect(h.entry.onDelete(id)).resolves.toHaveProperty('failure')
       h.list.mockResolvedValueOnce(failure)
       h.changed()
       await flushed()
@@ -496,7 +496,7 @@ describe('Schedule catalog Remote source', () => {
     const deleting = h.entry.onDelete(id)
     dispose()
     pending.resolve(failure)
-    await expect(deleting).resolves.toBe('failed')
+    await expect(deleting).resolves.toHaveProperty('failure')
     expect(h.source.getSnapshot()).toMatchObject({ records: [row] })
     expect(h.list).toHaveBeenCalledTimes(1)
   })
@@ -542,7 +542,7 @@ describe('Schedule catalog Remote source', () => {
     const remounted = h.source.subscribe(vi.fn())
     await flushed()
     pending.reject(new Error('old deletion disconnected'))
-    await expect(deleting).resolves.toBe('failed')
+    await expect(deleting).resolves.toHaveProperty('failure')
     expect(h.source.getSnapshot()).toMatchObject({ status: 'ready', records: [row], deleting: [] })
     remounted()
   })

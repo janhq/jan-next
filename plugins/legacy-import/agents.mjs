@@ -151,11 +151,11 @@ export function ompSession(body, id) {
   const records = jsonLines(body)
   const losses = new Set()
   const messages = []
-  let header, title
+  let header, title, checkpoint
   for (const record of records) {
     if (record.type === 'session') header = record
     else if (record.type === 'title' && typeof record.title === 'string') title = record.title
-    else if (record.type === 'compaction') losses.add('Compaction summaries are not imported; messages before a compaction are kept as written.')
+    else if (record.type === 'compaction' && typeof record.summary === 'string' && record.summary.trim()) checkpoint = record
     if (record.type !== 'message') continue
     const { message } = record
     const at = time(message.timestamp) ?? time(record.timestamp) ?? 0
@@ -185,7 +185,7 @@ export function ompSession(body, id) {
   const model = messages.findLast(message => message.model)
   const first = messages.find(message => message.role === 'user')
   return {
-    thread: { id, title: oneLine(title) || heading(first?.content[0]?.text?.value) || 'OMP session', created: seconds(time(header?.timestamp)), model: { provider: model?.provider ?? 'omp', id: model?.model ?? 'unknown' }, cwd: header?.cwd },
+    thread: { id, title: oneLine(title) || heading(first?.content[0]?.text?.value) || 'OMP session', created: seconds(time(header?.timestamp)), model: { provider: model?.provider ?? 'omp', id: model?.model ?? 'unknown' }, cwd: header?.cwd, ompContext: checkpoint === undefined ? {} : { summary: checkpoint.summary, firstKeptEntryId: checkpoint.firstKeptEntryId } },
     messages: messages.map(({ model: _model, provider: _provider, ...message }) => message),
     losses: [...losses],
   }
@@ -270,7 +270,7 @@ export async function sessionHead(path) {
   try {
     const buffer = Buffer.alloc(65536)
     // Codex writes ~100 KB of instructions before the first prompt, so read on until one shows, within 1 MB.
-    for (let position = 0; position < 1048576 && !(title && cwd) && !(first && cwd && started); ) {
+    for (let position = 0; position < 1048576 && !(title && cwd) && !(first && cwd && started);) {
       const { bytesRead } = await handle.read(buffer, 0, buffer.length, position)
       if (bytesRead === 0) break
       position += bytesRead

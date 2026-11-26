@@ -26,18 +26,15 @@
 
 /* macOS: the 28px chips center on y 38, the traffic lights' and the left sidebar's title-row
    icons' line, with the rule at y 53 kept. */
-:global(html[data-platform='darwin']) .desk[data-chat-tabs] :global([data-dockkit-strip]) {
+:global(html[data-platform='darwin']) .desk[data-chat-tabs] :global([data-dockkit-pane-top]) > :global([data-dockkit-strip]) {
   height: 53px;
   padding-block: 24px 1px;
 }
 
-.desk[data-chat-tabs] :global([data-dockkit-pane]):first-child :global([data-dockkit-strip]) {
+.desk[data-chat-tabs] :global([data-dockkit-pane-leading]) > :global([data-dockkit-strip]) {
   padding-inline-start: max(8px, var(--jan-frame-leading-clearance, 0px));
 }
 
-.desk[data-chat-tabs] :global([data-dockkit-pane]) ~ :global([data-dockkit-pane]) :global([data-dockkit-strip]) {
-  padding-inline-start: 8px;
-}
 
 .desk[data-chat-tabs] :global([data-dockkit-tab]) {
   padding-inline-end: 28px;

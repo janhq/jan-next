@@ -131,6 +131,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Serves reasoning translations, reuses saved results, and joins ordinary Session activation for uncached inactive Sessions.',
   },
   {
+    key: 'btwRuntime',
+    pkg: 'btw',
+    title: 'Chat side-question Remote',
+    mode: 'service',
+    note: 'Streams ephemeral answers using the chat model and conversation context without executing tools, entering the main turn, or appending Session events.',
+  },
+  {
     key: 'translator',
     pkg: 'experimental-translator',
     title: 'Anonymous text translation',
@@ -161,6 +168,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['plugin-manager', 'ui-settings-plugin-inventory'],
     note: 'Shares profile package operations with the CLI and reports persisted and running state to Web and agent callers.',
+  },
+  {
+    key: 'downloads',
+    pkg: 'downloads',
+    title: 'Host download inbox',
+    mode: 'core',
+    note: 'Producers report transfers and expose current actions; the sidebar inbox reads one coalesced snapshot over the authenticated Host route.',
   },
   {
     key: 'pluginMarket',
@@ -316,6 +330,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns isolated per-session replay folds; pressure consumers share immutable revisioned measurements.',
   },
   {
+    key: 'contextUsage',
+    pkg: 'context-usage',
+    title: 'Per-category context breakdown Remote',
+    mode: 'service',
+    note: 'Splits the provider-reported prompt size across prompt sections, tools, skills and messages on demand without appending Session events.',
+  },
+  {
     key: 'toolResultPruner',
     pkg: 'compaction-tool-result-pruner',
     title: 'Model-free tool-result pruning',
@@ -394,6 +415,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Host settings-surface Remote controller',
     mode: 'core',
     note: 'Projects the user-settings seam onto the generated Remote namespace: the read is always redacted and every refusal is classified here, not on the seam Definition.',
+  },
+  {
+    key: 'scopedSettings',
+    pkg: 'scoped-settings',
+    title: 'Chat, project and global switch store',
+    mode: 'core',
+    note: 'Stores model and mode defaults per project and tool and skill switches per chat, project and globally; applies tool switches as per-agent restrictions and skill switches as one registry filter.',
   },
   {
     key: 'workspaceFiles',
@@ -670,6 +698,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Per-session agent composition',
     mode: 'core',
     note: 'Eagerly mounts YAML-declared preset revisions, binds Agents and cold readers to scoped contributions, and retains retired revisions until their last user releases them.',
+  },
+  {
+    key: 'agentProfiles',
+    pkg: 'agent-profiles',
+    title: 'Named agent profiles',
+    mode: 'service',
+    consumers: ['api-session-controller', 'scoped-settings', 'tool-subagent'],
+    note: 'Discovers project and global agent files and records chat selections in the Session projection. Preset composition remains independent.',
   },
   {
     key: 'commands',

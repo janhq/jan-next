@@ -10,6 +10,7 @@ import AgentLoop from '@janhq/jan-agent-loop'
 import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
 import { BasicCompactionEngine } from '@janhq/jan-compaction-basic'
 import TokenMeter from '@janhq/jan-token-meter'
+import { estimateContent, ROLE_OVERHEAD } from '@janhq/jan-token-meter/estimate'
 import * as LlmRetry from '@janhq/jan-llm-retry'
 import { Session, SessionId, type SessionEvent, type SurfaceEvent } from '@janhq/jan-session'
 
@@ -78,6 +79,7 @@ class OverflowRecoveryAdapter extends LlmAdapter {
   constructor(
     private readonly delivery: 'thrown' | 'in-band',
     private readonly transientAfterOverflow = false,
+    private readonly enforcedWindow?: number,
   ) {
     super()
   }
@@ -87,12 +89,20 @@ class OverflowRecoveryAdapter extends LlmAdapter {
       provider,
       id: model,
       name: model,
-      context: { contextWindow: 128 },
+      context: { contextWindow: this.enforcedWindow ?? 128 },
     })
   }
 
   override providerRetryPolicy(_provider: string): ResolvedRetryPolicy {
     return this.retryPolicy
+  }
+
+  private checkWindow(options: GenerateOptions): void {
+    if (this.enforcedWindow === undefined) return
+    const tokens = options.messages.reduce(
+      (total, message) => total + ROLE_OVERHEAD + estimateContent(message.content), options.maxTokens ?? 0,
+    ) + Math.ceil(JSON.stringify(options.tools ?? []).length / 4)
+    if (tokens > this.enforcedWindow) throw new LlmError('request too large for model context', CONTEXT_WINDOW_EXCEEDED_CODE)
   }
 
   override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
@@ -103,6 +113,7 @@ class OverflowRecoveryAdapter extends LlmAdapter {
       .join('') ?? ''
     if (trailing.includes('acting as a compaction engine')) {
       this.summaryRequests.push(options)
+      this.checkWindow(options)
       yield { type: 'block-start', index: 0, blockType: 'text' }
       yield { type: 'block-end', index: 0, block: { type: 'text', text: 'RECOVERY CHECKPOINT' } }
       yield { type: 'finish', reason: { kind: 'stop' } }
@@ -110,7 +121,8 @@ class OverflowRecoveryAdapter extends LlmAdapter {
     }
 
     this.conversationRequests.push(options)
-    if (this.conversationRequests.length === 1) {
+    this.checkWindow(options)
+    if (this.enforcedWindow === undefined && this.conversationRequests.length === 1) {
       if (this.delivery === 'thrown') {
         throw new LlmError('request too large for model context', CONTEXT_WINDOW_EXCEEDED_CODE)
       }
@@ -173,7 +185,7 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   })
 }
 
-function overflowHistorySeed(): readonly SessionEvent[] {
+function overflowHistorySeed(size = 200): readonly SessionEvent[] {
   const session = Session.create(SessionId('overflow-history-seed'))
   for (let turn = 1; turn <= 2; turn += 1) {
     const sentinel = turn === 1 ? 'OLD HISTORY SENTINEL' : 'RECENT HISTORY'
@@ -181,7 +193,7 @@ function overflowHistorySeed(): readonly SessionEvent[] {
       turn,
     })
     session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `${sentinel} ${'old context '.repeat(200)}` }],
+      content: [{ type: 'text', text: `${sentinel} ${'old context '.repeat(size)}` }],
       source: { kind: 'user' },
     }), { surfaceOp: 'append' })
     session.append('step/start', { turn, step: 1 })
@@ -191,7 +203,7 @@ function overflowHistorySeed(): readonly SessionEvent[] {
       step: 1,
       message: createMessage({
         role: 'assistant',
-        content: [{ type: 'text', text: `historical response ${turn} ${'detail '.repeat(200)}` }],
+        content: [{ type: 'text', text: `${'detail '.repeat(size)} historical response ${turn}` }],
         source: {
           kind: 'model',
           ...{ provider: 'mock', model: 'mock' },
@@ -446,6 +458,44 @@ describe('context-overflow recovery across the real loop and compaction-basic', 
       }
     },
   )
+
+  it('fits an excerpt and the rest of the retry into a 2K window after both calls overflow', async () => {
+    const ctx = new Context()
+    const adapter = new OverflowRecoveryAdapter('thrown', false, 2048)
+    try {
+      await mountAgentLoopTestDependencies(ctx)
+      await ctx.plugin(AgentLoop, { agents: [] })
+      await ctx.plugin(TokenMeter)
+      ctx.llm.registerAdapter(['mock'], adapter)
+      ctx.tools.register(defineContentToolFixture({
+        name: 'work', description: 'Registered tool. '.repeat(32), parameters: {},
+        async execute() { return [{ type: 'text', text: 'work done' }] },
+      }))
+      await ctx.plugin(BasicCompactionEngine)
+      const { agent } = await ctx.agentLoop.createAgent(ctx, {
+        sessionId: SessionId('overflowing-summary'),
+        seed: overflowHistorySeed(1500),
+        agentOptions: { provider: 'mock', model: 'mock', maxTokens: 256 },
+      })
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: `${'retained input '.repeat(80)}continue from history` }], source: { kind: 'user' },
+      }))
+      await agent.whenIdle()
+
+      expect(adapter.summaryRequests).toHaveLength(1)
+      expect(adapter.conversationRequests).toHaveLength(2)
+      const retry = JSON.stringify(adapter.conversationRequests[1]!.messages)
+      expect(retry).toContain('<compacted-summary>')
+      expect(retry).toContain('historical response 2')
+      expect(retry).toContain('continue from history')
+      expect(retry).not.toContain('OLD HISTORY SENTINEL')
+      const events = agent.session.snapshotEvents()
+      expect(events.filter(event => event.type === 'compaction/summary')).toHaveLength(1)
+      expect(events.findLast(event => event.type === 'turn/end')?.data.reason.kind).toBe('completed')
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
 
   it('keeps context-overflow and transient retry budgets independent in one sequence', async () => {
     const ctx = new Context()

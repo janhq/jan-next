@@ -13,7 +13,7 @@ import type {
   ArbitrateKey, ArbitrateOutcome, CommandClaim, PickOutcome, ReferenceInsert,
 } from '@janhq/jan-client-ui-conversation/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import { detectTrigger } from '../core/detect.ts'
+import { detectCommandArguments, detectTrigger } from '../core/detect.ts'
 import { MENU_CLOSED, menuReduce, seedGroups } from '../core/menu.ts'
 import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
 import type {
@@ -26,6 +26,7 @@ interface DismissedHit {
   readonly trigger: string
   readonly query: string
   readonly quoted: boolean
+  readonly arguments?: true
   readonly start: number
   readonly end: number
 }
@@ -33,6 +34,7 @@ interface DismissedHit {
 /** Whether a tracked hit is the one the user just dismissed (same token, same query). */
 function dismissedHit(dismissed: DismissedHit, hit: TriggerHit): boolean {
   return dismissed.trigger === hit.trigger && dismissed.query === hit.query && dismissed.quoted === hit.quoted
+    && dismissed.arguments === hit.arguments
     && dismissed.start === hit.span.start && dismissed.end === hit.span.end
 }
 
@@ -99,6 +101,8 @@ export class InputTriggerController {
   private drilled = false
   private fetch: AbortController | null = null
   private disposed = false
+  /** Row whose star was just toggled; the next settlement of its source re-highlights it. */
+  private follow: { readonly source: string; readonly name: string } | null = null
   /** Per-source lexicon unsubscribers (sources without the hook never enter). */
   private readonly lexiconOffs = new Map<InputTriggerSource, () => void>()
 
@@ -126,7 +130,9 @@ export class InputTriggerController {
     if (this.disposed) return
     const launched = this.launcher.getSnapshot() !== null
     this.clearLauncher()
-    const raw = detectTrigger(draft, caret, guard)
+    const argumentHit = detectCommandArguments(draft, caret, guard)
+    const argumentRoster = argumentHit === null ? [] : this.sourcesFor(argumentHit)
+    const raw = argumentRoster.length > 0 ? argumentHit : detectTrigger(draft, caret, guard)
     if (raw === null) {
       // A launcher-opened menu is opened by a gesture, not by a typed token:
       // the focus it takes to drive it with the keyboard re-tracks an empty
@@ -158,16 +164,17 @@ export class InputTriggerController {
     const same = !launched && prev.open && prev.hit !== null
       && prev.hit.trigger === hit.trigger && prev.hit.query === hit.query
       && prev.hit.quoted === hit.quoted
+      && prev.hit.arguments === hit.arguments
       && prev.hit.span.start === hit.span.start && prev.hit.span.end === hit.span.end
     this.hit = hit
     if (same) return
-    const roster = this.deps.roster.sources(hit.trigger)
+    const roster = hit.arguments === true ? argumentRoster : this.deps.roster.sources(hit.trigger)
     if (roster.length === 0) {
       this.stopFetch()
       this.reduce({ type: 'close' })
       return
     }
-    if (launched || !prev.open || prev.hit === null || prev.hit.trigger !== hit.trigger) {
+    if (launched || !prev.open || prev.hit === null || prev.hit.trigger !== hit.trigger || prev.hit.arguments !== hit.arguments) {
       this.menu.set(seedGroups(this.menu.getSnapshot(), roster))
     }
     this.reduce({ type: 'hit', hit })
@@ -209,17 +216,27 @@ export class InputTriggerController {
    * @param source - source (group) name.
    * @param index - candidate index within the group.
    * @param action - settling pick (default) or the candidate's drill action.
+   * @param completeOnly - Tab fills the option without executing its command.
    */
-  pick(source: string, index: number, action: PickAction = 'pick'): void {
+  pick(source: string, index: number, action: PickAction = 'pick', completeOnly?: true): void {
+    const target = this.menuTarget(source, index)
+    if (target?.candidate === undefined || target.src === undefined) return
+    this.settle(target.src, target.candidate, target.hit, action, completeOnly)
+  }
+
+  /**
+   * Resolve one open-menu row and the source that owns it.
+   * @param source - source (group) name.
+   * @param index - candidate index within the group.
+   * @returns the current hit with the row and source when the menu is open; either may be missing.
+   */
+  private menuTarget(source: string, index: number) {
     const state = this.menu.getSnapshot()
     const hit = this.hit
-    if (this.disposed || !state.open || hit === null) return
+    if (this.disposed || !state.open || hit === null) return undefined
     const group = state.groups.find(g => g.source === source)
     const candidate = group !== undefined && group.status === 'ready' ? group.items[index] : undefined
-    if (candidate === undefined) return
-    const src = this.deps.roster.sources(hit.trigger).find(s => s.name === source)
-    if (src === undefined) return
-    this.settle(src, candidate, hit, action)
+    return { hit, candidate, src: this.sourcesFor(hit).find(s => s.name === source) }
   }
 
   /**
@@ -249,6 +266,25 @@ export class InputTriggerController {
   hover(source: string, index: number): void {
     if (this.disposed) return
     this.reduce({ type: 'hover', source, index })
+  }
+
+  /**
+   * Pointer star toggle on one candidate: the source flips it, then the open
+   * menu fetches the same query again and the highlight follows the row,
+   * which may have moved to another section.
+   * @param source - source (group) name.
+   * @param index - candidate index within the group.
+   */
+  star(source: string, index: number): void {
+    const target = this.menuTarget(source, index)
+    const candidate = target?.candidate
+    const src = target?.src
+    if (candidate?.star === undefined || src?.onStar === undefined) return
+    this.follow = { source, name: candidate.name }
+    void Promise.resolve(src.onStar(this.project(), candidate)).then(
+      () => { this.refreshOpenMenu() },
+      (error: unknown) => { console.error(`[ui-input-trigger] source "${source}" star failed:`, error) },
+    )
   }
 
   /**
@@ -305,7 +341,7 @@ export class InputTriggerController {
           this.pick(state.highlight.source, state.highlight.index, 'drill')
           return 'consumed'
         }
-        this.pick(state.highlight.source, state.highlight.index)
+        this.pick(state.highlight.source, state.highlight.index, 'pick', item.complete)
         return 'pick-highlighted'
       }
     }
@@ -320,6 +356,7 @@ export class InputTriggerController {
   onSpace(): boolean {
     const hit = this.hit
     if (this.disposed || hit === null || hit.position !== 'leading') return false
+    if (hit.arguments === true) return false
     const token = hit.trigger + hit.query
     const projection = this.project()
     for (const src of this.deps.roster.sources(hit.trigger)) {
@@ -457,7 +494,7 @@ export class InputTriggerController {
   refreshOpenMenu(): void {
     if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return
     const launched = this.launcher.getSnapshot()
-    const roster = this.deps.roster.sources(this.hit.trigger)
+    const roster = this.sourcesFor(this.hit)
       .filter(source => launched === null || source.name === launched)
     if (roster.length === 0) return
     this.fetchCandidates(this.hit, roster)
@@ -478,6 +515,14 @@ export class InputTriggerController {
     return { sessionId: this.deps.sessionId }
   }
 
+  private sourcesFor(hit: TriggerHit): readonly InputTriggerSource[] {
+    const sources = this.deps.roster.sources(hit.trigger)
+    if (hit.arguments !== true) return sources
+    const name = hit.query.slice(0, hit.query.search(/[ \t]/u))
+    const session = this.project()
+    return sources.filter(source => source.matchesArguments?.(session, name) === true)
+  }
+
   /** Execute a claim/insert/text outcome via the scoped input events (actx as dispatch subject); true = the input applied it. */
   private execute(outcome: PickOutcome, span: import('../types.ts').TokenSpan): boolean {
     const { actx } = this.deps
@@ -490,6 +535,7 @@ export class InputTriggerController {
         text: outcome.text,
         span,
         ...outcome.continue === true ? { continue: true } : {},
+        ...outcome.submit === true ? { submit: true } : {},
       }) === true
     }
     return actx.bail(actx, 'slash/input-insert-reference', { reference: outcome.insert, span }) === true
@@ -529,7 +575,7 @@ export class InputTriggerController {
       // open menu, so one source cannot contribute its previous catalog.
       void Promise.resolve().then(() => {
         if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return
-        this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger))
+        this.fetchCandidates(hit, this.sourcesFor(hit))
       })
     }))
   }
@@ -554,6 +600,7 @@ export class InputTriggerController {
           (items) => {
             if (controller.signal.aborted) return
             this.reduce({ type: 'source-settled', generation, source: source.name, items })
+            this.followStarred(source.name, items)
           },
           (error: unknown) => {
             if (controller.signal.aborted) return
@@ -569,6 +616,14 @@ export class InputTriggerController {
     this.fetch = null
   }
 
+  /** Park the highlight on the row whose star was toggled, wherever its source now lists it. */
+  private followStarred(source: string, items: readonly InputTriggerCandidate[]): void {
+    if (this.follow?.source !== source) return
+    const index = items.findIndex(item => item.name === this.follow?.name)
+    this.follow = null
+    if (index >= 0) this.reduce({ type: 'hover', source, index })
+  }
+
   /**
    * Run one candidate (or crumb) through its source and apply the outcome.
    *
@@ -579,12 +634,14 @@ export class InputTriggerController {
    * @param candidate - the picked candidate, or a crumb projected as one.
    * @param hit - the authoritative hit supplying position and span CAS.
    * @param action - settling pick or drill.
+   * @param completeOnly - Tab fills the option without executing its command.
    */
   private settle(
     src: InputTriggerSource,
     candidate: InputTriggerCandidate,
     hit: TriggerHit,
     action: PickAction,
+    completeOnly?: true,
   ): void {
     const outcome = src.onPick({
       candidate,
@@ -593,13 +650,21 @@ export class InputTriggerController {
       via: 'menu',
       action,
       span: hit.span,
+      ...completeOnly === true ? { completeOnly } : {},
     })
     this.stopFetch()
     // A settling pick is the user's decision about this token: the menu stays
     // closed for it until the text changes, so a settled command that opens a
     // surface of its own does not bring the menu back when that surface closes
     // and the caret returns.
-    if (action === 'pick') this.rememberDismissed()
+    if (candidate.complete === true && typeof outcome === 'object' && 'text' in outcome) {
+      this.dismissed = {
+        trigger: '/', arguments: true, query: outcome.text.slice(1), quoted: false,
+        start: hit.span.start, end: hit.span.start + outcome.text.length,
+      }
+    } else if (action === 'pick') {
+      this.rememberDismissed()
+    }
     this.reduce({ type: 'close' })
     // Claimed before the edit, and after the close above so the reducer's own
     // teardown cannot clear it: the input may apply the descent through a
@@ -645,6 +710,7 @@ export class InputTriggerController {
     const hit = this.hit
     this.dismissed = hit === null ? null : {
       trigger: hit.trigger, query: hit.query, quoted: hit.quoted, start: hit.span.start, end: hit.span.end,
+      ...hit.arguments === true ? { arguments: true } : {},
     }
   }
 

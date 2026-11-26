@@ -150,6 +150,10 @@
   --meter-tint: rgb(167, 139, 250);
 }
 
+.colorSkills {
+  --meter-tint: var(--dsw-alias-state-success-primary);
+}
+
 .colorMessages {
   --meter-tint: var(--dsw-static-blue-450);
 }
@@ -214,7 +218,7 @@
   width: 12px;
   height: 12px;
   color: var(--dsw-alias-label-tertiary);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .inventoryRow[open] .chevron {

@@ -178,14 +178,14 @@ describe('composer subagent roster', () => {
     const waiting = { kind: 'waiting-inbox', at: now, seq: 3 } as const
     const second = 'child-2' as SessionId
     const input = props(catalog({ entries: [
-      { id: CHILD, mode: 'continuable', name: 'reader', label: 'Read the spec', activity: 'running' },
+      { id: CHILD, mode: 'continuable', name: 'reader', label: 'Read the spec', agent: 'reviewer', activity: 'running' },
       { id: second, mode: 'one-shot', label: 'Review', activity: 'inactive' },
     ] }), {}, {
       [CHILD]: {
         ...summary(CHILD, now), running: true,
         projectionValues: {
           subagentActivity: { current: waiting, recent: [{ kind: 'calling-tool', tool: 'read', at: now - 500, seq: 2 }, waiting] },
-          modelSelection: { lastUsed: { provider: 'test', model: 'claude-haiku' }, next: { provider: 'test', model: 'unrequested' } },
+          modelSelection: { lastUsed: { provider: 'test', model: 'anthropic/claude-haiku-5-5' }, next: { provider: 'test', model: 'unrequested' } },
           subagentTiming: { settledMs: 0, active: { since: now - 20_000, through: now } },
           tokenUsage: { uncachedInputTokens: 1_000, outputTokens: 30, cacheReadTokens: 100, cacheWriteTokens: 70 },
         },
@@ -199,11 +199,16 @@ describe('composer subagent roster', () => {
     expect(screen.queryByText('Read the spec')).toBeNull()
     fireEvent.click(header)
     expect(header.getAttribute('aria-expanded')).toBe('true')
-    const row = screen.getByRole('button', { name: /^Running.*Read the spec$/i })
+    const row = screen.getByRole('button', { name: /^Running.*Read the spec.*@reviewer$/i })
     expect(row.textContent).toContain('running')
-    expect(screen.getByText('1.2K tok')).toBeTruthy()
+    expect(within(row).getByText('@reviewer')).toBeTruthy()
+    const model = screen.getByTitle('test/anthropic/claude-haiku-5-5')
+    expect(model.textContent).toBe('claude-haiku-5-5')
+    const tokens = screen.getByText('1.2K tok')
+    expect(model.compareDocumentPosition(tokens) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     expect(screen.getByText('20s')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /^Completed.*Review$/i })).toBeTruthy()
+    const unprofiled = screen.getByRole('button', { name: /^Completed.*Review$/i })
+    expect(within(unprofiled).queryByText(/^@/u)).toBeNull()
     expect(screen.queryByText('Calling read')).toBeNull()
     fireEvent.click(row)
     expect(row.getAttribute('aria-expanded')).toBe('true')
@@ -211,7 +216,6 @@ describe('composer subagent roster', () => {
     expect(screen.getByText('Calling read')).toBeTruthy()
     expect(screen.getByText('Waiting for inbox input')).toBeTruthy()
     expect(screen.getByText('reader')).toBeTruthy()
-    expect(screen.getByText('claude-haiku')).toBeTruthy()
     expect(screen.queryByText('unrequested')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Open chat' }))
     expect(input.openChild).toHaveBeenCalledWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })
@@ -221,6 +225,21 @@ describe('composer subagent roster', () => {
     expect(screen.queryByText('Calling read')).toBeNull()
     fireEvent.click(header)
     expect(screen.queryByText('Read the spec')).toBeNull()
+  })
+
+  it('shows the fixed sandbox mode only for capped, confined children', () => {
+    const input = props(catalog({ entries: [
+      { id: CHILD, mode: 'continuable', label: 'Review', sandboxMode: 'read-only', activity: 'running' },
+      { id: 'writer' as SessionId, mode: 'continuable', label: 'Implement', sandboxMode: 'workspace-write', activity: 'running' },
+      { id: 'full' as SessionId, mode: 'continuable', label: 'Full', sandboxMode: 'danger-full-access', activity: 'running' },
+      { id: 'historical' as SessionId, mode: 'continuable', label: 'Historical', activity: 'inactive' },
+    ] }))
+    render(<SubagentRoster {...rosterProps(input)} />)
+    fireEvent.click(screen.getByRole('button', { name: /^4 subagents/ }))
+    expect(screen.getByRole('button', { name: /^Running.*Review.*Read-only$/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Running.*Implement.*Workspace write$/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Running.*Full$/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(`^${en['activity.inactive']}\\s*Historical$`, 'i') })).toBeTruthy()
   })
 
   it('nests a child\'s own subagents under its open row', () => {

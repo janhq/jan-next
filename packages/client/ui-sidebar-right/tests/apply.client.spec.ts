@@ -27,7 +27,7 @@ import * as sidebarStores from '../src/client/stores.ts'
 import { RightbarSeat } from '../src/client/shell/SidebarRight.tsx'
 import { RightbarRoot } from '../src/client/shell/RightbarRoot.tsx'
 import { ExpandButton } from '../src/client/shell/ExpandButton.tsx'
-import { NewTabItems } from '../src/client/shell/NewTabItems.tsx'
+import { NewTabItems, type NewTabItemsInjected } from '../src/client/shell/NewTabItems.tsx'
 import { GuideBody } from '../src/client/tabs/guide/GuideBody.tsx'
 import { GuideTitle } from '../src/client/tabs/guide/GuideTitle.tsx'
 import { GUIDE_ID } from '../src/client/tabs/guide/definition.ts'
@@ -309,6 +309,31 @@ describe('ui-sidebar-right apply', () => {
     })
     expect(seen).toHaveBeenCalledOnce()
     expect(guideEntries.getSnapshot().map(entry => entry.kind)).toEqual(['files'])
+  })
+
+  it('lists a conditional guide entry only in the chats that offer it, in the guide and the + menu alike', async () => {
+    const { ctx, seat, injectedOf } = await boot()
+    const { hooks: { guideEntries } } = injectedOf(seat('sidebar.right.pane.tab')) as GuideInjected
+    const menu = injectedOf(seat('conversation.desk.new-tab.item')) as NewTabItemsInjected
+    const inCheckout = createSnapshotStore(false)
+    const asked: SessionId[] = []
+    ctx.sidebarRightTabs.register({ id: 'spec/files', kind: 'files', title: () => 'Files', guide: [{ id: 'default', order: 10, title: () => 'Files' }] })
+    ctx.sidebarRightTabs.register({
+      id: 'spec/review', kind: 'review', title: () => 'Review',
+      guide: [{ id: 'review', order: 20, title: () => 'Review', offeredIn: (sessionId) => { asked.push(sessionId); return inCheckout } }],
+    })
+    const seen = vi.fn()
+    guideEntries.subscribe(seen)
+    const kinds = (): string[] => guideEntries.getSnapshot().map(entry => entry.kind)
+    expect(kinds()).toEqual(['files'])
+    expect(guideEntries.getSnapshot()).toBe(guideEntries.getSnapshot())
+    inCheckout.set(true)
+    expect(seen).toHaveBeenCalledOnce()
+    expect(kinds()).toEqual(['files', 'review'])
+    expect(menu.offeredIn(SESSION).getSnapshot().map(entry => entry.kind)).toEqual(['files', 'review'])
+    expect(asked).toEqual([SESSION, SESSION])
+    // A blank chat has no Session to ask about, so it offers only the unconditional entries.
+    expect(menu.offeredIn(undefined).getSnapshot().map(entry => entry.kind)).toEqual(['files'])
   })
 
   it('hands the guide body its pin list, pin mutation, and the actions registration state', async () => {

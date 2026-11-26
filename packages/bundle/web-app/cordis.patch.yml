@@ -147,6 +147,12 @@
     - id: session-controller
       name: '@janhq/jan-api-session-controller'
 
+    - id: btw
+      name: '@janhq/jan-btw'
+
+    - id: context-usage
+      name: '@janhq/jan-context-usage'
+
     # One background job's observation record streamed over Typert Remote;
     # the roster rides the session control stream above.
     - id: job-controller
@@ -194,6 +200,10 @@
     - id: ui-settings-local-model
       name: '@janhq/jan-client-ui-settings-local-model'
 
+    # Track app, model and plugin transfers in the sidebar inbox on Web and Desktop.
+    - id: jan-downloads
+      name: '@janhq/jan-downloads'
+
     # Jan: Agent loop settings page for fallback, compaction, and busy send behavior.
     - id: ui-settings-model-policy
       name: '@janhq/jan-client-ui-settings-model-policy'
@@ -212,6 +222,16 @@
     # Workspace commands and reconnect-safe projection over Typert Remote.
     - id: workspace-controller
       name: '@janhq/jan-api-workspace-controller'
+
+    # Named agents from Jan, .agents, Claude Code, opencode and Codex agent folders, and the agent each chat selected.
+    - id: agent-profiles
+      name: '@janhq/jan-agent-profiles'
+
+    # Project defaults for new chats and tool switches per chat, project and globally.
+    - id: scoped-settings
+      name: '@janhq/jan-scoped-settings'
+      config:
+        file: !!js janHomePath('settings', 'scoped.json')
 
     - id: cordis-host-runner
       name: '@janhq/jan-cordis-host-runner'

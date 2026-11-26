@@ -22,8 +22,6 @@
     "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-jobs": "workspace:*",
     "@janhq/jan-schedule": "workspace:*",
-    "@janhq/jan-tool-workspace-dependencies": "workspace:*",
-    "@janhq/jan-skill-office": "workspace:*",
     "@janhq/jan-tokamak-account": "workspace:*",
     "@janhq/jan-workspace": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",
@@ -40,6 +38,7 @@
     "@janhq/jan-sandbox-policy": "workspace:*",
     "@janhq/jan-util-workspace-path": "workspace:*",
     "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-tool-executor-native": "workspace:*"
   }
 }

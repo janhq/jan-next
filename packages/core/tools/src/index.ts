@@ -35,10 +35,11 @@ declare module '@janhq/cordis' {
   }
 }
 
-/** One restriction compiled at registration for repeated live-global lookup. */
+/** One restriction compiled at registration for repeated live lookup. */
 interface CompiledToolRestriction {
   readonly allow?: ReadonlySet<string>
   readonly deny?: ReadonlySet<string>
+  readonly includeScopeLocal?: boolean
 }
 
 /** One registered definition and its step-time activation condition. */
@@ -75,9 +76,10 @@ class ToolLayer implements ScopeLayer {
     return this.tools.isEmpty() && this.restrictions.isEmpty()
   }
 
-  /** Whether every compiled restriction in this layer admits a global tool name. */
-  admits(name: string): boolean {
+  /** Whether every restriction applicable to the registration admits its name. */
+  admits(name: string, scopeLocal = false): boolean {
     for (const filter of this.restrictions.values()) {
+      if (scopeLocal && filter.includeScopeLocal !== true) continue
       if ((filter.allow !== undefined && !filter.allow.has(name))
         || (filter.deny !== undefined && filter.deny.has(name))) return false
     }
@@ -117,6 +119,17 @@ export class ToolsService extends Service {
     })
   }
 
+  /** Plugin that registered each definition, for settings surfaces that group tools by where they come from. */
+  private readonly owners = new WeakMap<ToolDefinition, string>()
+
+  /**
+   * Name the installed package (or, outside the loader, the plugin) that registered a definition.
+   * @param definition - a definition read from {@link ToolsService.definitions}.
+   * @returns the registering package name, or undefined for a definition this registry did not record.
+   */
+  ownerOf(definition: ToolDefinition): string | undefined {
+    return this.owners.get(definition)
+  }
 
   /**
    * Register globally or in the calling agent scope. Scoped tools shadow
@@ -145,6 +158,9 @@ export class ToolsService extends Service {
     if (name === RUN_CODE_NAME) {
       throw new Error(`tool name "${RUN_CODE_NAME}" is reserved for the PTC mode presentation transport and cannot be registered or shadowed`)
     }
+    // The loader entry names the installed package; a fiber outside any entry falls back to its plugin name.
+    const entry = (this.ctx.fiber as { entry?: { options: { name?: string } } }).entry
+    this.owners.set(definition, entry?.options.name ?? this.ctx.fiber.name)
     return this.layers.effect(
       this.ctx,
       layer => layer.tools.insert(name, { definition, when: options.when }),
@@ -153,14 +169,14 @@ export class ToolsService extends Service {
   }
 
   /**
-   * Restrict global tools for the calling agent scope. Empty filters, unknown
-   * names, scope-local names, and reserved transport names fail. Restrictions
-   * intersect; scoped registrations remain visible.
-   * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
-   * @param options - permit names whose optional providers have not registered yet.
+   * Restrict tools for the calling scope. Masks intersect; the viewing scope's own
+   * registrations are exempt unless a mask opts in to include them.
+   * @param filter - `allow` keeps only named tools, `deny` removes named tools.
+   * @param options - `allowUnregistered` permits names that have not registered yet;
+   * `includeScopeLocal` also masks the viewing scope's own registrations.
    * @returns the exact disposer that lifts this restriction.
    */
-  restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void {
+  restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean; includeScopeLocal?: boolean } = {}): () => void {
     const scope = scopeOf(this.ctx)
     if (scope === undefined) {
       throw new Error('tools.restrict() requires a scoped context (agent.ctx): a context-global restriction would mask every agent — deny the tool for the intended agent instead')
@@ -173,15 +189,18 @@ export class ToolsService extends Service {
     const compiled: CompiledToolRestriction = {
       ...allow !== undefined ? { allow: new Set(allow) } : {},
       ...deny !== undefined ? { deny: new Set(deny) } : {},
+      ...options.includeScopeLocal === true ? { includeScopeLocal: true } : {},
     }
     if ([...allow ?? [], ...deny ?? []].includes(RUN_CODE_NAME)) {
       throw new Error(`tools.restrict() cannot name reserved PTC mode presentation transport "${RUN_CODE_NAME}"; restrict end-capability tools instead`)
     }
     if (options.allowUnregistered !== true) {
-      const known = this.view(scope).restrictableNames
+      const view = this.view(scope)
+      const known = options.includeScopeLocal === true ? view.knownNames : view.restrictableNames
       const unknown = [...allow ?? [], ...deny ?? []].filter(name => !known.has(name))
       if (unknown.length > 0) {
-        throw new Error(`tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`)
+        const kind = options.includeScopeLocal === true ? 'tool' : 'global tool'
+        throw new Error(`tools.restrict() names unknown ${kind}${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known ${kind}s: ${[...known].sort().join(', ') || '(none)'}`)
       }
     }
     return this.layers.effect(
@@ -194,8 +213,8 @@ export class ToolsService extends Service {
   /**
    * Resolve visible tools and pre-restriction names. Restrictions across the
    * scope chain intersect over inherited global and ancestor tools; the viewing
-   * scope's own registrations remain exempt. Nearer registrations shadow
-   * farther ones. Pre-restriction names support restriction and prompt-order validation.
+   * scope's own registrations honor only masks that opt in to include them. Nearer
+   * registrations shadow farther ones. Pre-restriction names support validation.
    * @param scope - the viewing scope (the agent), or undefined for the global view.
    * @returns the complete derived view for that scope.
    */
@@ -222,6 +241,7 @@ export class ToolsService extends Service {
     if (own !== undefined) {
       for (const [name, registration] of own.tools.entries()) {
         knownNames.add(name)
+        if (!layers.every(layer => layer.admits(name, true))) continue
         visible.set(name, registration.definition)
         registrations.set(name, registration)
       }
@@ -307,6 +327,15 @@ export class ToolsService extends Service {
    */
   definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[] {
     return toolSet === undefined ? [...this.view(scope).visible.values()] : [...toolSet.view(scope).values()]
+  }
+
+  /**
+   * Inspect registered tools before restrictions and step admission, for computing masks.
+   * @param scope - viewing Agent or preset; omitted selects global registrations.
+   * @returns definitions after scoped shadowing, including currently masked definitions.
+   */
+  registeredDefinitions(scope?: ScopeKey): readonly ToolDefinition[] {
+    return Array.from(this.layers.merge(scope, layer => layer.tools).values(), registration => registration.definition)
   }
 
   /**

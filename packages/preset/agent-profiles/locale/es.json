@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Perfiles de agente",
+    "description": "Agentes con nombre, con sus propias instrucciones, modelo y herramientas, compartidos con Claude Code, opencode y Codex."
+  }
+}

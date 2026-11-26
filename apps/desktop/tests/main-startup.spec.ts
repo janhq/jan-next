@@ -592,6 +592,29 @@ describe('desktop main startup', () => {
     expect(harness.app.relaunch).toHaveBeenCalledOnce()
   })
 
+  it('relaunches without a quit confirmation when the application asks to restart', async () => {
+    await readyForUpdate()
+    await harness.windows[0]!.shown.promise
+    expect(() => invoke(DESKTOP_IPC.restartApplication, 'shell')).toThrow()
+    expect(harness.app.relaunch).not.toHaveBeenCalled()
+    await invoke(DESKTOP_IPC.restartApplication, 'app')
+    expect(harness.app.relaunch).toHaveBeenCalledOnce()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    expect(harness.dialog.showMessageBox).not.toHaveBeenCalled()
+  })
+
+  it('leaves the relaunch to the development launcher that asked for it', async () => {
+    vi.stubEnv('JAN_DESKTOP_RESTART_EXIT_CODE', '75')
+    const host = await readyForUpdate()
+    await harness.windows[0]!.shown.promise
+    harness.app.isPackaged = false
+    await invoke(DESKTOP_IPC.restartApplication, 'app')
+    await host.stopping.promise
+    host.exited.resolve()
+    await vi.waitFor(() => { expect(harness.app.exit).toHaveBeenCalledWith(75) })
+    expect(harness.app.relaunch).not.toHaveBeenCalled()
+  })
+
   it('restores and dispatches a notification click to its secondary conversation window', async () => {
     writeFileSync(join(harness.app.getPath('userData'), 'conversation-windows.json'), JSON.stringify({ windows: ['secondary'] }))
     await readyForUpdate()
@@ -599,6 +622,14 @@ describe('desktop main startup', () => {
     const primary = harness.windows[0]!
     const secondary = harness.windows[1]!
     await secondary.shown.promise
+    // A restored window boots the same page; refusing its locale read failed the whole boot behind a fatal dialog.
+    const bootstrap = harness.handlers.get(DESKTOP_IPC.localeBootstrap)!
+    const secondaryFrame = { sender: secondary.webContents, senderFrame: secondary.webContents.mainFrame }
+    const outcome = await Promise.resolve().then(() => bootstrap(secondaryFrame))
+      .then(() => 'read', (error: unknown) => error instanceof Error ? error.message : String(error))
+    expect(outcome).not.toMatch(/unowned frame/)
+    await expect(Promise.resolve().then(() => bootstrap({ sender: {}, senderFrame: secondary.webContents.mainFrame })))
+      .rejects.toThrow('unowned frame')
     secondary.minimized = true
     const show = harness.handlers.get(DESKTOP_IPC.notificationShow)!
     for (const { webContents: sender } of [primary, secondary]) {

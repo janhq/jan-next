@@ -1,7 +1,7 @@
 /** Main Conversation desk; each added pane leases its own Session binding. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
-import { DockSurface, dockPaneIds, getPane, MAX_DOCK_PANES } from '@janhq/jan-client-ui-dockkit'
+import { DockSurface, dockPaneIds, findTabPane, getPane, MAX_DOCK_PANES } from '@janhq/jan-client-ui-dockkit'
 import type { DockLabels, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
 import type { ISessions, SessionReference } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
@@ -72,6 +72,8 @@ function LeasedConversation({ id, retainPane, SessionProvider, children }: {
 }
 
 type StripTargets = Partial<Record<TabId, HTMLElement>>
+
+const MIN_CHAT_PANE_SIZE = { width: 240, height: 200 }
 
 function StripTarget({ id, setTargets }: {
   readonly id: TabId
@@ -153,6 +155,7 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
     <div className={css.desk} data-chat-tabs="">
       <DockSurface state={dock} intents={layout} labels={labels} canSplit={panes.length < MAX_DOCK_PANES}
         showSplitControl={false} tabListLabel={t('desk.chatTabs')} dividerLabel={t('desk.resize')} renderTab={renderTab}
+        minPaneSize={MIN_CHAT_PANE_SIZE} onRoom={layout.setRoom}
         renderAddTabMenu={renderAddTabMenu}
         renderTabTitle={(tab) => {
           const id = tabSessionId(tab)
@@ -162,14 +165,42 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
           return <ChatTabTitle label={label} />
         }}
         renderTabActions={tab => <StripTarget id={tab.id} setTargets={setTargets} />}
-        {...desktop === undefined ? {} : {
-          onTabReleasedOutsideViewport: moveToWindow,
-          renderTabMenuItems: (tab, dismiss) => {
-            const id = tabSessionId(tab)
-            return id === undefined || list.byId[id]?.origin === 'subagent' ? null : (
+        {...desktop === undefined ? {} : { onTabReleasedOutsideViewport: moveToWindow }}
+        renderTabMenuItems={(tab, dismiss) => {
+          const id = tabSessionId(tab)
+          const { tabs, activeTabId } = findTabPane(dock, tab.id)
+          const tabIndex = tabs.indexOf(tab.id)
+          const closeTabs = (start: number, end: number): void => {
+            dismiss()
+            // Close the active tab last so the normal close selects the clicked tab without focusing another pane.
+            let last: TabId | undefined
+            tabs.forEach((tabId, index) => {
+              if (index < start || index >= end || tabId === tab.id) return
+              if (tabId === activeTabId) last = tabId
+              else layout.closeTab(tabId)
+            })
+            if (last !== undefined) layout.closeTab(last)
+          }
+          return <>
+            <MenuItemButton disabled={tabs.length === 1} onSelect={() => { closeTabs(0, tabs.length) }}>
+              {t('desk.closeOtherTabs')}
+            </MenuItemButton>
+            <MenuItemButton disabled={tabIndex === 0} onSelect={() => { closeTabs(0, tabIndex) }}>
+              {t('desk.closeTabsLeft')}
+            </MenuItemButton>
+            <MenuItemButton disabled={tabIndex === tabs.length - 1} onSelect={() => { closeTabs(tabIndex + 1, tabs.length) }}>
+              {t('desk.closeTabsRight')}
+            </MenuItemButton>
+            <MenuItemButton separatorBefore disabled={!layout.canSplitTab(tab.id, 'row')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'row') }}>
+              {t('desk.splitRight')}
+            </MenuItemButton>
+            <MenuItemButton disabled={!layout.canSplitTab(tab.id, 'column')} onSelect={() => { dismiss(); layout.splitTab(tab.id, 'column') }}>
+              {t('desk.splitDown')}
+            </MenuItemButton>
+            {desktop !== undefined && id !== undefined && list.byId[id]?.origin !== 'subagent' && (
               <MenuItemButton onSelect={() => { dismiss(); moveToWindow(tab.id) }}>{t('desk.moveToNewWindow')}</MenuItemButton>
-            )
-          },
+            )}
+          </>
         }} />
     </div>
   )

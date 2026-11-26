@@ -12,6 +12,9 @@ import { parse as parseYaml } from 'yaml'
 
 const SKILL_NAMES = ['office', 'office-docx', 'office-pptx', 'office-xlsx', 'office-render', 'office-recalculate', 'office-export-pdf'] as const
 
+/** One bundled Office skill. */
+export type OfficeSkillName = typeof SKILL_NAMES[number]
+
 /** Office skill resource location. */
 export interface Config {
   /** Absolute assets directory containing skill folders; defaults to packaged assets. */
@@ -20,6 +23,8 @@ export interface Config {
   node?: string
   /** Absolute LibreOffice Kit CLI entry; false explicitly disables CLI access. */
   cli?: string | false
+  /** Skills to register, in any order; defaults to all seven. */
+  skills?: OfficeSkillName[]
 }
 
 /** Validated resource configuration. */
@@ -27,6 +32,7 @@ export const Config: z<Config> = z.object({
   assetRoot: z.string().min(1),
   node: z.string().min(1),
   cli: z.union([z.string().min(1), z.const(false)]),
+  skills: z.array(z.union(SKILL_NAMES.map(skillName => z.const(skillName)))).default([...SKILL_NAMES]),
 })
 
 /** Cordis plugin identity. */
@@ -64,12 +70,13 @@ function officeRuntime(config: Config): string {
 /**
  * Register Office skills with resources readable by the script interpreter.
  * @param ctx - Context carrying the skill registry.
- * @param config - Optional external assets directory for packaged applications.
+ * @param config - Optional external assets directory, executables, and skill subset for packaged applications.
  */
 export function apply(ctx: Context, config: Config = {}): void {
   const assetRoot = config.assetRoot ?? fileURLToPath(new URL('../assets/', import.meta.url))
   if (!isAbsolute(assetRoot)) throw new Error('skill-office: assetRoot must be an absolute directory')
-  const candidates: SkillCandidate[] = SKILL_NAMES.map((skillName) => {
+  const selected = config.skills === undefined ? SKILL_NAMES : SKILL_NAMES.filter(skillName => config.skills?.includes(skillName))
+  const candidates: SkillCandidate[] = selected.map((skillName) => {
     const directory = join(assetRoot, skillName)
     const path = join(directory, 'SKILL.md')
     const { description } = parseSkill(readFileSync(path, 'utf8'), path)

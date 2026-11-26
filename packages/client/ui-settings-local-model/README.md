@@ -1,5 +1,5 @@
 ---
-description: "Local model card on the Settings Models page and the local option in first-run setup: download, import, load, and choose GGUF models, see hardware fit, and start or stop the local llama.cpp worker."
+description: "Local model card in AI Models settings and first-run setup: download, import, and choose GGUF models, see hardware fit, and start or stop the local llama.cpp worker."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Users run models on their own computer from Settings → Models and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [jan-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.
+Users run models on their own computer from **Settings > AI Models > Local models** and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [jan-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ Mount the row with [ui-settings-models](../ui-settings-models/README.md) and the
 
 ### Local model card
 
-The card renders in the `settings.models.footer` slot. Its header shows the default model's name, the worker phase, and one hardware line naming the GPU devices with their memory, the backend, and system memory. While the worker runs, the card shows the context window it serves. Actions follow the phase: download the first-run model, cancel, start, stop, try again, and **Remove all**, which stops the worker and deletes every downloaded model. A failure shows the message and the worker's last log lines under **Details**.
+The card renders in `settings.models.setup-local` when the user chooses **Local models**. Its header shows the default model's name, the worker phase, and one hardware line naming the GPU devices with their memory, the backend, and system memory. While the worker runs, the card shows the context window it serves. Actions follow the phase: download the first-run model, cancel, start, stop, try again, and **Remove all**, which stops the worker and deletes every downloaded model. A failure shows the message and the worker's last log lines under **Details**.
 
 ### Model manager
 
@@ -76,7 +76,7 @@ The browser entry mounts the `llamaCpp` Remote unless the host already provides 
 
 - [jan-llama-cpp](../../llm/llama-cpp/README.md) — models, the worker, and fit.
 - [llama-cpp-controller](../../api/llama-cpp-controller/README.md) — the Remote operations this UI calls.
-- [ui-settings-models](../ui-settings-models/README.md) — the Models page and the first-run dialog that host both slots.
+- [ui-settings-models](../ui-settings-models/README.md) - the AI Models page and the first-run dialog that host both slots.
 
 -----
 

@@ -370,7 +370,7 @@ describe('Conversation inject API', () => {
     expect(file.label!()).toBe('文件')
     expect(file.available(target)).toBe(false)
     expect(file.available({ sessionId: 'missing' as SessionId })).toBe(false)
-    if (file.ui.kind !== 'action') throw new Error('File must be an action')
+    if (file.ui?.kind !== 'action') throw new Error('File must be an action')
     file.ui.run({ sessionId: 'missing' as SessionId })
     const keyboard = b.composerApi(ROOT).keyboard!
     const open = vi.fn()

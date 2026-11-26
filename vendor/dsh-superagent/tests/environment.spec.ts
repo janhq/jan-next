@@ -119,9 +119,9 @@ it('removes every spelling of a directory from PATH and keeps the other entries'
 })
 
 /** Minimal SubprocessRuntime backed by child_process.spawn with an isolated global git config. */
-const subprocess = (config: string): SubprocessRuntime => ({
-  spawn: ({ argv, cwd }: { argv: readonly string[]; cwd: string }) => {
-    const child = spawn(argv[0]!, argv.slice(1), { cwd, env: gitEnv({ GIT_CONFIG_GLOBAL: config, GIT_CONFIG_NOSYSTEM: '1' }) })
+const subprocess = ({
+  spawn: ({ argv, cwd, env }: { argv: readonly string[]; cwd: string; env: NodeJS.ProcessEnv }) => {
+    const child = spawn(argv[0]!, argv.slice(1), { cwd, env: { ...gitEnv(), ...env } })
     const output = { stdout: '', stderr: '' }
     child.stdout.on('data', chunk => { output.stdout += String(chunk) })
     child.stderr.on('data', chunk => { output.stderr += String(chunk) })
@@ -134,7 +134,7 @@ describe('ticket directory check', () => {
   const signal = new AbortController().signal
   const env = () => gitEnv({ GIT_CONFIG_GLOBAL: join(dir, 'global'), GIT_CONFIG_NOSYSTEM: '1' })
   const git = (...args: string[]) => exec('git', args, { cwd: dir, env: env() })
-  const check = (directory: string) => verifyDirectory(join(dir, directory), subprocess(join(dir, 'global')), signal)
+  const check = (directory: string) => verifyDirectory(join(dir, directory), subprocess, signal, env())
   beforeEach(() => { writeFileSync(join(dir, 'global'), '[credential]\n\thelper = global-helper\n') })
   it('passes a directory whose repository adds no credentials, and one outside any repository', async () => {
     await git('init', '-q', 'repo')
@@ -155,7 +155,7 @@ describe('ticket directory check', () => {
   })
   it('reports a failed command\'s exit status', async () => {
     const failing = ['sh', '-c', 'echo nope >&2; exit 3']
-    const error = await runAsWorker(subprocess(join(dir, 'global')), failing, dir, signal).catch((e: unknown) => e)
+    const error = await runAsWorker(subprocess, failing, dir, signal, env()).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(CliError)
     expect(error).toMatchObject({ message: 'nope', exitCode: 3 })
   })
@@ -174,7 +174,8 @@ describe('the repository the host\'s environment names', () => {
       // What the tests do: a repository of their own, checked as a ticket directory.
       await exec('git', ['init', '-q', 'repo'], { cwd: dir, env: gitEnv({ GIT_CONFIG_GLOBAL: join(dir, 'global'), GIT_CONFIG_NOSYSTEM: '1' }) })
       writeFileSync(join(dir, 'global'), '')
-      await expect(verifyDirectory(join(dir, 'repo'), subprocess(join(dir, 'global')), new AbortController().signal)).resolves.toBeUndefined()
+      await expect(verifyDirectory(join(dir, 'repo'), subprocess, new AbortController().signal,
+        { ...agentVariables(dir), GIT_CONFIG_GLOBAL: join(dir, 'global') })).resolves.toBeUndefined()
       expect(readdirSync(join(dir, 'repo'))).toContain('.git')
       expect(config()).toBe(before)
       // The worker environment, which workers' shells and the host's own commands get, names no repository.

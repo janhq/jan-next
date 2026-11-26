@@ -7,8 +7,8 @@
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bindSnapshotSelector } from '@janhq/jan-client-test-runtime'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { bindSnapshotSelector, SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { SessionRetainInfo } from '@janhq/jan-api-session-controller/client'
 import { SessionId } from '@janhq/jan-session/types'
@@ -20,6 +20,9 @@ import type { AgentPresetModeAction } from '../src/client/index.ts'
 import type { AgentPresetSettingsState } from '../src/client/settings-store.ts'
 import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
 import { en } from '../src/client/locales.ts'
+import { registerModeDecoration } from '../src/client/mode-actions.tsx'
+// Type-only: the emitted declarations drop this augmentation import, so the test pulls it in itself.
+import type {} from '../src/client/slot-contract.ts'
 
 afterEach(cleanup)
 
@@ -73,6 +76,7 @@ function renderSeat(
     useModeActions: bindSnapshotSelector(modeActions),
     useDeveloperTools: bindSnapshotSelector(developerTools),
     useAgentPresetSeat: bindSnapshotSelector(store),
+    renderFactorySlot: () => null,
     useSessionRetainInfo: session === undefined
       ? useSessionRetainInfo
       : <Selected,>(selector: (value: SessionRetainInfo | undefined) => Selected) => selector(session.retainInfo),
@@ -102,6 +106,7 @@ function renderLabel(
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
     useDeveloperTools: bindSnapshotSelector(createSnapshotStore(true)),
+    renderFactorySlot: () => null,
     t: translate,
   } as never
   const view = render(<AgentPresetLabel {...props} />)
@@ -127,15 +132,71 @@ it('opens a contributed mode from both preset menus without selecting a capabili
   expect(select).not.toHaveBeenCalled()
 })
 
+it.each(['new session', 'started session'])('shows only user-facing modes in menu order for a %s', (surface) => {
+  const options = [
+    { id: 'chat', name: 'Chat mode', order: 0 },
+    { id: 'standard', order: 1 },
+    { id: 'cordis', order: 5 },
+    ...['reviewer', 'scout', 'worker'].map(id => ({ id, showInModePicker: false })),
+  ]
+  const modeActions = createSnapshotStore<readonly AgentPresetModeAction[]>([{
+    id: 'bots', order: 4, name: () => 'Bots mode', description: () => 'Create a bot', run: vi.fn(),
+  }])
+  if (surface === 'new session') renderSeat({ options }, undefined, undefined, false, modeActions)
+  else renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } }, { options }, modeActions)
+
+  fireEvent.click(screen.getByRole('button'))
+  const modes = ['Chat mode', 'Code mode', 'Bots mode', 'Creator mode']
+  expect(screen.getAllByRole('menuitem')).toEqual(modes.map(name => screen.getByRole('menuitem', { name: new RegExp(`^${name}`) })))
+})
+
+it('decorates only the keyed mode rows and leaves their selection intact', async () => {
+  const runtime = await SlotTestRuntime.create()
+  onTestFinished(() => runtime.dispose())
+  await runtime.mount({ inject: ['slots'], apply(ctx) { ctx.effect(() => registerModeDecoration(ctx)) } })
+  const decorate = await runtime.mount({ inject: ['slots'], apply(ctx) {
+    ctx.effect(() => ctx.slots.register({ name: 'mode.picker.decoration', key: 'mine' },
+      ({ id, selected }) => <span>{id} {selected ? 'selected' : 'available'}</span>))
+    ctx.effect(() => ctx.slots.register({ name: 'mode.picker.decoration', key: 'action:mine' },
+      ({ id }) => <span>{id} workflow</span>))
+  } })
+  await runtime.root.declare({}, ({ renderFactorySlot }) => <AgentPresetSeat {...{
+    sessionId: undefined, t: translate, useSessionRetainInfo, renderFactorySlot,
+    load: async () => {}, select: async () => undefined, dismissRefusal: () => {}, introduced: () => {},
+    useAgentPresetSeat: bindSnapshotSelector(createSnapshotStore({ ...SEAT_READY, current: 'mine' })),
+    useDeveloperTools: bindSnapshotSelector(createSnapshotStore(false)),
+    useModeActions: bindSnapshotSelector(createSnapshotStore<readonly AgentPresetModeAction[]>([{
+      id: 'mine', name: () => 'My workflow', description: () => 'Start a workflow', run: vi.fn(),
+    }])),
+  } as AgentPresetSeatProps} />)
+  runtime.renderRoot()
+  expect(screen.queryByText('mine selected')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'mine' }))
+  const code = screen.getByRole('menuitem', { name: /^Code mode/ })
+  const preset = screen.getByRole('menuitem', { name: /^mine/ })
+  const action = screen.getByRole('menuitem', { name: /^My workflow/ })
+  expect(code.querySelector('[data-slot="mode.picker.decoration"]')?.textContent).toBe('')
+  expect(preset.textContent).toContain('mine selected')
+  expect(action.textContent).toContain('action:mine workflow')
+  expect(preset.querySelector(':scope > svg')).not.toBeNull()
+  expect(action.querySelector(':scope > svg')).toBeNull()
+  await decorate.dispose()
+  expect(preset.textContent).not.toContain('mine selected')
+  expect(action.textContent).not.toContain('action:mine workflow')
+  expect(preset.querySelector(':scope > svg')).not.toBeNull()
+})
+
 describe('the new-session chip', () => {
-  it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', (enabled) => {
-    const actions = renderSeat({ options: [
-      { id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' },
-    ] }, undefined, undefined, enabled)
+  it.each([false, true])('offers Code, Creator and custom presets with Developer tools %s', (enabled) => {
+    const actions = renderSeat({
+      options: [
+        { id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' },
+      ],
+    }, undefined, undefined, enabled)
 
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getAllByRole('menuitem')).toHaveLength(enabled ? 5 : 3)
-    expect(screen.getByRole('menuitem', { name: /^Standard mode/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /^Code mode/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /^mine/ })).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: /^PTC mode/ }) !== null).toBe(enabled)
     expect(screen.queryByRole('menuitem', { name: /^Minimal mode/ }) !== null).toBe(enabled)

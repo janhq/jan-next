@@ -4,6 +4,7 @@ Helps a person report a problem with Jan without digging for files.
 
 - **On a failed chat:** the failure card gets **Copy details** and **Open logs**, through the `conversation.chat.turn-error-actions` slot of `ui-chat`. A sign-out the person chose shows neither.
 - **Settings > About:** the Jan version, the system, the log folder, and **Copy details**, **Open logs**, **Save report** and **Send diagnostics**. Send diagnostics is a disabled placeholder: nothing is ever sent.
+- **On a failed operation:** shared client failure toasts can attach up to 40 recent lines (8 KiB) from `<JAN_HOME>/logs/jan.log` and use the same native log-folder action. If the Host is unavailable, the client still shows and copies the redacted local details.
 
 ## The report
 

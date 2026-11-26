@@ -69,6 +69,7 @@ Load the plugin alongside the skill registry; it requires `ctx.skills`.
 | `janHome` | `$JAN_HOME` or `~/.config/jan-alpha` | Harness config root; its `skills` subdirectory is scanned |
 | `agentsHome` | `$JAN_AGENTS_HOME` or `~/.agents` | Shared agent config root scanned for compatible skills |
 | `customSkillDirs` | `[]` | Additional local skill roots, after project roots and before user roots |
+| `scopedSkillDirs` | `[]` | `{ path, within }` roots ranked with `customSkillDirs` but scanned only when the lookup cwd is inside one of the `within` directories; a lookup without a cwd skips them |
 | `watch` | `true` | Watch local roots and invalidate the provider when the catalog may have changed |
 | `bundledSkillDir` | — | Bundled skill root scanned at rank 600 when configured |
 

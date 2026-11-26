@@ -111,7 +111,7 @@ const renderDirectoryFlowOnly = ((name: string, owner: object, options?: { fallb
     : options?.fallback ?? null) as WorkspaceBrowserProps['renderSlot']
 
 // Mounted outside a sidebar, the browser binds its list area to nothing.
-const SECTION_SCROLLER = { bindScrollerRef: () => {} }
+const SECTION_SCROLLER = { bindScrollerRef: () => { } }
 
 function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
   const controls = createWorkspaceShortcutControls()
@@ -157,6 +157,8 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     openProject: vi.fn(),
     useProjectSurface: selector => selector(false),
     useHiddenSessions: selector => selector(new Set()),
+    // Specs that count rows see only the list; the Working section has its own cases.
+    useWorkingSection: selector => selector(false),
     createWorkspace: vi.fn(async () => workspace('created', [])),
     createDirectory: vi.fn(async (parent: string, name: string) => `${parent}/${name}`),
     useRemoteMachines: selector => selector(undefined),
@@ -204,6 +206,90 @@ describe('WorkspaceBrowser', () => {
         label: '工作区“alpha”的操作', className: rowCss.iconButton,
       })
     }
+  })
+
+  describe('Working section', () => {
+    const running = hook<SessionStatusSnapshot>(new Map([[sid('busy'), { running: true, pendingInteraction: undefined, completionUnread: false }]]))
+    const sessions = hook(sessionState([summary('busy', 20), summary('quiet', 10)]))
+    const projects = hook(workspaceState([workspace('alpha', ['busy', 'quiet'])]))
+    const workingTree = () => screen.queryByRole('tree', { name: t('section.working') })
+
+    it('stays absent while no chat runs', () => {
+      mount({ useSessions: sessions, useWorkspaces: projects, useWorkingSection: selector => selector(true) })
+      expect(workingTree()).toBeNull()
+    })
+
+    it.each(['workspace', 'workspace-tree', 'flat'] as const)(
+      'repeats running chats above the %s list and keeps them in their saved place', (mode) => {
+        const account = mode === 'flat' ? FLAT_SESSION_ORDER_KEY : 'alpha'
+        const saved = ['quiet', 'busy']
+        const preferences = createWorkspaceViewStore().create()
+        preferences.actions.setGroupBy(mode)
+        preferences.actions.setGroupExpanded('alpha', true)
+        preferences.actions.setSessionOrder(account, saved, {})
+        const active = { running: true, pendingInteraction: undefined, completionUnread: false }
+        const browser = mount({
+          useSessions: hook(sessionState([summary('busy', 20), summary('quiet', 10)], { main: sid('busy') })),
+          useWorkspaces: hook(workspaceState([workspace('alpha', saved)])),
+          useSessionStatus: hook(new Map([[sid('busy'), active]])),
+          useWorkingSection: hook(true),
+        })
+        const working = screen.getByRole('tree', { name: t('section.working') })
+        expect(within(working).getAllByText(/^(busy|quiet)$/u).map(title => title.textContent)).toEqual(['busy'])
+        const list = screen.getByRole('tree', { name: t('section.sessions') })
+        expect(within(list).getAllByText(/^(busy|quiet)$/u).map(title => title.textContent)).toEqual(saved)
+        fireEvent.keyDown(within(working).getByRole('treeitem', { selected: true }), { key: 'Enter' })
+        expect(browser.props.open).toHaveBeenCalledWith(sid('busy'))
+
+        rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
+        expect(workingTree()).toBeNull()
+        expect(browser.store.getSnapshot().sessionOrderByAccount[account]).toEqual(saved)
+      },
+    )
+
+    it.each([
+      [false, 'status.completed'],
+      [true, 'status.failed'],
+    ] as const)('keeps a finished chat in Working until it is opened (failed: %s)', (failed, label) => {
+      const unread = { running: false, pendingInteraction: undefined, completionUnread: true }
+      const browser = mount({
+        useSessions: hook(sessionState([summary('busy', 20, { projectionValues: { lastTurnFailed: failed } }), summary('quiet', 10)])),
+        useWorkspaces: hook(workspaceState([workspace('alpha', ['busy', 'quiet'])])),
+        useSessionStatus: hook(new Map([[sid('busy'), unread]])),
+        useWorkingSection: hook(true),
+      })
+      const working = screen.getByRole('tree', { name: t('section.working') })
+      expect(within(working).getByText('busy')).toBeTruthy()
+      expect(within(working).getByText(t(label))).toBeTruthy()
+      rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
+      expect(workingTree()).toBeNull()
+    })
+
+    it('marks a folded project whose chat is running', () => {
+      const browser = mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: hook(false) })
+      const project = screen.getByRole('treeitem', { name: /alpha/u })
+      expect(project.getAttribute('aria-expanded')).toBe('false')
+      expect(within(project).getByRole('img', { name: t('status.running') })).toBeTruthy()
+      rerender(browser, { useSessionStatus: hook(noPendingInteraction) })
+      expect(within(screen.getByRole('treeitem', { name: /alpha/u })).queryByRole('img', { name: t('status.running') })).toBeNull()
+    })
+
+    it('reveals a running chat in Working when opened from search', () => {
+      const browser = mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: hook(true) })
+      act(() => { browser.controls.search() })
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'busy' } })
+      expect(workingTree()).toBeNull()
+      fireEvent.click(screen.getByText('busy'))
+      expect(within(screen.getByRole('tree', { name: t('section.working') })).getByText('busy')).toBeTruthy()
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    })
+
+    it('is hidden while the General switch is off', () => {
+      mount({ useSessions: sessions, useWorkspaces: projects, useSessionStatus: running, useWorkingSection: selector => selector(false) })
+      expect(workingTree()).toBeNull()
+      fireEvent.click(screen.getByText('alpha'))
+      expect(within(screen.getByRole('tree', { name: t('section.sessions') })).getByText('busy')).toBeTruthy()
+    })
   })
 
   it('binds the list area as the section scroller only while the sidebar is wide', () => {
@@ -732,6 +818,27 @@ describe('WorkspaceBrowser', () => {
     choose('单列表')
     expect(screen.queryByText('Projects')).toBeNull()
     expect(screen.getByText('child-session')).toBeTruthy()
+  })
+
+  it('keeps sibling project names inside one checkout and groups only linked checkout roots', () => {
+    const repository = '/projects/main/.git'
+    const main = { ...workspace('main', [], 'Repository'), repository, checkoutRoot: '/projects/main', branch: 'main' }
+    const app = { ...main, workspaceId: wid('app'), path: '/projects/main/app', title: 'App' }
+    const docs = { ...main, workspaceId: wid('docs'), path: '/projects/main/docs', title: 'Docs' }
+    const linked = { ...workspace('linked', [], 'Linked checkout'), repository, checkoutRoot: '/projects/linked', branch: 'feature' }
+    mount({ useWorkspaces: hook(workspaceState([app, docs, linked, main])) })
+
+    const repositorySection = screen.getByText('Repository').closest<HTMLElement>('[class*="groupSection"]')!
+    expect(within(repositorySection).getByText('feature')).toBeTruthy()
+    expect(screen.getByText('App')).toBeTruthy()
+    expect(screen.getByText('Docs')).toBeTruthy()
+    expect(within(repositorySection).queryByText('App')).toBeNull()
+    expect(within(repositorySection).queryByText('Docs')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '视图选项' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '按工作区树' }))
+    expect(within(repositorySection).getByText('App')).toBeTruthy()
+    expect(within(repositorySection).getByText('Docs')).toBeTruthy()
   })
 
   it('persists flat-list drag order locally and applies Last updated within that account', async () => {
@@ -2717,6 +2824,30 @@ describe('WorkspaceBrowser', () => {
   })
 })
 
+
+it.each(['workspace', 'workspace-tree'] as const)('groups linked checkouts by repository in %s mode', (mode) => {
+  createWorkspaceViewStore().create().actions.setGroupBy(mode)
+  const repository = '/projects/main/.git'
+  const head = { ...workspace('main', [], 'Project'), repository, checkoutRoot: '/projects/main', createdAt: '2026-02-01T00:00:00.000Z' }
+  const first = { ...workspace('scratch-one', ['branch-chat']), repository, checkoutRoot: '/projects/scratch-one', branch: 'topic/one' }
+  const second = { ...workspace('scratch-two', []), repository, checkoutRoot: '/projects/scratch-two', branch: 'topic/two' }
+  const other = { ...workspace('other', [], 'Other'), repository: '/projects/other/.git', checkoutRoot: '/projects/other' }
+  const remote = { ...workspace('remote', [], 'Remote project'), repository, checkoutRoot: '/projects/remote', hostId: 'remote' }
+  mount({
+    useWorkspaces: hook(workspaceState([first, second, other, remote, head])),
+    useSessions: hook(sessionState([summary('branch-chat', 1)], { main: sid('branch-chat') })),
+  })
+  const project = screen.getByText('Project').closest<HTMLElement>('[class*="groupSection"]')!
+  expect(within(project).getByText('topic/one')).toBeTruthy()
+  expect(within(project).getByText('topic/two')).toBeTruthy()
+  expect(within(project).getByText('branch-chat')).toBeTruthy()
+  expect(within(project).queryByText('Other')).toBeNull()
+  expect(within(project).queryByText('Remote project')).toBeNull()
+  expect(screen.getByText('Other')).toBeTruthy()
+  expect(screen.getByText('Remote project')).toBeTruthy()
+  fireEvent.click(screen.getByText('Project'))
+  expect(screen.queryByText('topic/one')).toBeNull()
+})
 
 describe('Workspace tree grouping', () => {
   beforeEach(() => {

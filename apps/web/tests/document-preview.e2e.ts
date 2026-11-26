@@ -610,7 +610,7 @@ else process.exit(1);
       await mkdir(SHOT_DIR, { recursive: true })
       await saveFailureShot(page, `screenshots/0908-document-preview/smoke-${process.pid}`)
     })
-    await page.locator('[data-slot="conversation.hero.agentPreset"]').getByRole('button', { name: 'Standard mode', exact: true }).click()
+    await page.locator('[data-slot="conversation.hero.agentPreset"]').getByRole('button', { name: 'Code mode', exact: true }).click()
     await expect.poll(() => page.getByRole('menuitem').count()).toBe(2)
     expect(await page.getByRole('menuitem', { name: /^PTC mode|^Minimal mode/ }).count()).toBe(0)
     await page.keyboard.press('Escape')
@@ -1631,15 +1631,18 @@ describe.skipIf(MODE === 'record')('web e2e: Host Office preview', () => {
   })
 
   it('rejects renamed text and renders Chinese Office documents through the PDF worker', async () => {
-    scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: 5, compareReplaySession: false,
+    scaffold = await launchWebScaffold({
+      replayFixture: FIXTURE, paceMs: 5, compareReplaySession: false,
       extraOverlayPath: [
         fileURLToPath(new URL('../../../packages/client/ui-sidebar-documentpreview/tests/fixtures/office-cache.patch.yml', import.meta.url)),
         fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
       ],
     })
     browser = await chromium.launch()
-    page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, deviceScaleFactor: 2,
-      locale: 'en-US', timezoneId: 'Asia/Shanghai' })
+    page = await browser.newPage({
+      viewport: { width: 1680, height: 1000 }, deviceScaleFactor: 2,
+      locale: 'en-US', timezoneId: 'Asia/Shanghai',
+    })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
@@ -1747,8 +1750,10 @@ describe.skipIf(MODE === 'record')('web e2e: Host Office preview', () => {
       const zoomScrollport = preview.locator('[data-document-zoom-scrollport]')
       await zoomScrollport.evaluate((node) => {
         const bounds = node.getBoundingClientRect()
-        node.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true,
-          deltaY: -10, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2 }))
+        node.dispatchEvent(new WheelEvent('wheel', {
+          bubbles: true, cancelable: true, ctrlKey: true,
+          deltaY: -10, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2,
+        }))
       })
       await expect.poll(() => zoomMenu.innerText()).toBe('166%')
       await expect.poll(async () => (await canvas.boundingBox())!.width / intrinsicWidth).toBeCloseTo(1.66, 1)
@@ -1764,8 +1769,10 @@ describe.skipIf(MODE === 'record')('web e2e: Host Office preview', () => {
       await zoomScrollport.evaluate(async (node) => {
         const bounds = node.getBoundingClientRect()
         for (let step = 0; step < 8; step++) {
-          node.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true,
-            deltaY: -40, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2 }))
+          node.dispatchEvent(new WheelEvent('wheel', {
+            bubbles: true, cancelable: true, ctrlKey: true,
+            deltaY: -40, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2,
+          }))
           await new Promise<void>(resolve => requestAnimationFrame(() => { resolve() }))
         }
       })

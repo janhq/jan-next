@@ -1,4 +1,4 @@
-import { credentialKey } from '@janhq/jan-credentials'
+import { credentialKey, credentialRef } from '@janhq/jan-credentials'
 import { beginSignIn, failureReason, hostOf, needsSignIn, signedInTokens, signInFailure } from './mcp-auth.mjs'
 import { readFile, stat, realpath, writeFile, rename, unlink } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
@@ -9,6 +9,7 @@ import { clearFailure, recordFailure, takeLaunchAudit, trackStart } from './star
 import { createMcpRegistry } from './mcp-registry.mjs'
 import { iconSources } from './registry-icons.mjs'
 import { RECOMMENDED_CONNECTORS, installRecommended } from './recommended-connectors.mjs'
+import { composioMcpUrl, createComposioSession } from './composio.mjs'
 
 // One registry client per Host process, so its short cache survives settings reloads.
 const mcpRegistry = createMcpRegistry()
@@ -82,6 +83,15 @@ function server(input) {
   if (!strings(input.headers ?? {})) throw new Error('Headers must be a JSON object of text values.')
   return { name, enabled, transport, url: url.href, headers: input.headers ?? {} }
 }
+
+function composioServer({ name, enabled = false, transport, url, userId, credentialRef: ref }) {
+  if (name !== 'composio' || typeof enabled !== 'boolean' || transport !== 'streamable-http'
+    || typeof userId !== 'string' || !/^jan_[a-f0-9-]{36}$/.test(userId)
+    || typeof ref !== 'string' || !/^COMPOSIO_API_KEY_[A-F0-9]{32}$/.test(ref)) throw new Error('Invalid Composio connector configuration.')
+  return { name, connector: 'composio', enabled, transport, url: composioMcpUrl(url), userId, credentialRef: ref }
+}
+
+const composio = row => row?.connector === 'composio'
 
 // Fields other apps write that carry no meaning for Jan: Cursor's `autoApprove`/`alwaysAllow`,
 // Claude Code's `timeout`, Zed's `source`/`settings`, VS Code's `dev`/`gallery`/`version`, a free-form description.
@@ -188,6 +198,7 @@ export async function mountAgentSettings(ctx, config) {
   const skippedServers = []
   for (const [index, row] of configuredServers.entries()) {
     try {
+      if (composio(row)) { servers.push(composioServer(row)); continue }
       const parsed = server(row)
       servers.push({ ...row, enabled: parsed.enabled, transport: parsed.transport, ...(parsed.url && { url: parsed.url }) })
     } catch (error) {
@@ -210,7 +221,7 @@ export async function mountAgentSettings(ctx, config) {
   // Unbound legacy grants cannot prove which endpoint authorized them. Require a new sign-in.
   const boundGrant = (row, grant) => grant?.endpoint === row.url ? grant : undefined
   const readGrant = async row => boundGrant(row, (await credentials.readRecord(oauthKey(row.name)))?.payload)
-  const acceptsSignIn = (name, endpoint) => servers.some(row => row.name === name && row.enabled && row.transport === 'streamable-http' && row.url === endpoint)
+  const acceptsSignIn = (name, endpoint) => servers.some(row => !composio(row) && row.name === name && row.enabled && row.transport === 'streamable-http' && row.url === endpoint)
   for (const [name, pending] of pendingSignIns) {
     if (!acceptsSignIn(name, pending.endpoint)) cancelSignIn(name)
   }
@@ -224,19 +235,28 @@ export async function mountAgentSettings(ctx, config) {
     status.set(row.name, { phase: 'connecting', since: Date.now() })
     let handle
     try {
-      const secret = (await credentials.readRecord(key(row.name)))?.payload ?? {}
-      const headers = { ...secret.headers }
+      let connection
       let signedIn
-      if (row.transport === 'streamable-http' && !Object.keys(headers).some(name => name.toLowerCase() === 'authorization')) {
-        const saved = await readGrant(row)
-        signedIn = await signedInTokens(row.url, saved, next => credentials.modifyRecord(oauthKey(row.name), current => {
-          const grant = boundGrant(row, current?.payload)
-          if (grant?.tokens?.access_token === saved.tokens.access_token) return { kind: 'grant', payload: next }
-        }))
-        if (signedIn) headers.Authorization = `Bearer ${signedIn.accessToken}`
+      if (composio(row)) {
+        connection = {
+          transport: row.transport, serverName: row.name, url: row.url,
+          headers: { 'x-api-key': `\${credential:${row.credentialRef}}` }, expandTemplates: true, followRedirects: false, failOnStartupError: true,
+        }
+      } else {
+        const secret = (await credentials.readRecord(key(row.name)))?.payload ?? {}
+        const headers = { ...secret.headers }
+        if (row.transport === 'streamable-http' && !Object.keys(headers).some(name => name.toLowerCase() === 'authorization')) {
+          const saved = await readGrant(row)
+          signedIn = await signedInTokens(row.url, saved, next => credentials.modifyRecord(oauthKey(row.name), current => {
+            const grant = boundGrant(row, current?.payload)
+            if (grant?.tokens?.access_token === saved.tokens.access_token) return { kind: 'grant', payload: next }
+          }))
+          if (signedIn) headers.Authorization = `Bearer ${signedIn.accessToken}`
+        }
+        connection = { ...row, serverName: row.name, env: secret.env ?? {}, headers, failOnStartupError: true }
       }
       if (!live) return undefined
-      handle = ctx.plugin(mcp, { ...row, serverName: row.name, env: secret.env ?? {}, headers, failOnStartupError: true })
+      handle = ctx.plugin(mcp, connection)
       handles.set(row.name, handle)
       await handle
       if (!live || handles.get(row.name) !== handle) return undefined
@@ -256,6 +276,13 @@ export async function mountAgentSettings(ctx, config) {
       return undefined
     } catch (error) {
       if (!live || (handle && handles.get(row.name) !== handle)) return undefined
+      if (composio(row)) {
+        const [statusCode, message] = needsSignIn(error)
+          ? ['composio-invalid-key', 'Composio did not accept the project API key.']
+          : ['composio-unavailable', 'Jan could not connect to Composio.']
+        status.set(row.name, { phase: 'failed', message, statusCode })
+        return { name: row.name, message }
+      }
       if (row.transport === 'streamable-http' && needsSignIn(error)) {
         status.set(row.name, { phase: 'needs-auth', message: `${hostOf(row.url)} asks you to sign in before Jan can use it.` })
         return undefined
@@ -280,7 +307,7 @@ export async function mountAgentSettings(ctx, config) {
     restart, credentials, oauthKey, acceptsSignIn,
     signInFailed: (name, error, signInRefused = false) => {
       const row = servers.find(item => item.name === name)
-      if (row?.transport === 'streamable-http') status.set(name, { phase: 'needs-auth', message: /cancelled/i.test(error?.message ?? '') ? 'Sign-in cancelled.' : signInFailure(row.url, error), signInRefused })
+      if (!composio(row) && row?.transport === 'streamable-http') status.set(name, { phase: 'needs-auth', message: /cancelled/i.test(error?.message ?? '') ? 'Sign-in cancelled.' : signInFailure(row.url, error), signInRefused })
     },
   }
   if (config.skillDirectories?.length) {
@@ -288,8 +315,7 @@ export async function mountAgentSettings(ctx, config) {
     await ctx.plugin(filesystem, { providerName: 'jan-theme-custom', includeDefaultRoots: false, customSkillDirs: config.skillDirectories })
   }
   const signInLabel = (row) => row.transport === 'streamable-http' && TOKEN_ROUTES[hostOf(row.url)]
-  const publicRows = async () => Promise.all(servers.map(async row => {
-    const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(toolInfo)
+  const describeServer = (row, tools) => {
     const current = status.get(row.name) ?? { phase: 'connecting' }
     const pending = pendingSignIns.get(row.name)
     const signingIn = pending?.endpoint === row.url ? pending : undefined
@@ -297,22 +323,31 @@ export async function mountAgentSettings(ctx, config) {
       : signingIn ? 'signing-in'
         : tools.length ? 'ready'
           : current.phase === 'connected' ? 'empty' : current.phase
-    const secret = (await credentials.readRecord(key(row.name)))?.payload
-    const grant = row.transport === 'streamable-http' ? await readGrant(row) : undefined
+    return { current, signingIn, state }
+  }
+  const publicRows = async () => Promise.all(servers.map(async row => {
+    const tools = ctx.tools.definitions().filter(tool => mcp.mcpToolOrigin(tool)?.serverName === row.name).map(toolInfo)
+    const { current, signingIn, state } = describeServer(row, tools)
+    const managed = composio(row)
+    const secret = managed ? undefined : (await credentials.readRecord(key(row.name)))?.payload
+    const grant = !managed && row.transport === 'streamable-http' ? await readGrant(row) : undefined
     const signedIn = !!grant?.tokens?.access_token && (grant.expiresAt === undefined || grant.expiresAt > Date.now())
-    const secretConfigured = Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
+    const secretConfigured = managed
+      ? (await credentials.describe(credentialRef(row.credentialRef)).catch(() => undefined))?.configured === true
+      : Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
     const { name, enabled, transport } = row
     const endpoint = transport === 'stdio'
       ? { command: row.command, args: row.args, cwd: row.cwd }
-      : { url: row.url }
+      : managed ? {} : { url: row.url }
     const message = state === 'signing-in' ? 'Finish signing in in your browser. Jan connects as soon as you approve.'
       : state === 'ready' ? (tools.length === 1 ? '1 tool available' : `${tools.length} tools available`)
         : state === 'connecting' ? 'Connecting…'
           : state === 'empty' ? 'Connected, but the server offers no tools.'
             : current.message ?? 'Disabled'
-    const route = signInLabel(row)
+    const route = !managed && signInLabel(row)
     return {
       name, enabled, transport, ...endpoint, secretConfigured, signedIn, tools, state, status: message, signInRefused: !!current.signInRefused,
+      ...(managed && { connector: row.connector, ...(current.statusCode && { statusCode: current.statusCode }) }),
       ...(signingIn?.url && { signInUrl: signingIn.url }),
       ...(route && { tokenRoute: { title: route.title, help: route.help, helpUrl: route.helpUrl } }),
     }
@@ -365,8 +400,30 @@ export async function mountAgentSettings(ctx, config) {
   }
   // Other Host plugins can import missing servers without passing credentials through an RPC.
   const configuredNames = () => configuredServers.map(row => row?.name).filter(name => typeof name === 'string')
+  // Config writes reload the plugin. Once the new config is committed, a cleanup
+  // failure must not make the successful save look like it failed or leak store details.
+  const unsetComposio = async ref => {
+    try { await credentials.unset(credentialRef(ref)) }
+    catch { ctx.logger.warn('Jan could not remove an unused Composio credential.') }
+  }
   ctx.provide('janMcpSettings', {
     configuredNames,
+    projectTools() {
+      const toolsByServer = new Map()
+      for (const definition of ctx.tools.definitions()) {
+        const origin = mcp.mcpToolOrigin(definition)
+        if (origin === undefined) continue
+        const tools = toolsByServer.get(origin.serverName) ?? []
+        tools.push(definition.name)
+        toolsByServer.set(origin.serverName, tools)
+      }
+      return servers.map(row => {
+        const tools = toolsByServer.get(row.name) ?? []
+        const { current, state } = describeServer(row, tools)
+        const connector = RECOMMENDED_CONNECTORS.find(item => item.serverName === row.name && (item.setup !== 'project-key' || composio(row)))
+        return { name: row.name, title: connector?.title ?? row.name, connector: connector !== undefined, state: current.statusCode === 'composio-invalid-key' ? 'needs-auth' : state, tools }
+      })
+    },
     async importMissing(document) {
       const existing = new Set(configuredNames())
       const entries = Object.entries(document)
@@ -389,7 +446,8 @@ export async function mountAgentSettings(ctx, config) {
       directories: config.skillDirectories ?? [],
       canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native',
       skills: await ctx.skills.snapshot(),
-      recommended: RECOMMENDED_CONNECTORS.map(item => ({ ...item, installed: servers.some(row => row.name === item.serverName) })),
+      // A custom same-name row does not count as the managed connector.
+      recommended: RECOMMENDED_CONNECTORS.map(item => ({ ...item, installed: servers.some(row => row.name === item.serverName && (item.setup !== 'project-key' || composio(row))) })),
     }),
     searchRegistry: ({ query, since, cursor } = {}) => mcpRegistry.search({
       query: typeof query === 'string' ? query.slice(0, 200) : '',
@@ -402,9 +460,29 @@ export async function mountAgentSettings(ctx, config) {
       const fallback = recommended && iconSources({ websiteUrl: recommended.homepage })
       return await mcpRegistry.icon(recommended ? `recommended:${id}` : id, fallback) ?? null
     },
+    async connectComposio({ apiKey }) {
+      const value = typeof apiKey === 'string' ? apiKey.trim() : ''
+      if (!/^[!-~]+$/.test(value)) throw new Error('composio-invalid-key')
+      const previous = servers.find(row => row.name === 'composio')
+      if (!composio(previous) && configuredNames().includes('composio')) throw new Error('composio-name-conflict')
+      const userId = previous?.userId ?? `jan_${randomUUID()}`
+      const { url } = await createComposioSession(value, userId)
+      const ref = credentialRef(`COMPOSIO_API_KEY_${randomUUID().replaceAll('-', '').toUpperCase()}`)
+      const row = { name: 'composio', connector: 'composio', enabled: previous?.enabled ?? true, transport: 'streamable-http', url, userId, credentialRef: ref }
+      try {
+        await credentials.set(ref, value)
+        await saveRows(previous ? servers.map(item => item === previous ? row : item) : [...servers, row])
+      } catch {
+        await unsetComposio(ref)
+        throw new Error('composio-save-failed')
+      }
+      if (previous) await unsetComposio(previous.credentialRef)
+      clearFailure('mcp:composio')
+      return { saved: true }
+    },
     async installRecommended({ id, confirmed }) {
       if (confirmed !== true) throw new Error('Review and confirm the installation first.')
-      const item = RECOMMENDED_CONNECTORS.find(row => row.id === id)
+      const item = RECOMMENDED_CONNECTORS.find(row => row.id === id && row.setup === 'local-install')
       if (!item) throw new Error('Choose a recommended connector.')
       if (servers.some(row => row.name === item.serverName)) throw new Error(`${item.title} is already added. Remove it first to install it again.`)
       const profile = ctx.get('profileContext')
@@ -427,7 +505,9 @@ export async function mountAgentSettings(ctx, config) {
     async saveServer({ value, originalName, replaceSecrets = false }) {
       const row = server(value)
       if (originalName && originalName !== row.name) throw new Error('Server names are stable. Add a new server to use a different name.')
-      const exists = servers.some(item => item.name === row.name)
+      const existing = servers.find(item => item.name === row.name)
+      if (composio(existing)) throw new Error('composio-use-project-key')
+      const exists = existing !== undefined
       if (!originalName && exists) throw new Error('That server name already exists. Edit the existing server instead.')
       if (!replaceSecrets && exists) { delete row.env; delete row.headers }
       return saveRows(exists ? servers.map(item => item.name === row.name ? row : item) : [...servers, row])
@@ -440,11 +520,15 @@ export async function mountAgentSettings(ctx, config) {
       return result
     },
     async remove({ name, confirmed }) {
-      if (confirmed !== true || !servers.some(row => row.name === name)) throw new Error('Confirm removal of an existing server.')
+      const row = servers.find(item => item.name === name)
+      if (confirmed !== true || !row) throw new Error('Confirm removal of an existing server.')
       cancelSignIn(name)
       await saveRows(servers.filter(row => row.name !== name))
-      await credentials.deleteRecord(key(name))
-      await credentials.deleteRecord(oauthKey(name))
+      if (composio(row)) await unsetComposio(row.credentialRef)
+      else {
+        await credentials.deleteRecord(key(name))
+        await credentials.deleteRecord(oauthKey(name))
+      }
       clearFailure(`mcp:${name}`)
       return { saved: true }
     },
@@ -458,6 +542,7 @@ export async function mountAgentSettings(ctx, config) {
     // Sign in: returns the page the person opens in their browser; the row waits until it returns.
     async signIn({ name }) {
       const row = servers.find(item => item.name === name)
+      if (composio(row)) throw new Error('composio-use-project-key')
       if (!row?.enabled || row.transport !== 'streamable-http') throw new Error('Only enabled remote MCP servers can sign in.')
       cancelSignIn(name)
       const pending = { endpoint: row.url }
@@ -500,6 +585,7 @@ export async function mountAgentSettings(ctx, config) {
     // with a token route, handed to that route's local server, which replaces the remote endpoint.
     async useToken({ name, token }) {
       const row = servers.find(item => item.name === name)
+      if (composio(row)) throw new Error('composio-use-project-key')
       if (!row) throw new Error('Choose an existing MCP server.')
       if (typeof token !== 'string' || !token.trim() || /\s/.test(token.trim())) throw new Error('Paste the access token, without spaces.')
       const value = token.trim()

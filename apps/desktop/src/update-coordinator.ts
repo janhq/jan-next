@@ -11,8 +11,17 @@ import { DesktopUpdatePreparationError, downloadFailureDetails } from './update-
 import type { DesktopUpdateChannel } from './update-channel.ts'
 import { selectUpdateChannel } from './updates/electron-updater/channel.ts'
 import { discardDesktopUpdate } from './updates/electron-updater/discard.ts'
+import type { DownloadFinishState } from '@janhq/jan-downloads/types'
 
 const { autoUpdater } = electronUpdater
+
+/** Observes one authorized updater attempt, never a metadata check or install. */
+export interface DesktopUpdateTransfer {
+  /** @param received - Cumulative bytes received. @param total - Total bytes for the current native transfer. */
+  progress(received: number, total: number): void
+  /** @param outcome - Terminal download result. @param failure - Existing updater failure, when applicable. */
+  finish(outcome: DownloadFinishState, failure?: DesktopUpdateState): void
+}
 
 /** Owns one updater target until its download and installation settle. */
 export class DesktopUpdateCoordinator {
@@ -28,9 +37,11 @@ export class DesktopUpdateCoordinator {
   private checkOperation: Promise<DesktopUpdateState> | undefined
   private downloadOperation: Promise<DesktopUpdateState> | undefined
   private installOperation: Promise<DesktopUpdateState> | undefined
+  private transfer: DesktopUpdateTransfer | undefined
 
   private readonly onProgress = (progress: ProgressInfo): void => {
     if (this.downloadGeneration !== this.generation || this.downloadOperation === undefined || this.downloaded) return
+    this.transfer?.progress(progress.transferred, progress.total)
     const percent = Math.min(100, Math.max(0, progress.percent))
     this.setState({ phase: percent >= 100 ? 'verifying' : 'downloading', ...this.target(), percent })
   }
@@ -56,6 +67,7 @@ export class DesktopUpdateCoordinator {
    * @param channel - Installed package channel; omitted test/local callers retain nightly.
    * @param discard - Clears settled library targets and platform resources before another channel is used.
    * @param downloadResult - Once per completed download attempt, including platform preparation failures.
+   * @param startTransfer - Optional inbox reporting for validated download attempts only.
    */
   constructor(
     private readonly publish: (state: DesktopUpdateState) => DesktopUpdateState,
@@ -66,6 +78,7 @@ export class DesktopUpdateCoordinator {
     private readonly downloadResult?: (success: boolean, reason?: string) => void,
     private channel: DesktopUpdateChannel = 'nightly',
     private readonly discard: (updater: AppUpdater) => Promise<void> = discardDesktopUpdate,
+    private readonly startTransfer?: (version: string, revision: number) => DesktopUpdateTransfer,
   ) {
     if (updater === autoUpdater) {
       // electron-updater omits this internal transport property from its public declarations.
@@ -181,20 +194,25 @@ export class DesktopUpdateCoordinator {
       this.assertLive()
       if (this.candidate === undefined) throw new Error('desktop update: no checked update is available')
       if (version !== this.candidate) throw new Error('desktop update: download confirmation is stale')
+      const transfer = this.startTransfer?.(version, generation)
+      this.transfer = transfer
       this.setState({ phase: 'downloading', version, percent: 0 })
       try {
         await this.updater.downloadUpdate(this.cancellation)
-        if (generation !== this.generation || this.disposed) return this.current
+        if (generation !== this.generation || this.disposed) { transfer?.finish('cancelled'); return this.current }
         if (!this.downloaded) throw new Error('desktop update: platform preparation did not report readiness')
         this.downloadResult?.(true)
+        transfer?.finish('done')
         return this.setState({ phase: 'ready', version })
       } catch (error) {
-        if (generation !== this.generation || this.disposed) return this.current
+        if (generation !== this.generation || this.disposed) { transfer?.finish('cancelled'); return this.current }
         this.release = { kind: 'checked', version }
         this.downloadResult?.(false, error instanceof DesktopUpdatePreparationError ? error.kind : 'download_failed')
-        return this.setState(this.failure(error, 'download'))
+        const failure = this.failure(error, 'download')
+        transfer?.finish(this.cancellation?.cancelled === true ? 'cancelled' : 'failed', failure)
+        return this.setState(failure)
       }
-    }).finally(() => { this.downloadOperation = undefined })
+    }).finally(() => { this.transfer = undefined; this.downloadOperation = undefined })
     return this.downloadOperation
   }
 
@@ -228,6 +246,8 @@ export class DesktopUpdateCoordinator {
   /** Remove owned listeners and prevent pending library operations from publishing into closed UI. */
   dispose(): void {
     this.disposed = true
+    this.transfer?.finish('cancelled')
+    this.transfer = undefined
     this.updater.off('download-progress', this.onProgress)
     this.updater.off('update-downloaded', this.onDownloaded)
     // Pending updater promises can still emit EventEmitter errors during shutdown.

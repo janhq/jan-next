@@ -1,0 +1,31 @@
+{
+  "name": "@janhq/jan-downloads",
+  "version": "0.2.2-rc.1",
+  "description": "Track downloads from Jan services and present the sidebar download inbox",
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janhq/jan-next.git",
+    "directory": "packages/host/downloads"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
+    "./types": { "types": "./lib/types/types.d.ts", "default": "./lib/types/types.js" },
+    "./client": "./client.js",
+    "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": ["locale/*.json", "lib/index.js", "client.js", "lib/types/**/*.js", "lib/types/**/*.d.ts"],
+  "license": "MIT",
+  "peerDependencies": { "@janhq/cordis": "workspace:~" },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-ui-primitives": "workspace:*"
+  },
+  "jan": { "client": { "platform": "web", "inject": ["@janhq/jan-client-ui-primitives"] } }
+}

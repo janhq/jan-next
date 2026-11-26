@@ -68,7 +68,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-product-analytics` | yes | Desktop product event collection and authenticated Host reporting |
 | `@janhq/jan-client-resources` | no | Unified client resource model: protocol-registered providers turn URL addresses into live values, consumed through the useResource global standard hook |
 | `@janhq/jan-client-shortcuts` | yes | Application keyboard command registry and physical-key routing |
-| `@janhq/jan-client-ui-agent-preset` | no | Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor |
+| `@janhq/jan-client-ui-agent-preset` | no | Mode selection for current and new sessions, and mode configuration in Settings |
 | `@janhq/jan-client-ui-agent-team` | no | Web shared task board for a subagent tree |
 | `@janhq/jan-client-ui-approval` | no | Composer dock for tool approval over the scoped Remote Event waterfall |
 | `@janhq/jan-client-ui-attachment` | no | Dynamic attachment presentation plugin for conversation input, message-image, and trajectory image slots |
@@ -86,7 +86,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-goal` | no | Session goal surface: GoalBar docked above the composer, read from the goal session projection |
 | `@janhq/jan-client-ui-guidance` | no | Optional guided tours and local guidance preferences |
 | `@janhq/jan-client-ui-input-trigger` | no | Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources |
-| `@janhq/jan-client-ui-jobs` | no | Session-header background-job list with on-demand streaming record panels |
+| `@janhq/jan-client-ui-jobs` | no | Composer dock background-job list with on-demand streaming output |
 | `@janhq/jan-client-ui-layout` | no | Shell plugin: three-column AppFrame with drag handles, ctx.layout viewing-state service (navigation + panels) |
 | `@janhq/jan-client-ui-media-capture` | no | Inline browser consent, camera and microphone capture for model requests |
 | `@janhq/jan-client-ui-message-feedback` | no | The Web feedback surface: per-message Like/Dislike in the assistant-message action strip and the feedback dialog behind both ratings and /feedback, backed by the messageFeedback and sessionFeedback Host Remotes |
@@ -175,7 +175,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@janhq/jan-authorization` | no | Authorization seam (ctx.authorization): plugin-owned flows that obtain a credential through a conversation with the human |
-| `@janhq/jan-credentials-local` | yes | File-backed credentials provider ($JAN_HOME/.env under the live process environment) for Jan |
+| `@janhq/jan-credentials-local` | yes | Local credentials provider with optional OS keychain storage and environment fallbacks for Jan |
 | `@janhq/jan-tokamak-account` | yes | Authorize Tokamak accounts through the CLI device sign-in and store the minted API key |
 
 ## deliverables
@@ -287,6 +287,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-downloads` | no | Track downloads from Jan services and present the sidebar download inbox |
 | `@janhq/jan-host-directory-picker-auto` | no | Adaptive chooser of the directory-picker seam: resolves the host situation at boot and mounts the native or browse backend for the Jan web GUI host |
 | `@janhq/jan-host-directory-picker-browse` | yes | In-app browsing backend of the directory-picker seam (listing/creation primitives over the host filesystem) |
 | `@janhq/jan-host-directory-picker-native` | no | Native-OS-chooser backend of the directory-picker seam for the Jan web GUI host |
@@ -319,6 +320,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-context-usage` | no | The /context command: a chat's context window broken down by prompt section, tool, message kind and file |
 | `@janhq/jan-llama-cpp` | yes | Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them |
 | `@janhq/jan-llm` | no | Provider-neutral LLM service interface for Jan |
 | `@janhq/jan-llm-fallback` | yes | Model fallback chain for Jan: continue a failed reply on the next configured model, return to the chosen model when it is cheap to switch |
@@ -354,6 +356,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 |---|---|---|
 | `@janhq/jan-agent-preset` | yes | Declare an Agent capability composition in Cordis YAML |
 | `@janhq/jan-agent-preset-registry` | yes | Declarative Agent preset registry and profile-backed editing |
+| `@janhq/jan-agent-profiles` | yes | Named agent profiles read from Jan, Claude Code, opencode and Codex agent folders |
 | `@janhq/jan-persona` | yes | Composition-authored deployment persona section for Jan |
 
 ## ptc-runtime
@@ -386,6 +389,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-btw` | no | Ephemeral side questions in Jan chats |
 | `@janhq/jan-message-quotes` | no | Selected-text quotation and Markdown blockquote presentation |
 | `@janhq/jan-session-checkpoint-policy` | no | Semantic session durability checkpoints before model requests and tool side effects |
 | `@janhq/jan-session-persistence-jsonl` | yes | JSONL durable session persistence backend for Jan |
@@ -410,6 +414,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@janhq/jan-scoped-settings` | yes | Project defaults for model, mode and agent profile, plus scoped tool and skill switches |
 | `@janhq/jan-settings` | no | Abstract user-settings seam (ctx.settings) for Jan |
 
 ## shell

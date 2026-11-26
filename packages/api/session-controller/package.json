@@ -83,6 +83,7 @@
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-api-gateway": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
     "@janhq/jan-client-connection": "workspace:*",
@@ -91,9 +92,11 @@
     "@janhq/jan-file-reference": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-mcp-manager": "workspace:*",
     "@janhq/jan-native-command": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-scoped-settings": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-persistence": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
@@ -114,7 +117,13 @@
     "@janhq/jan-working-directory": "workspace:*"
   },
   "peerDependenciesMeta": {
+    "@janhq/jan-agent-profiles": {
+      "optional": true
+    },
     "@janhq/jan-mcp-manager": {
+      "optional": true
+    },
+    "@janhq/jan-scoped-settings": {
       "optional": true
     },
     "@janhq/jan-session-persistence": {
@@ -132,6 +141,7 @@
     "@janhq/jan-agent-loop": "workspace:*",
     "@janhq/jan-agent-loop-testkit": "workspace:*",
     "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-agent-profiles": "workspace:*",
     "@janhq/jan-api-gateway": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
     "@janhq/jan-attachment-local": "workspace:*",
@@ -145,11 +155,13 @@
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-mcp-manager": "workspace:*",
     "@janhq/jan-native-command": "workspace:*",
     "@janhq/jan-permission-presets": "workspace:*",
     "@janhq/jan-remote-mock": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-scoped-settings": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-session-persistence": "workspace:*",
     "@janhq/jan-session-persistence-jsonl": "workspace:*",

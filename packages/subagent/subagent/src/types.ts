@@ -10,8 +10,9 @@
 import type { Agent, AgentOptions } from '@janhq/jan-agent'
 import type { Branded } from '@janhq/jan-brand'
 import type { ContentBlock, MessageId } from '@janhq/jan-llm'
+import type { SandboxMode } from '@janhq/jan-sandbox'
 import type { SessionEvent, SessionId } from '@janhq/jan-session'
-import type { ObjectJsonSchema } from '@janhq/jan-tools'
+import type { ObjectJsonSchema, ToolRestriction } from '@janhq/jan-tools'
 
 /** Identifies one subagent residency epoch across its lifecycle event pair. */
 export type SubagentRunId = Branded<'SubagentRunId'>
@@ -126,12 +127,12 @@ export interface SubagentRunEndInfo extends SubagentRunInfo {
 /**
  * Start-time options supported by a registered backend. The manager checks
  * every requested option before preparing a local child or starting an external
- * execution. depthLimit controls maxDepth; the remaining flag names match
- * SubagentStartRequest fields.
+ * execution. `depthLimit` controls `maxDepth`; `agentPreset` also controls
+ * persona and tool restriction overrides.
  */
 export interface SubagentCapabilities {
   readonly agentOptions: boolean
-  /** Supports selecting a preset independently of the parent's composition. */
+  /** Supports composition overrides (preset, persona, and tool filter) without inheriting parent context. */
   readonly agentPreset: boolean
   readonly outputSchema: boolean
   readonly depthLimit: boolean
@@ -150,6 +151,14 @@ export interface SubagentStartRequest {
    * parent context.
    */
   readonly agentPreset?: string
+  /** Id of the profile already resolved by the caller. Records identity only; requires independent composition. */
+  readonly agent?: string
+  /** Literal child system-prompt persona; omission leaves the preset or deployment persona intact. Requires independent composition. */
+  readonly persona?: string
+  /** Restrict by tool name or `mcp:<server>` selector. Requires independent composition. */
+  readonly toolFilter?: ToolRestriction
+  /** Maximum sandbox mode, never a grant beyond the parent's effective mode. Requires in-process independent composition. */
+  readonly sandboxMode?: SandboxMode
   /** Optional short display label persisted with a session-backed child. */
   readonly label?: string
   /** Content delivered as the child's user message. */
@@ -324,8 +333,8 @@ export interface SubagentProvider {
   /** The start-time features this provider supports (see {@link SubagentCapabilities}). */
   readonly capabilities: SubagentCapabilities
   /**
-   * Whether the child sees the parent's completed-turn prefix. This is descriptive, not a
-   * service-validated start capability: the model-facing tool derives truthful wording from it.
+   * Whether the child sees the parent's completed-turn prefix. Providers that inherit
+   * it cannot accept independent preset, persona, or tool filter overrides.
    * It says nothing about tool registration, injected services, or authority inheritance.
    */
   readonly inheritsParentContext: boolean

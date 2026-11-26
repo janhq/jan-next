@@ -39,7 +39,7 @@ describe('web e2e: repairs a stored provider after catalog drift', () => {
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await openSettings(page, 'en')
     const dialog = page.getByRole('dialog', { name: 'Settings' })
-    await dialog.getByRole('button', { name: 'Models', exact: true }).click()
+    await dialog.getByRole('button', { name: 'AI Models', exact: true }).click()
     await dialog.getByText(FAILURE, { exact: true }).waitFor()
   }, 120_000)
 
@@ -69,7 +69,8 @@ describe('web e2e: repairs a stored provider after catalog drift', () => {
     // Both modes stay offered beside a failed route: the card opens on the
     // third-party mode with the custom-API segment enabled.
     expect(await dialog.getByRole('tab', { name: 'Custom model API' }).isEnabled()).toBe(true)
-    await dialog.getByLabel('Provider', { exact: true }).selectOption('minimax-cn')
+    await dialog.getByRole('button', { name: 'Provider', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'minimax-cn', exact: true }).click()
     await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
     await dialog.getByText('Saved minimax-cn.', { exact: true }).waitFor()
     expect(await readFile(join(home, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).toContain('minimax-cn: {}')

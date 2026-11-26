@@ -35,7 +35,7 @@ window.__ModuleLoader__.load({
         sort: 'Sort: {value}', 'sort.downloads': 'Most downloaded', 'sort.name': 'Name', 'sort.size': 'Smallest size',
         'sort.added': 'Recently added', 'sort.updated': 'Recently updated', variant: 'Variant of {name}',
         download: 'Download', preparing: 'Preparing...', downloading: 'Downloading', queued: 'Queued', paused: 'Paused', transferFailed: 'Download failed',
-        progressLabel: 'Download progress for {name}', transferSize: '{received} of {total}', speed: '{size}/s',
+        progressLabel: 'Download progress for {name}', transferSize: '{received} of {total}', speed: '{size}/s', speedLeft: '{speed} · {duration} left',
         pause: 'Pause', resume: 'Resume', cancel: 'Cancel download', cancelTitle: 'Cancel this download?',
         cancelDescription: 'Cancel the download of {name} and discard its partial file. Pause instead to keep the file.',
         discardAcknowledge: 'Discard the partial model file.', keepDownload: 'Keep download', discard: 'Discard file',
@@ -62,7 +62,7 @@ window.__ModuleLoader__.load({
         sort: '排序：{value}', 'sort.downloads': '下载最多', 'sort.name': '名称', 'sort.size': '大小从小到大',
         'sort.added': '最近添加', 'sort.updated': '最近更新', variant: '{name} 的版本',
         download: '下载', preparing: '正在准备...', downloading: '下载中', queued: '排队中', paused: '已暂停', transferFailed: '下载失败',
-        progressLabel: '{name} 的下载进度', transferSize: '已下载 {received}，共 {total}', speed: '{size}/秒',
+        progressLabel: '{name} 的下载进度', transferSize: '已下载 {received}，共 {total}', speed: '{size}/秒', speedLeft: '{speed} · 剩余 {duration}',
         pause: '暂停', resume: '继续', cancel: '取消下载', cancelTitle: '取消此下载？',
         cancelDescription: '取消下载 {name} 并丢弃已下载的部分。若要保留文件，请暂停下载',
         discardAcknowledge: '丢弃已下载的部分模型文件', keepDownload: '保留下载', discard: '丢弃文件',
@@ -89,7 +89,7 @@ window.__ModuleLoader__.load({
         sort: '並べ替え: {value}', 'sort.downloads': 'ダウンロード数順', 'sort.name': '名前順', 'sort.size': 'サイズが小さい順',
         'sort.added': '追加が新しい順', 'sort.updated': '更新が新しい順', variant: '{name} のバリアント',
         download: 'ダウンロード', preparing: '準備中...', downloading: 'ダウンロード中', queued: '待機中', paused: '一時停止中', transferFailed: 'ダウンロードに失敗しました',
-        progressLabel: '{name} のダウンロード進捗', transferSize: '{total} 中 {received}', speed: '{size}/秒',
+        progressLabel: '{name} のダウンロード進捗', transferSize: '{total} 中 {received}', speed: '{size}/秒', speedLeft: '{speed} · 残り {duration}',
         pause: '一時停止', resume: '再開', cancel: 'ダウンロードをキャンセル', cancelTitle: 'このダウンロードをキャンセルしますか？',
         cancelDescription: '{name} のダウンロードをキャンセルし、途中までのファイルを破棄します。ファイルを残すには一時停止してください。',
         discardAcknowledge: '途中までダウンロードしたモデルファイルを破棄します。', keepDownload: 'ダウンロードを保持', discard: 'ファイルを破棄',
@@ -116,7 +116,7 @@ window.__ModuleLoader__.load({
         sort: 'Ordenar: {value}', 'sort.downloads': 'Más descargados', 'sort.name': 'Nombre', 'sort.size': 'Menor tamaño',
         'sort.added': 'Añadidos recientemente', 'sort.updated': 'Actualizados recientemente', variant: 'Variante de {name}',
         download: 'Descargar', preparing: 'Preparando...', downloading: 'Descargando', queued: 'En cola', paused: 'En pausa', transferFailed: 'Error de descarga',
-        progressLabel: 'Progreso de descarga de {name}', transferSize: '{received} de {total}', speed: '{size}/s',
+        progressLabel: 'Progreso de descarga de {name}', transferSize: '{received} de {total}', speed: '{size}/s', speedLeft: '{speed} · quedan {duration}',
         pause: 'Pausar', resume: 'Reanudar', cancel: 'Cancelar descarga', cancelTitle: '¿Cancelar esta descarga?',
         cancelDescription: 'Cancela la descarga de {name} y descarta el archivo parcial. Pausa la descarga para conservar el archivo.',
         discardAcknowledge: 'Descartar el archivo parcial del modelo.', keepDownload: 'Conservar descarga', discard: 'Descartar archivo',
@@ -143,7 +143,7 @@ window.__ModuleLoader__.load({
         sort: 'Trier : {value}', 'sort.downloads': 'Les plus téléchargés', 'sort.name': 'Nom', 'sort.size': 'Taille croissante',
         'sort.added': 'Ajoutés récemment', 'sort.updated': 'Mis à jour récemment', variant: 'Variante de {name}',
         download: 'Télécharger', preparing: 'Préparation...', downloading: 'Téléchargement', queued: 'En attente', paused: 'En pause', transferFailed: 'Échec du téléchargement',
-        progressLabel: 'Progression du téléchargement de {name}', transferSize: '{received} sur {total}', speed: '{size}/s',
+        progressLabel: 'Progression du téléchargement de {name}', transferSize: '{received} sur {total}', speed: '{size}/s', speedLeft: '{speed} · encore {duration}',
         pause: 'Suspendre', resume: 'Reprendre', cancel: 'Annuler le téléchargement', cancelTitle: 'Annuler ce téléchargement ?',
         cancelDescription: 'Annulez le téléchargement de {name} et supprimez le fichier partiel. Suspendez le téléchargement pour conserver le fichier.',
         discardAcknowledge: 'Supprimer le fichier partiel du modèle.', keepDownload: 'Conserver le téléchargement', discard: 'Supprimer le fichier',
@@ -170,7 +170,7 @@ window.__ModuleLoader__.load({
         sort: 'Sortieren: {value}', 'sort.downloads': 'Meiste Downloads', 'sort.name': 'Name', 'sort.size': 'Kleinste zuerst',
         'sort.added': 'Zuletzt hinzugefügt', 'sort.updated': 'Zuletzt aktualisiert', variant: 'Variante von {name}',
         download: 'Herunterladen', preparing: 'Wird vorbereitet...', downloading: 'Wird heruntergeladen', queued: 'Wartet', paused: 'Pausiert', transferFailed: 'Download fehlgeschlagen',
-        progressLabel: 'Downloadfortschritt für {name}', transferSize: '{received} von {total}', speed: '{size}/s',
+        progressLabel: 'Downloadfortschritt für {name}', transferSize: '{received} von {total}', speed: '{size}/s', speedLeft: '{speed} · noch {duration}',
         pause: 'Pausieren', resume: 'Fortsetzen', cancel: 'Download abbrechen', cancelTitle: 'Diesen Download abbrechen?',
         cancelDescription: 'Brich den Download von {name} ab und lösche die unvollständige Datei. Pausiere den Download, um die Datei zu behalten.',
         discardAcknowledge: 'Die unvollständige Modelldatei löschen.', keepDownload: 'Download behalten', discard: 'Datei löschen',
@@ -197,7 +197,7 @@ window.__ModuleLoader__.load({
         sort: 'Сортировка: {value}', 'sort.downloads': 'Популярные', 'sort.name': 'Название', 'sort.size': 'Сначала небольшие',
         'sort.added': 'Недавно добавленные', 'sort.updated': 'Недавно обновлённые', variant: 'Вариант {name}',
         download: 'Загрузить', preparing: 'Подготовка...', downloading: 'Загрузка', queued: 'В очереди', paused: 'На паузе', transferFailed: 'Не удалось загрузить',
-        progressLabel: 'Ход загрузки модели {name}', transferSize: '{received} из {total}', speed: '{size}/с',
+        progressLabel: 'Ход загрузки модели {name}', transferSize: '{received} из {total}', speed: '{size}/с', speedLeft: '{speed} · осталось {duration}',
         pause: 'Приостановить', resume: 'Продолжить', cancel: 'Отменить загрузку', cancelTitle: 'Отменить эту загрузку?',
         cancelDescription: 'Отмените загрузку {name} и удалите частично загруженный файл. Чтобы сохранить файл, приостановите загрузку.',
         discardAcknowledge: 'Удалить частично загруженный файл модели.', keepDownload: 'Сохранить загрузку', discard: 'Удалить файл',
@@ -224,7 +224,7 @@ window.__ModuleLoader__.load({
         sort: 'Ordenar: {value}', 'sort.downloads': 'Mais baixados', 'sort.name': 'Nome', 'sort.size': 'Menor tamanho',
         'sort.added': 'Adicionados recentemente', 'sort.updated': 'Atualizados recentemente', variant: 'Variante de {name}',
         download: 'Baixar', preparing: 'Preparando...', downloading: 'Baixando', queued: 'Na fila', paused: 'Pausado', transferFailed: 'Falha no download',
-        progressLabel: 'Progresso do download de {name}', transferSize: '{received} de {total}', speed: '{size}/s',
+        progressLabel: 'Progresso do download de {name}', transferSize: '{received} de {total}', speed: '{size}/s', speedLeft: '{speed} · restam {duration}',
         pause: 'Pausar', resume: 'Retomar', cancel: 'Cancelar download', cancelTitle: 'Cancelar este download?',
         cancelDescription: 'Cancele o download de {name} e descarte o arquivo parcial. Pause o download para manter o arquivo.',
         discardAcknowledge: 'Descartar o arquivo parcial do modelo.', keepDownload: 'Manter download', discard: 'Descartar arquivo',
@@ -259,6 +259,17 @@ window.__ModuleLoader__.load({
     const formatBytes = (bytes, locale) => {
       const unit = bytes < 1000 ? 0 : Math.min(Math.floor(Math.log10(bytes) / 3), units.length - 1)
       return `${(bytes / 1000 ** unit).toLocaleString(locale, { maximumFractionDigits: unit ? 1 : 0 })} ${units[unit]}`
+    }
+    // Speed, plus the time left while the total is known; whole hours, minutes or
+    // seconds rounded up, so the estimate never reads 0 before the end.
+    const transferRate = (progress, t, locale) => {
+      const speed = t('speed', { size: formatBytes(progress.bytesPerSecond, locale) })
+      const seconds = progress.totalBytes > progress.receivedBytes ? (progress.totalBytes - progress.receivedBytes) / progress.bytesPerSecond : 0
+      if (!(seconds > 0) || !Number.isFinite(seconds)) return speed
+      const unit = seconds >= 3600 ? 'hour' : seconds >= 60 ? 'minute' : 'second'
+      const duration = new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' })
+        .format(Math.ceil(seconds / (unit === 'hour' ? 3600 : unit === 'minute' ? 60 : 1)))
+      return t('speedLeft', { speed, duration })
     }
 
     // A single insertion, deletion, replacement or adjacent transposition.
@@ -370,7 +381,6 @@ window.__ModuleLoader__.load({
       const controller = new AbortController()
       const listeners = new Set()
       let snapshot = { models: [], downloads: [], catalog: [], provider: 'local', hardware: undefined, phase: 'checking', error: undefined }
-      let timer
       void (async () => {
         while (!controller.signal.aborted) {
           try {
@@ -381,15 +391,18 @@ window.__ModuleLoader__.load({
           } catch {
             if (controller.signal.aborted) return
           }
-          const { promise, resolve } = Promise.withResolvers()
-          timer = setTimeout(resolve, 1000)
-          await promise
+          // Disposal settles the wait too, so the loop ends instead of hanging on a cleared timer.
+          await new Promise((resolve) => {
+            const done = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', done); resolve() }
+            const timer = setTimeout(done, 1000)
+            controller.signal.addEventListener('abort', done, { once: true })
+          })
         }
       })()
       return {
         getSnapshot: () => snapshot,
         subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
-        dispose: () => { controller.abort(); clearTimeout(timer) },
+        dispose: () => controller.abort(),
       }
     }
 
@@ -464,7 +477,7 @@ window.__ModuleLoader__.load({
         h('progress', { max: 100, value: percent, 'aria-label': t('progressLabel', { name: job.name }) }),
         progress && h('div', { className: 'jan-hub-transfer-details' },
           h('span', null, t('transferSize', { received: formatBytes(progress.receivedBytes, locale), total: formatBytes(progress.totalBytes, locale) })),
-          status === 'downloading' && progress.bytesPerSecond > 0 && h('span', null, t('speed', { size: formatBytes(progress.bytesPerSecond, locale) }))),
+          status === 'downloading' && progress.bytesPerSecond > 0 && h('span', null, transferRate(progress, t, locale))),
         job.error && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: job.error })),
         h('div', { className: 'jan-hub-transfer-actions' },
           job.paused || job.error !== undefined
@@ -960,11 +973,11 @@ window.__ModuleLoader__.load({
       .jan-hub-more{display:flex;justify-content:center}
       .jan-hub-explore{display:grid;gap:28px}
       .jan-hub-spotlight{--jan-hub-a:hsl(var(--jan-hub-hue) 70% 55%);--jan-hub-b:hsl(calc(var(--jan-hub-hue) + 60) 70% 45%);position:relative;overflow:hidden;border-radius:var(--dsw-radius-lg,12px);padding:24px;min-height:200px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;border:0.5px solid var(--dsw-alias-border-l2);background:linear-gradient(135deg,color-mix(in oklab,var(--jan-hub-a) 22%,var(--dsw-alias-settings-card-fill)),color-mix(in oklab,var(--jan-hub-b) 8%,var(--dsw-alias-settings-card-fill)))}
-      .jan-hub-spotlight-body{position:relative;z-index:1;display:grid;justify-items:start;gap:8px;max-width:min(520px,100%);animation:jan-hub-rise .32s cubic-bezier(.2,.8,.2,1)}
+      .jan-hub-spotlight-body{position:relative;z-index:1;display:grid;justify-items:start;gap:8px;max-width:min(520px,100%);animation:jan-hub-rise var(--ds-transition-duration-slow) var(--ds-ease-out)}
       .jan-hub-spotlight h2{font-size:20px;font-weight:500;line-height:28px;margin:0;text-wrap:balance;overflow-wrap:anywhere}
       .jan-hub-eyebrow{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;line-height:18px;font-weight:500;color:var(--dsw-alias-label-secondary)}
       .jan-hub-spotlight-art{position:absolute;right:-8px;bottom:-48px;font-size:220px;font-weight:700;line-height:1;color:color-mix(in oklab,var(--jan-hub-a) 30%,transparent);user-select:none;pointer-events:none}
-      .jan-hub-spotlight-art img{position:absolute;right:48px;bottom:88px;width:120px;height:120px;border-radius:28px;object-fit:cover;background:#fff;box-shadow:0 12px 32px color-mix(in oklab,var(--jan-hub-a) 35%,transparent);opacity:0;transition:opacity .24s ease}
+      .jan-hub-spotlight-art img{position:absolute;right:48px;bottom:88px;width:120px;height:120px;border-radius:28px;object-fit:cover;background:#fff;box-shadow:0 12px 32px color-mix(in oklab,var(--jan-hub-a) 35%,transparent);opacity:0;transition:opacity var(--ds-transition-duration) var(--ds-ease-out)}
       .jan-hub-spotlight-art:has(img[data-loaded]){color:transparent}
       .jan-hub-spotlight-actions{display:flex;gap:8px;margin-top:4px}
       .jan-hub-spotlight-nav{position:relative;z-index:1;display:flex;align-items:center;gap:4px;font-size:12px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
@@ -974,11 +987,11 @@ window.__ModuleLoader__.load({
       .jan-hub-shelf-actions{display:flex;align-items:center;gap:2px}
       .jan-hub-shelf-row{list-style:none;margin:0;padding:4px 2px 10px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(180px,200px);gap:12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:thin}
       .jan-hub-tile{scroll-snap-align:start;min-width:0}
-      .jan-hub-tile-button{all:unset;box-sizing:border-box;width:100%;height:100%;display:grid;align-content:start;gap:6px;padding:12px;border-radius:var(--dsw-radius-lg,12px);cursor:pointer;background:var(--dsw-alias-settings-card-fill);border:0.5px solid var(--dsw-alias-border-l2);transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s}
+      .jan-hub-tile-button{all:unset;box-sizing:border-box;width:100%;height:100%;display:grid;align-content:start;gap:6px;padding:12px;border-radius:var(--dsw-radius-lg,12px);cursor:pointer;background:var(--dsw-alias-settings-card-fill);border:0.5px solid var(--dsw-alias-border-l2);transition:transform var(--ds-transition-duration-fast) var(--ds-ease-in-out),border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),box-shadow var(--ds-transition-duration-fast) var(--ds-ease-in-out)}
       .jan-hub-tile-button:hover{transform:translateY(-2px);border-color:var(--dsw-alias-border-l4);box-shadow:0 8px 20px color-mix(in oklab,var(--jan-hub-a,hsl(var(--jan-hub-hue) 60% 45%)) 20%,transparent)}
       .jan-hub-tile-button:active{transform:scale(.98)}
       .jan-hub-art{position:relative;overflow:hidden;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px;font-weight:600;color:#fff;background:linear-gradient(135deg,hsl(var(--jan-hub-hue) 70% 55%),hsl(calc(var(--jan-hub-hue) + 60) 70% 42%))}
-      .jan-hub-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;opacity:0;transition:opacity .2s ease}
+      .jan-hub-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;opacity:0;transition:opacity var(--ds-transition-duration) var(--ds-ease-out)}
       .jan-hub-art img[data-loaded],.jan-hub-spotlight-art img[data-loaded]{opacity:1}
       @media (prefers-reduced-motion: reduce){.jan-hub-art img,.jan-hub-spotlight-art img{transition:none}}
       .jan-hub-tile-name{font-size:14px;font-weight:500;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

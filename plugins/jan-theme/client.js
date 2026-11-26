@@ -14,9 +14,10 @@ window.__ModuleLoader__.load({
       IconToolOutlineMedium, IconSkillOutlineMedium, IconDownloadOutlineRegular,
       NavRow, SectionHeading, ColorSwatchGroup, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
-      IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
+      IconWarningTriangleOutlineRegular, IconCloseOutlineRegular,
       IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
       IconEditOutlineRegular, relativeTime,
+      Tooltip, IconChevronRightOutlineRegular, IconRefreshOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -175,7 +176,7 @@ window.__ModuleLoader__.load({
         getSnapshot: () => snapshot,
         subscribe: (listener) => {
           listeners.add(listener)
-          if (snapshot.data === null && !snapshot.error && !loading) refresh().catch(() => {})
+          if (snapshot.data === null && !snapshot.error && !loading) refresh().catch(() => { })
           return () => { listeners.delete(listener) }
         },
         refresh,
@@ -233,7 +234,7 @@ window.__ModuleLoader__.load({
     }
     // Popularity facts the registries publish, never estimates: last week's npm or PyPI
     // downloads of a server's package, and when the MCP Registry last changed it.
-    const compactCount = count => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(count)
+    const compactCount = (count, locale) => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(count)
     function updatedAgo(iso) {
       const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
       if (!Number.isFinite(days)) return ''
@@ -245,7 +246,7 @@ window.__ModuleLoader__.load({
     const REGISTRY_SORTS = { registry: 'Default order', downloads: 'Most downloaded', updated: 'Recently updated' }
     // Recommended connectors and the official MCP Registry. A registry server opens the
     // server editor prefilled and saves disabled; a recommended one runs its own setup.
-    function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
+    function RegistryBrowser({ busy, recommended, onAdd, onInstall, onConnectComposio, t }) {
       const { Input, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const [query, setQuery] = useAgentDraft('registryQuery', '')
       const [since, setSince] = useAgentDraft('registrySince', '')
@@ -281,10 +282,18 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'jt-registry' },
         recommended?.length > 0 && h('section', { 'aria-label': 'Recommended connectors' },
           h('h3', { className: 'jt-registry-heading' }, 'Recommended'),
-          h('div', { className: 'jt-agent-list jt-agent-grid' }, ...recommended.map(item => tile(item.id, item.title,
-            item.installed ? h(Tag, { tone: 'success' }, 'Added') : h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Install ${item.title}`, onClick: () => onInstall(item) }, 'Install'),
-            h('p', { className: 'jt-agent-clamp' }, item.description),
-            h('div', { className: 'jt-agent-card-title' }, h(Tag, { tone: 'neutral' }, item.license), h('span', { className: 'jt-agent-card-meta' }, item.publisher)))))),
+          h('div', { className: 'jt-agent-list jt-agent-grid' }, ...recommended.map(item => {
+            const projectKey = item.setup === 'project-key'
+            const action = item.installed
+              ? h(Tag, { tone: 'success' }, projectKey ? t('added') : 'Added')
+              : h(Button, { variant: 'outline', size: 'sm', disabled: busy,
+                'aria-label': projectKey ? t('connectTo') : `Install ${item.title}`,
+                onClick: () => projectKey ? onConnectComposio() : onInstall(item),
+              }, projectKey ? t('connect') : 'Install')
+            return tile(item.id, item.title, action,
+              h('p', { className: 'jt-agent-clamp' }, projectKey ? t('description') : item.description),
+              h('div', { className: 'jt-agent-card-title' }, item.license && h(Tag, { tone: 'neutral' }, item.license), h('span', { className: 'jt-agent-card-meta' }, item.publisher)))
+          }))),
         h('section', { 'aria-label': 'MCP Registry' },
           h('h3', { className: 'jt-registry-heading' }, 'MCP Registry'),
           h('p', { className: 'jt-registry-note' }, 'Servers published to the official MCP Registry. Namespaces are verified against their GitHub account or domain; the code itself is not reviewed. Added servers stay off until you enable them.'),
@@ -387,7 +396,68 @@ window.__ModuleLoader__.load({
         h('div', { className: 'jt-agent-actions' }, h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: busy || checking || !token.trim() },
           checking && h(StateDot, { state: 'ongoing', size: 12 }), checking ? (route ? `Checking with ${route.title}…` : 'Connecting…') : 'Connect')))
     }
-    function AgentSettings({ skills = false, onCreate }) {
+    const COMPOSIO_LOCALE = 'jan-theme.composio'
+    const COMPOSIO_ERRORS = new Set([
+      'composio-invalid-key', 'composio-permissions', 'composio-unavailable',
+      'composio-invalid-response', 'composio-name-conflict', 'composio-save-failed',
+    ])
+    function ComposioKeyModal({ update, onClose, onSaved, t }) {
+      const { Input } = require('@janhq/jan-client-ui-primitives')
+      const [apiKey, setApiKey] = React.useState('')
+      const [submitting, setSubmitting] = React.useState(false)
+      const [problem, setProblem] = React.useState('')
+      const fieldId = React.useId()
+      const action = update ? 'updateKey' : 'connect'
+      const close = () => { if (!submitting) onClose() }
+      async function submit(event) {
+        event.preventDefault()
+        if (!apiKey.trim() || submitting) return
+        setSubmitting(true); setProblem('')
+        try {
+          await agentApi('connectComposio', { apiKey })
+          setApiKey('')
+          onSaved()
+        } catch (failure) {
+          setProblem(COMPOSIO_ERRORS.has(failure.message) ? failure.message : 'composio-unavailable')
+        } finally { setSubmitting(false) }
+      }
+      return h(Modal, {
+        open: true, title: t(update ? 'updateKey' : 'connectTo'), closeLabel: t('close'), onClose: close,
+        className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content',
+      }, h('form', { className: 'jt-token-form', onSubmit: submit },
+        h('label', { className: 'jt-agent-field' }, t('keyLabel'),
+          h(Input, {
+            type: 'password', autoComplete: 'off', spellCheck: false, required: true, 'data-modal-autofocus': '',
+            'aria-describedby': `${fieldId}-help${problem ? ` ${fieldId}-problem` : ''}`, 'aria-invalid': !!problem,
+            disabled: submitting, value: apiKey, onChange: event => { setApiKey(event.target.value); setProblem('') },
+          })),
+        h('p', { id: `${fieldId}-help`, className: 'jt-agent-card-meta' }, t('help'), ' ',
+          h('a', { href: 'https://dashboard.composio.dev', target: '_blank', rel: 'noopener noreferrer' }, t('dashboard'))),
+        problem && h('p', { id: `${fieldId}-problem`, role: 'alert', className: 'jt-agent-row-status', 'data-state': 'failed' }, t(problem)),
+        h('div', { className: 'jt-agent-actions' },
+          h(Button, { type: 'submit', variant: 'primary', disabled: submitting || !apiKey.trim() },
+            submitting && h(StateDot, { state: 'ongoing', size: 12 }), t(submitting ? 'connecting' : action)),
+          h(Button, { variant: 'outline', disabled: submitting, onClick: close }, t('cancel')))))
+    }
+
+    function ConnectorSettings({ locale, loadLocale, onCreate }) {
+      const subscribe = React.useCallback(listener => locale.subscribe(listener), [locale])
+      React.useSyncExternalStore(subscribe, () => locale.getSnapshot())
+      const t = locale.bind(COMPOSIO_LOCALE)
+      const [loaded, setLoaded] = React.useState(false)
+      const [failed, setFailed] = React.useState(false)
+      const [attempt, retry] = React.useReducer(value => value + 1, 0)
+      React.useEffect(() => {
+        let active = true
+        void loadLocale(locale).then(() => { if (active) setLoaded(true) }, () => { if (active) setFailed(true) })
+        return () => { active = false }
+      }, [loadLocale, locale, attempt])
+      if (loaded) return h(AgentSettings, { onCreate, t })
+      return failed ? h('p', { role: 'alert' }, t('load.failed'), ' ',
+        h(Button, { onClick: () => { setFailed(false); retry() } }, t('retry')))
+        : h('p', { role: 'status' }, t('loading'))
+    }
+    function AgentSettings({ skills = false, onCreate, t }) {
       const { Input, Modal, RiskConfirmation, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
       const [failure, setError] = React.useState('')
@@ -399,6 +469,7 @@ window.__ModuleLoader__.load({
       const [replaceSecrets, setReplaceSecrets] = useAgentDraft('replaceSecrets', false)
       const [importText, setImportText] = useAgentDraft('import', '')
       const [importOpen, setImportOpen] = React.useState(false)
+      const [composioMode, setComposioMode] = React.useState(null)
       const [skillQuery, setSkillQuery] = useAgentDraft('skillQuery', '')
       const [skillFilter, setSkillFilter] = useAgentDraft('skillFilter', 'all')
       const [directories, setDirectories] = useAgentDraft('directories', null)
@@ -415,7 +486,7 @@ window.__ModuleLoader__.load({
       const refresh = agentList.refresh
       React.useEffect(() => { if (data && directories === null) setDirectories(data.directories.join('\n')) }, [data])
       // Opening a tab rereads the list; the shared copy shows meanwhile.
-      React.useEffect(() => { refresh().catch(() => {}) }, [])
+      React.useEffect(() => { refresh().catch(() => { }) }, [])
       // `message` is the notice to show afterwards, or a function from the action's result to it.
       async function run(action, message) {
         setBusy(true); setError(''); setNotice('')
@@ -459,7 +530,7 @@ window.__ModuleLoader__.load({
       const following = data?.servers.some(row => row.state === 'connecting' || row.state === 'signing-in')
       React.useEffect(() => {
         if (!following) return
-        const timer = setInterval(() => { refresh().catch(() => {}) }, 1000)
+        const timer = setInterval(() => { refresh().catch(() => { }) }, 1000)
         return () => clearInterval(timer)
       }, [following])
       const allSkills = data?.skills.skills ?? []
@@ -509,6 +580,7 @@ window.__ModuleLoader__.load({
         ) : h(React.Fragment, null,
           data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Paste the MCP setup you use in Cursor, VS Code, Claude Desktop or Zed, or a single command or URL.'),
           data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
+            const composio = row.connector === 'composio'
             const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
             const waiting = row.state === 'connecting' || row.state === 'signing-in'
             const retryable = row.state === 'failed' || row.state === 'empty'
@@ -519,28 +591,34 @@ window.__ModuleLoader__.load({
             }, '')
             const toolCount = count => count === 1 ? '1 tool' : `${count} tools`
             return card(row.name,
-              [h('div', { className: 'jt-agent-card-title', 'aria-live': 'polite' }, h('h3', null, row.name),
+              [h('div', { className: 'jt-agent-card-title', 'aria-live': 'polite' }, h('h3', null, composio ? 'Composio' : row.name),
                 h(Tag, { tone }, waiting && h(StateDot, { state: 'ongoing', size: 12 }), row.state === 'ready' ? `${label} · ${toolCount(row.tools.length)}` : label),
                 row.signedIn && row.state === 'ready' && h(Tag, { tone: 'quiet' }, 'Signed in'),
                 row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
               h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') })],
-              h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
-              row.enabled && row.state !== 'ready' && h('p', { className: 'jt-agent-row-status', 'data-state': row.state }, row.status),
+              !composio && h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
+              row.enabled && row.state !== 'ready' && h('p', { className: 'jt-agent-row-status', 'data-state': row.state }, composio && row.statusCode ? t(row.statusCode) : row.status),
               row.state === 'signing-in' && h('p', { className: 'jt-agent-row-status' }, 'Browser did not open? ', h('a', { href: row.signInUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open the sign-in page')),
-              row.enabled && (row.state === 'needs-auth' || row.signInRefused) && h(TokenForm, { key: `${row.name}-token`, row, busy, open: row.signInRefused || !!row.tokenRoute }),
+              !composio && row.enabled && (row.state === 'needs-auth' || row.signInRefused) && h(TokenForm, { key: `${row.name}-token`, row, busy, open: row.signInRefused || !!row.tokenRoute }),
               h('div', { className: 'jt-agent-card-foot' },
                 row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${toolCount(row.tools.length)}`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
                 h('div', { className: 'jt-agent-actions' },
-                  row.enabled && row.state === 'needs-auth' && !row.signInRefused && h(Button, { variant: 'primary', size: 'sm', disabled: busy, 'aria-label': `Sign in to ${row.name}`, onClick: signIn }, 'Sign in'),
+                  !composio && row.enabled && row.state === 'needs-auth' && !row.signInRefused && h(Button, { variant: 'primary', size: 'sm', disabled: busy, 'aria-label': `Sign in to ${row.name}`, onClick: signIn }, 'Sign in'),
                   row.state === 'signing-in' && h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Cancel sign-in to ${row.name}`, onClick: () => run(() => agentApi('cancelSignIn', { name: row.name }), 'Sign-in cancelled.') }, 'Cancel'),
                   row.enabled && !waiting && row.state !== 'needs-auth' && h(Button, { variant: retryable ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${retryable ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('reconnect', { name: row.name }), '') }, retryable ? 'Try again' : 'Reconnect'),
-                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
+                  composio
+                    ? h(Button, { variant: 'ghost', size: 'sm', disabled: busy, onClick: () => setComposioMode('update') }, t('updateKey'))
+                    : h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection, its saved credentials and its sign-in. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
           }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => setImportOpen(true) },
             h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add servers'),
             h('small', null, 'Paste a setup from Cursor, VS Code or Claude, a command, or a URL'))),
-          data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector }),
-          h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
+          data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector, onConnectComposio: () => setComposioMode('connect'), t }),
+          composioMode && h(ComposioKeyModal, { update: composioMode === 'update', t,
+            onClose: () => setComposioMode(null),
+            onSaved: () => { setComposioMode(null); setError(''); setNotice(''); void refresh().catch(() => {}) },
+          }),
+          h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and modes'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Modes hold saved instructions and tools for a way of working.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
               const { fields, source, ...rest } = draft
@@ -676,7 +754,7 @@ window.__ModuleLoader__.load({
 .jt-registry { display: grid; gap: 24px; margin-top: 24px; }
 .jt-agent-settings .jt-registry-heading { margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--dsw-alias-label-primary); }
 .jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
+.jt-registry [aria-busy="true"] { opacity: .6; transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .jt-registry-option { height: 24px; max-width: 180px; padding: 0 8px; gap: 6px; font-size: 12px; line-height: 18px; }
 .jt-registry-filters { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .jt-registry-filters .jt-chips { flex: 1; min-width: 0; }
@@ -718,7 +796,7 @@ window.__ModuleLoader__.load({
 .jt-token-form .jt-agent-actions { justify-content: flex-start; }
 .jt-agent-search input::placeholder { color: var(--dsw-alias-label-tertiary); }
 .jt-agent-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
-.jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+.jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), box-shadow var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .jt-agent-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
 .jt-agent-settings .jt-agent-tile h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
 .jt-agent-tile .jt-agent-card-meta { display: inline; }
@@ -728,7 +806,7 @@ window.__ModuleLoader__.load({
 .jt-registry-logo { background: #fff; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / .12); overflow: hidden; }
 .jt-registry-logo img { width: 30px; height: 30px; object-fit: contain; }
 .jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
-.jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
+.jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton var(--ds-transition-duration-ambient) var(--ds-ease-pulse) infinite; }
 @keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
 /* The pill boxes nest past the text line by their own padding, so the first chip's label starts on the heading's line. */
 .jt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px -12px; }
@@ -737,7 +815,7 @@ window.__ModuleLoader__.load({
 .jt-chip:focus-visible, .jt-agent-add:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
 @media (hover: hover) { .jt-chip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
 .jt-chip-count { font-size: 12px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
-.jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color .18s, color .18s; }
+.jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), color var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
 .jt-agent-add span { color: var(--dsw-alias-label-primary); font-weight: 500; }
 .jt-agent-add:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
 .jt-agent-settings .jt-agent-field textarea.jt-paste-box { min-height: 168px; font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; line-height: 18px; white-space: pre; overflow-x: auto; }
@@ -892,15 +970,16 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 12px; transform: scale(0.9); transform-origin: right center; color: var(--jt-side-muted); }
   html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag],
   html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag] svg { color: var(--jt-side-muted); }
-  /* Hover motions copied from Jan's animated icons: each plays once per hover entry and ends at rest. */
-  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale 150ms ease; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s ease-in-out; scale: 1.05; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s ease; }
+  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+  /* Jan's animated icons play once per hover entry and end at rest. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s var(--ds-ease-in-out); scale: 1.05; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s var(--ds-ease-in-out); }
   html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='box'],
-  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s ease-in-out; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s ease-in-out; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s ease-in-out; }
-  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s ease-in-out; }
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s var(--ds-ease-in-out); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s var(--ds-ease-in-out); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s var(--ds-ease-in-out); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s var(--ds-ease-in-out); }
   html[data-jan-theme] .jt-nav-icon[data-jt-anim='spin'] { transition: rotate 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
   html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='spin'] { rotate: 180deg; }
   @keyframes jt-anim-chat { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-7deg); } 66% { transform: rotate(7deg); } }
@@ -909,8 +988,6 @@ window.__ModuleLoader__.load({
   @keyframes jt-anim-folder { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-4deg); } }
   @keyframes jt-anim-home { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-1px) rotate(-5deg); } }
   @keyframes jt-anim-shake { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
-  @media (prefers-reduced-motion: reduce) {
-    html[data-jan-theme] .jt-nav-icon, html[data-jan-theme] [data-slot='sidebar'] [class*='panelGlyph'] { animation: none !important; transition: none !important; }
   }
   /* Grouped lists: a folder's chats start under its name, not under its icon, so the grouping
      reads at a glance. Only a section headed by a folder row gets it; the flat list stays flush. */
@@ -984,7 +1061,9 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] [class*='scrollArea'] { grid-template-rows: 0 max-content 2px max-content; }
   html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--jt-side-icon); }
   /* Projects page. */
-  .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
+  /* Main-panel pages own their scroll: the panel is a fixed-height flex column. Side padding centres the
+     column, so the scrollbar sits at the panel edge instead of the column's. */
+  .jt-projects { box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow-y: auto; width: 100%; padding: 48px max(32px, calc((100% - 816px) / 2)); color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .jt-projects-head h1 { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; }
   .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
@@ -994,7 +1073,7 @@ window.__ModuleLoader__.load({
   .jt-projects-sort-label { color: var(--dsw-alias-label-tertiary); }
   .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
   .jt-projects-grid > li { display: grid; min-width: 0; }
-  .jt-project-tile { display: grid; gap: 8px; align-content: start; justify-items: start; box-sizing: border-box; width: 100%; min-width: 0; min-height: 132px; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+  .jt-project-tile { display: grid; gap: 8px; align-content: start; justify-items: start; box-sizing: border-box; width: 100%; min-width: 0; min-height: 132px; padding: 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out), border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), box-shadow var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
   .jt-project-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
   .jt-project-tile:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
   .jt-project-tile > span { max-width: 100%; min-width: 0; }
@@ -1017,7 +1096,7 @@ window.__ModuleLoader__.load({
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   /* Project home: the main column (title, composer, recents) and a details rail. */
-  .jt-project { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; width: 100%; max-width: 1120px; margin: 0 auto; padding: 40px 32px 48px; color: var(--dsw-alias-label-primary); }
+  .jt-project { box-sizing: border-box; flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-content: start; gap: 40px; width: 100%; padding: 40px max(32px, calc((100% - 1056px) / 2)) 48px; color: var(--dsw-alias-label-primary); }
   .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
@@ -1040,15 +1119,11 @@ window.__ModuleLoader__.load({
   a.jt-project-git-chip { cursor: pointer; }
   a.jt-project-git-chip:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
   a.jt-project-git-chip:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
-  .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
-  .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
-  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; field-sizing: content; }
-  .jt-project-composer textarea::placeholder { color: var(--dsw-alias-label-tertiary); }
-  .jt-project-composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .jt-project-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
-  .jt-project-send { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px; background: var(--dsw-alias-state-business-primary); color: #fff; cursor: pointer; }
-  .jt-project-send:disabled { opacity: 0.4; cursor: default; }
-  .jt-project-send:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+  /* The project's blank chat brings its own composer card; this box only reserves its height while it connects. */
+  .jt-project-composer { display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
+  /* The page column already keeps the card off the window edge, so the composer's own side clearance would double it. */
+  .jt-project-conversation { display: flex; flex-direction: column; min-width: 0; }
+  .jt-project-conversation [data-conversation-content] { --jan-composer-side-clearance: 0px; --jan-composer-card-max-width: 100%; overflow: visible; }
   .jt-project-recents { margin-top: 32px; }
   .jt-project-heading { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; font-weight: 500; line-height: 20px; }
   .jt-project-sessions { margin: 0; padding: 0; list-style: none; border-top: 0.5px solid var(--dsw-alias-border-l2); }
@@ -1061,10 +1136,16 @@ window.__ModuleLoader__.load({
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
   .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
   .jt-project-empty { margin: 0; padding: 20px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
-  .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
+  /* The rail scrolls with the page: it is often taller than the window, and a sticky rail would hide its last cards. */
+  .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; }
+  .jt-project-rail-actions { display: flex; justify-content: flex-end; }
+  .jt-project-refresh-spin { animation: jt-project-refresh-spin var(--ds-transition-duration-loop) linear infinite; }
+  @keyframes jt-project-refresh-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .jt-project-refresh-spin { animation: none; } }
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
   .jt-project-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .jt-project-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; }
+  .jt-project-card-heading { min-width: 0; }
   .jt-project-card-text { margin: 4px 0 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
   .jt-project-card-text[data-empty='true'] { color: var(--dsw-alias-label-tertiary); }
   .jt-project-files { margin: 8px 0 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
@@ -1075,6 +1156,20 @@ window.__ModuleLoader__.load({
   .jt-project-task { padding: 6px 0; border-top: 0.5px solid var(--dsw-alias-border-l2); font-size: 13px; line-height: 18px; }
   .jt-project-task:first-child { border-top: 0; }
   .jt-project-task-meta { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-project-card-summary { color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-card-head > .jt-project-card-summary { text-align: end; }
+  .jt-project-skill-folders { margin: 8px 0 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; }
+  .jt-project-skill-folder { border-top: 0.5px solid var(--dsw-alias-border-l2); }
+  .jt-project-skill-folder:first-child { border-top: 0; }
+  .jt-project-skill-list { margin: 0 0 4px; padding: 0 0 0 24px; list-style: none; }
+  .jt-project-skill-row { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; line-height: 18px; }
+  .jt-project-skill-row[data-off='true'] { color: var(--dsw-alias-label-tertiary); }
+  .jt-project-skill-expand { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .jt-project-skill-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jt-project-skill-meta { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-skill-expand[aria-expanded='true'] .jt-project-tool-chevron { transform: rotate(90deg); }
+  .jt-project-tool-chevron { flex: none; transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+  @media (prefers-reduced-motion: reduce) { .jt-project-tool-chevron { transition: none; } }
   .jt-project-error { margin: 8px 0 0; color: var(--dsw-alias-state-error-primary); font-size: 13px; line-height: 18px; }
   /* Text-style card links align with the card text instead of the button's inner padding. */
   .jt-project-card .jt-project-link { margin: 6px 0 0 -10px; }
@@ -1085,11 +1180,11 @@ window.__ModuleLoader__.load({
   .jt-project-editor label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
   .jt-project-editor-note { margin: 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
   .jt-project-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
-  @media (max-width: 900px) { .jt-project { grid-template-columns: minmax(0, 1fr); } .jt-project-rail { position: static; } }
+  @media (max-width: 900px) { .jt-project { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 600px) { .jt-project { padding: 24px 16px; } }
   /* Startup failure notices: a bottom-right stack, newest last. */
   .jt-startup { position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px)); pointer-events: none; }
-  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in var(--ds-transition-duration) var(--ds-ease-out); }
   .jt-startup-glyph { padding-top: 1px; color: var(--dsw-alias-state-warning-primary, #d99a00); }
   .jt-startup-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
   .jt-startup-text { margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); text-wrap: pretty; }
@@ -1226,12 +1321,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.f
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] :not(pre) > code {
   color: var(--dsw-alias-label-deep-diving); background: color-mix(in oklch, var(--dsw-alias-label-deep-diving) 9%, transparent); font-size: inherit;
 }
-html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); }
+html[data-jan-theme][data-jt-reading='terminal'] [data-slot='conversation.chat.flow'] .md-code-block { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg); }
 /* Diff fences: the diff grammar colors lines through these shiki variables, which no other style defines. */
 html[data-jan-theme][data-jt-reading='terminal'] .md-code-block { --shiki-token-inserted: var(--jt-term-add); --shiki-token-deleted: var(--jt-term-del); }
 /* Tool calls and process steps: framed, with the tool name in the tool color. */
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool] {
-  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: var(--dsw-radius-sm); padding-inline: 8px;
+  border: 1px solid var(--dsw-alias-border-l2); border-left: 2px solid var(--jt-term-tool); border-radius: var(--dsw-radius-md); padding-inline: 8px;
 }
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] > [data-tool][data-state='error'] { border-left-color: var(--jt-term-del); }
 html[data-jan-theme][data-jt-reading='terminal'] [data-slot='tool.call.toolview'] [data-disclosure-row] [class*='_title_'] { color: var(--jt-term-tool); font-weight: 600; }
@@ -1350,10 +1445,11 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     const readPins = () => {
       try {
         const stored = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
-        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : DEFAULT_PINS
-      } catch { return DEFAULT_PINS }
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : undefined
+      } catch { return undefined }
     }
-    let sidebarPins = readPins()
+    const storedPins = readPins()
+    let sidebarPins = storedPins ?? DEFAULT_PINS
     let sidebarEditorOpen = false
     const sidebarListeners = new Set()
     const notifySidebar = () => { for (const listener of sidebarListeners) listener() }
@@ -1362,6 +1458,45 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       sidebarPins = pin ? [...sidebarPins.filter(entry => entry !== id), id] : sidebarPins.filter(entry => entry !== id)
       try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the choice still holds for this window */ }
       notifySidebar()
+    }
+    const SEEN_KEY = 'jan-theme.sidebar.seen'
+    const sidebarSeen = new Set()
+    let migrateSidebarPins = storedPins !== undefined
+    try {
+      const stored = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null')
+      if (Array.isArray(stored)) {
+        migrateSidebarPins = false
+        for (const id of stored) if (typeof id === 'string') sidebarSeen.add(id)
+      }
+    } catch { /* storage can be unavailable */ }
+    const observeSidebarPanels = (entries) => {
+      let changed = false
+      let pinned = false
+      for (const { owner, options: { id } } of entries) {
+        if (id === undefined || sidebarSeen.has(id)) continue
+        sidebarSeen.add(id)
+        changed = true
+        if (!migrateSidebarPins && owner && !owner.startsWith('@janhq/') && !sidebarPins.includes(id)) {
+          sidebarPins = [...sidebarPins, id]
+          pinned = true
+        }
+      }
+      if (!changed || migrateSidebarPins) return
+      try {
+        if (pinned) localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins))
+        localStorage.setItem(SEEN_KEY, JSON.stringify([...sidebarSeen]))
+      } catch { /* keep both choices for this window */ }
+      if (pinned) notifySidebar()
+    }
+    // Onboarding's Assistant answer: only Bots and Scheduled stay pinned, the rest is under More.
+    // Workspace keeps the default pins or whatever the user already chose.
+    const ASSISTANT_PINS = ['jan-always-on', 'schedules']
+    const setSidebarLayout = (kind) => {
+      if (kind !== 'assistant') return
+      sidebarPins = ASSISTANT_PINS
+      try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the layout still holds for this window */ }
+      if (footerHidden.includes('settings')) setFooterShown('settings', true)
+      else notifySidebar()
     }
     // Sidebar order: every page Edit sidebar lists, by id; ids it has never seen
     // keep their built-in order after the stored ones.
@@ -1681,14 +1816,16 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                 h('span', { className: 'jt-project-tile-path' }, h('bdi', null, row.path)),
                 h('span', { className: 'jt-project-tile-meta' },
                   t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) }))))),
-            h('li', { key: 'add' }, h('button', { type: 'button', className: 'jt-agent-add jt-project-add', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
-              h(IconProjectAddOutlineRegular, { size: 20, 'aria-hidden': true }), h('span', null, t('projects.addTile')),
-              h('small', null, t('projects.addTileHint'))))))
+              h('li', { key: 'add' }, h('button', { type: 'button', className: 'jt-agent-add jt-project-add', disabled: busy, onClick: (event) => { void add(event.currentTarget) } },
+                h(IconProjectAddOutlineRegular, { size: 20, 'aria-hidden': true }), h('span', null, t('projects.addTile')),
+                h('small', null, t('projects.addTileHint'))))))
     }
 
     // Project home: one Workspace's page. Which project it shows is a plain
     // module store, because the main panel registration is shared by all.
     const PROJECT_PANEL = 'jt-project'
+    /** Session-scoped slot that hosts the project's blank chat inside the project page. */
+    const PROJECT_CONVERSATION = 'jan-theme.project.conversation'
     const currentProject = (() => {
       let workspaceId = null
       const listeners = new Set()
@@ -1715,6 +1852,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
     }
     const fileSize = (bytes) => bytes === undefined ? ''
       : bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    const projectTokenEstimate = (count, t) => t(count === 1 ? 'project.tokens.one' : 'project.tokens', { count: compactCount(count, t('project.locale')) })
     const readBase64 = (file) => new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => { resolve(String(reader.result).split(',', 2)[1] ?? '') }
@@ -1820,6 +1958,124 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
+    function useProjectRailRead(method, workspaceId, refreshToken) {
+      const [data, setData] = React.useState(null)
+      const [error, setError] = React.useState('')
+      const [pending, setPending] = React.useState(true)
+      const [version, reload] = React.useReducer(value => value + 1, 0)
+      const completedRefresh = React.useRef(null)
+      React.useEffect(() => {
+        const controller = new AbortController()
+        const { signal } = controller
+        const refreshing = refreshToken !== null && completedRefresh.current !== refreshToken
+        setPending(true)
+        void projectApi(method, { workspaceId, ...(method === 'skills' && refreshing ? { rescan: true } : {}) }, signal).then(
+          (next) => { if (!signal.aborted) { setData(next); setError('') } },
+          (failure) => { if (!signal.aborted) setError(failure.message) },
+        ).finally(() => {
+          if (signal.aborted) return
+          setPending(false)
+          completedRefresh.current = refreshToken
+          if (refreshing) refreshToken.complete(method)
+        })
+        return () => { controller.abort() }
+      }, [method, workspaceId, version, refreshToken])
+      return { data, error, pending, reload, setError }
+    }
+
+    function useProjectRailSwitches(method, workspaceId, refreshToken) {
+      const { data, error, pending, reload, setError } = useProjectRailRead(method, workspaceId, refreshToken)
+      const [saving, setSaving] = React.useState(false)
+      const toggle = async (operation, params) => {
+        setSaving(true)
+        setError('')
+        try { await projectApi(operation, { workspaceId, ...params }); reload() }
+        catch (failure) { setError(failure.message) }
+        finally { setSaving(false) }
+      }
+      return { data, error, busy: saving || pending, toggle }
+    }
+
+    // Skill folders and skills a chat in this project loads; a switch hides one from new turns here only.
+    function ProjectSkills({ workspaceId, refreshToken, t }) {
+      const { data, error, busy, toggle } = useProjectRailSwitches('skills', workspaceId, refreshToken)
+      const [open, setOpen] = React.useState(() => new Set())
+      const folders = data?.folders ?? []
+      const summary = data === null ? null : t('project.skills.count', {
+        active: data.active, total: data.total, estimate: projectTokenEstimate(data.estimatedTokens, t),
+      })
+      return h('section', { className: 'jt-project-card', 'aria-label': t('project.skills') },
+        h('div', { className: 'jt-project-card-head' }, h('h2', null, t('project.skills')),
+          summary !== null && h('span', { className: 'jt-project-card-summary' }, summary)),
+        data === null && !error ? h('p', { className: 'jt-project-card-text' }, t('loading'))
+          : folders.length === 0 ? h('p', { className: 'jt-project-card-text', 'data-empty': true }, t('project.skills.empty'))
+            : h('ul', { className: 'jt-project-skill-folders' }, folders.map((folder) => {
+              const key = folder.path ?? ''
+              const expanded = open.has(key)
+              const label = folder.label ?? t('project.skills.builtIn')
+              const on = folder.skills.filter(skill => skill.enabled).length
+              return h('li', { key, className: 'jt-project-skill-folder' },
+                h('div', { className: 'jt-project-skill-row' },
+                  h('button', {
+                    type: 'button', className: 'jt-project-skill-expand', 'aria-expanded': expanded, title: folder.path ?? undefined,
+                    onClick: () => { setOpen(current => { const next = new Set(current); if (expanded) next.delete(key); else next.add(key); return next }) },
+                  }, h(IconFolderCloseRegular, { size: 16, 'aria-hidden': true }),
+                    h('span', { className: 'jt-project-skill-name' }, label),
+                    h('span', { className: 'jt-project-skill-meta' }, folder.offAt !== undefined ? t('project.skills.offGlobally')
+                      : folder.enabled ? t('project.skills.folderCount', { active: on, total: folder.skills.length }) : t('project.skills.off'))),
+                  folder.path !== null && h(Switch, {
+                    label: t('project.skills.folderToggle', { name: label }), checked: folder.enabled, disabled: busy || folder.offAt !== undefined,
+                    onChange: enabled => { toggle('setSkillFolder', { path: folder.path, enabled }) },
+                  })),
+                expanded && h('ul', { className: 'jt-project-skill-list' }, folder.skills.map(skill => h('li', { key: skill.name, className: 'jt-project-skill-row', 'data-off': !folder.enabled || undefined },
+                  h('span', { className: 'jt-project-skill-name', title: skill.description }, skill.name),
+                  skill.offAt !== undefined && h('span', { className: 'jt-project-skill-meta' }, t('project.skills.offGlobally')),
+                  h(Switch, {
+                    label: t('project.skills.skillToggle', { name: skill.name }), checked: skill.enabled, disabled: busy || !folder.enabled || skill.offAt !== undefined,
+                    onChange: enabled => { toggle('setSkill', { name: skill.name, enabled }) },
+                  })))))
+            })),
+        h('p', { className: 'jt-project-editor-note' }, t('project.skills.note')),
+        error && h('p', { className: 'jt-project-error', role: 'alert' }, error))
+    }
+
+    function ProjectTools({ workspaceId, refreshToken, openConnectors, card, t }) {
+      const { data, error, busy, toggle } = useProjectRailSwitches('tools', workspaceId, refreshToken)
+      const [open, setOpen] = React.useState(() => new Set(['mcp', 'connectors']))
+      const groups = data === null ? [] : Object.entries(data).filter(([, rows]) => rows.length !== 0)
+      let active = 0
+      let total = 0
+      for (const [, rows] of groups) {
+        total += rows.length
+        for (const row of rows) if (row.enabled) active++
+      }
+      return card('project.tools.title', data !== null && h('span', { className: 'jt-project-card-summary' }, t('project.tools.count', { active, total })),
+        h(React.Fragment, null,
+          data === null && !error && h('p', { className: 'jt-project-card-text' }, t('loading')),
+          data !== null && total === 0 && h('p', { className: 'jt-project-card-text', 'data-empty': true }, t('project.tools.empty')),
+          groups.length !== 0 && h('ul', { className: 'jt-project-skill-folders' }, groups.map(([group, rows]) => {
+            const expanded = open.has(group)
+            return h('li', { key: group, className: 'jt-project-skill-folder' },
+              h('div', { className: 'jt-project-skill-row' },
+                h('button', {
+                  type: 'button', className: 'jt-project-skill-expand', 'aria-expanded': expanded,
+                  onClick: () => setOpen(current => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next }),
+                }, h(IconChevronRightOutlineRegular, { size: 16, className: 'jt-project-tool-chevron' }),
+                h('span', { className: 'jt-project-skill-name' }, t(`project.tools.${group}`)),
+                h('span', { className: 'jt-project-skill-meta' }, rows.length))),
+              expanded && h('ul', { className: 'jt-project-skill-list' }, rows.map(row => h('li', {
+                key: row.id, className: 'jt-project-skill-row', 'data-off': row.globallyOff || undefined,
+              }, h('span', { className: 'jt-project-skill-name', title: row.name }, row.name),
+              h('span', { className: 'jt-project-skill-meta' }, t(`project.tools.${row.globallyOff ? 'offGlobally' : row.status}`)),
+              h(Switch, {
+                label: t('project.tools.toggle', { name: row.name }), checked: row.enabled, disabled: busy || row.globallyOff || !row.canToggle,
+                onChange: enabled => { void toggle('setTool', { group, id: row.id, enabled }) },
+              })))))
+          })),
+          h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openConnectors }, t('project.tools.manage')),
+          error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
+    }
+
     function ProjectHome({ useProject, useWorkspaces, backToProjects, t, ...props }) {
       const workspaceId = useProject(value => value)
       const workspace = useWorkspaces(snapshot => snapshot.items.find(item => item.workspaceId === workspaceId))
@@ -1910,7 +2166,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           title: t('project.git.open', { name: repository.name, host: repository.host }),
           'aria-label': t('project.git.open', { name: repository.name, host: repository.host }),
         }, repository.github ? h(GitHubMark) : h(IconLinkOutlineRegular, { size: 14, 'aria-hidden': true }),
-        h('span', null, repository.name), h(IconRightUpOutlineRegular, { size: 12, 'aria-hidden': true })),
+          h('span', null, repository.name), h(IconRightUpOutlineRegular, { size: 12, 'aria-hidden': true })),
         branch !== null && h('span', { className: 'jt-project-git-chip', title: t('project.git.branch') },
           h(IconBranchOutlineRegular, { size: 14, 'aria-hidden': true }), h('span', null, branch)))
     }
@@ -1934,13 +2190,66 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       return { state: 'ongoing', label: t(running === 1 ? 'project.status.subagents.one' : 'project.status.subagents.other', { n: running }) }
     }
 
-    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, editProject, backToProjects, createSchedule, openScheduled, t }) {
+    // The project's blank chat, rendered with the real chat composer: model, mode, agent,
+    // attachments and slash commands all belong to that Session, exactly as on New Chat.
+    function ProjectConversation({ sessionId, useSession, useConversation, useSessions, renderFactorySlot, onStarted }) {
+      const session = useSession(value => value)
+      const conversation = useConversation(value => value)
+      const summaryBlank = useSessions(state => state.byId[sessionId]?.blank)
+      const started = session.promptAttempted || session.running || conversation.activeTargets.size > 0
+        || (!session.blank && !session.awaitingFirstTurn)
+      React.useEffect(() => { if (started) onStarted(sessionId) }, [started, sessionId])
+      const settling = !started && session.openState === 'loading' && summaryBlank !== true
+      const hero = !started && (session.openState === 'open' || summaryBlank === true)
+      return h('div', { className: 'jt-project-conversation' },
+        renderFactorySlot('conversation.content', { variant: 'embedded', phase: settling ? 'settling' : hero ? 'hero' : 'active', hero }, {
+          slots: { views: ProjectConversationViews },
+        }))
+    }
+    const ProjectConversationViews = props => props.renderSlot('conversation.session', { view: 'chat' })
+
+    function ProjectScheduledTasks({ tasks, t }) {
+      const [now, setNow] = React.useState(Date.now)
+      const hasNextRun = tasks.some(task => task.status !== 'paused')
+      React.useEffect(() => {
+        if (!hasNextRun) return
+        setNow(Date.now())
+        const timer = setInterval(() => { setNow(Date.now()) }, 60_000)
+        return () => { clearInterval(timer) }
+      }, [hasNextRun])
+      const locale = t('project.locale')
+      const narrow = React.useMemo(() => new Intl.RelativeTimeFormat(locale, { style: 'narrow' }), [locale])
+      const day = React.useMemo(() => new Intl.RelativeTimeFormat(locale), [locale])
+      const absolute = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }), [locale])
+      const today = new Date(now).toDateString()
+      return h('ul', { className: 'jt-project-tasks' }, tasks.map(task => {
+        let next = t('project.task.paused')
+        if (task.status !== 'paused') {
+          const scheduled = Date.parse(task.scheduledAt)
+          const floor = Date.parse(task.deliveryFloorEndsAt)
+          const at = floor > scheduled ? floor : scheduled
+          const minutes = (at - now) / 60_000
+          const distance = Math.abs(minutes)
+          const relative = minutes <= 0 && new Date(at).toDateString() === today ? t('project.task.dueToday')
+            : distance >= 1440 ? day.format(Math.sign(minutes) * Math.floor(distance / 1440), 'day')
+            : distance >= 60 ? narrow.format(Math.sign(minutes) * Math.floor(distance / 60), 'hour')
+            : narrow.format(Math.sign(minutes) * Math.max(1, Math.floor(distance)), 'minute')
+          next = h('time', { dateTime: new Date(at).toISOString(), title: absolute.format(at) }, relative)
+        }
+        return h('li', { key: task.id, className: 'jt-project-task' },
+          h('div', null, task.title), h('div', { className: 'jt-project-task-meta' }, next))
+      }))
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, connectDraft, SessionProvider, renderSlot, openChat, editProject, backToProjects, createSchedule, openScheduled, refreshScheduled, openConnectors, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
       const archivedIds = useArchived(value => value)
-      const [details, setDetails] = React.useState(null)
-      const [error, setError] = React.useState('')
+      const [refreshToken, setRefreshToken] = React.useState(null)
+      const [refreshing, setRefreshing] = React.useState(false)
+      const [refreshError, setRefreshError] = React.useState('')
+      const inFlight = React.useRef(null)
       const [editing, setEditing] = React.useState(null)
       const { records: tasks, status: taskStatus } = useScheduleTasks(value => value)
       const [addingTask, setAddingTask] = React.useState(false)
@@ -1955,18 +2264,56 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       const copyPath = () => {
         navigator.clipboard.writeText(workspace.path).then(() => { setPathCopied(true) }, failure => { setFileError(failure.message) })
       }
-      const [draft, setDraft] = React.useState('')
-      const fileInput = React.useRef(null)
-      const [detailsVersion, reloadDetails] = React.useReducer(version => version + 1, 0)
+      // Retain the project's blank for as long as the page shows it; sending opens it as a chat.
+      const [draft, setDraft] = React.useState(null)
+      const [draftError, setDraftError] = React.useState('')
       React.useEffect(() => {
         const controller = new AbortController()
-        const { signal } = controller
-        void projectApi('read', { workspaceId }, signal).then(
-          (next) => { if (!signal.aborted) { setDetails(next); setError('') } },
-          (failure) => { if (!signal.aborted) setError(failure.message) },
+        let reference
+        connectDraft(workspaceId).then(
+          (next) => { if (controller.signal.aborted) next.release(); else { reference = next; setDraft(next); setDraftError('') } },
+          (failure) => { if (!controller.signal.aborted) setDraftError(failure.message) },
         )
-        return () => { controller.abort() }
-      }, [workspaceId, detailsVersion])
+        return () => { controller.abort(); reference?.release(); setDraft(null) }
+      }, [workspaceId])
+      const opened = React.useRef(null)
+      const onStarted = React.useCallback((sessionId) => {
+        if (opened.current === sessionId) return
+        opened.current = sessionId
+        openChat(sessionId)
+      }, [openChat])
+      const fileInput = React.useRef(null)
+      const { data: details, error, reload: reloadDetails } = useProjectRailRead('read', workspaceId, refreshToken)
+      const refreshRail = React.useCallback(() => {
+        if (inFlight.current !== null) return
+        setRefreshError('')
+        const remaining = new Set(['read', 'skills', 'tools', 'schedule'])
+        const token = { complete(part) {
+          remaining.delete(part)
+          if (remaining.size === 0 && inFlight.current === token) {
+            inFlight.current = null
+            setRefreshing(false)
+          }
+        } }
+        inFlight.current = token
+        setRefreshing(true)
+        setRefreshToken(token)
+        void refreshScheduled().catch(failure => {
+          if (inFlight.current === token) setRefreshError(failure.message)
+        }).finally(() => token.complete('schedule'))
+      }, [refreshScheduled])
+      React.useEffect(() => () => { inFlight.current = null }, [])
+      React.useEffect(() => {
+        let timer
+        const cancel = () => { clearTimeout(timer) }
+        const request = () => {
+          cancel()
+          if (document.visibilityState === 'visible') timer = setTimeout(refreshRail, 250)
+        }
+        window.addEventListener('focus', request)
+        document.addEventListener('visibilitychange', request)
+        return () => { cancel(); window.removeEventListener('focus', request); document.removeEventListener('visibilitychange', request) }
+      }, [refreshRail])
       const archived = new Set(archivedIds)
       const statuses = useSessionStatus(value => value)
       const recents = workspace.sessionIds
@@ -1984,12 +2331,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             : task.target.create?.cwd === workspace.path
         })
       }, [tasks, taskStatus, workspaceId, workspace.sessionIds, workspace.path])
-      const send = () => {
-        const text = draft.trim()
-        if (text === '') return
-        setDraft('')
-        startSession(workspaceId, text)
-      }
       const addFiles = async (files) => {
         setFileError('')
         for (const file of files) {
@@ -2004,8 +2345,13 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
         if (unit === 'now') return t('time.now')
         return unit === 'minutes' || unit === 'hours' ? t(`time.${unit}`, { n }) : dateFormat.format(new Date(at))
       }
-      const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
-        h('div', { className: 'jt-project-card-head' }, h('h2', null, t(titleKey)), action), body)
+      const card = (titleKey, action, body, summary) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
+        h('div', { className: 'jt-project-card-head' }, summary == null ? h('h2', null, t(titleKey))
+          : h('div', { className: 'jt-project-card-heading' }, h('h2', null, t(titleKey)), h('div', { className: 'jt-project-card-summary' }, summary)), action), body)
+      const contextSummary = details?.contextSummary
+      const contextLabel = contextSummary === undefined ? null : t(`project.context.count.${contextSummary.fileCount === 1 ? 'one' : 'other'}`, {
+        count: contextSummary.fileCount.toLocaleString(t('project.locale')), estimate: projectTokenEstimate(contextSummary.estimatedTokens, t),
+      })
       const preview = (text, emptyKey) => h('p', { className: 'jt-project-card-text', 'data-empty': text.trim() === '' || undefined },
         text.trim() === '' ? t(emptyKey) : text.trim())
       return h('div', { className: 'jt-project' },
@@ -2037,19 +2383,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.openFolder'), title: t('project.openFolder'), onClick: openFolder,
             }, h(IconFolderOpenOutlineRegular, { size: 14, 'aria-hidden': true }))),
           details?.git && h(GitChips, { git: details.git, t }),
-          h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
-            h('textarea', {
-              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: title }),
-              placeholder: t('project.newSession', { name: title }),
-              onChange: (event) => { setDraft(event.target.value) },
-              onKeyDown: (event) => {
-                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send() }
-              },
-            }),
-            h('div', { className: 'jt-project-composer-row' },
-              h('span', { className: 'jt-project-hint' }, t('project.composerHint')),
-              h('button', { type: 'submit', className: 'jt-project-send', disabled: draft.trim() === '', 'aria-label': t('project.start') },
-                h(IconSendOutlineRegular, { size: 16, 'aria-hidden': true })))),
+          h('div', { className: 'jt-project-composer', 'aria-label': t('project.newSession', { name: title }), 'data-loading': draft === null || undefined },
+            draft !== null && h(SessionProvider, { key: draft.sessionId, session: draft }, renderSlot(PROJECT_CONVERSATION, { onStarted })),
+            draftError && h('p', { className: 'jt-project-error', role: 'alert' }, draftError)),
           h('section', { className: 'jt-project-recents', 'aria-labelledby': 'jt-project-recents' },
             h('h2', { className: 'jt-project-heading', id: 'jt-project-recents' }, t('project.recents')),
             recents.length === 0
@@ -2064,6 +2400,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                       : h('span', { className: 'jt-project-session-status', 'data-state': status.state }, h(StateDot, { state: status.state }), status.label)))
               })))),
         h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
+          h('div', { className: 'jt-project-rail-actions' },
+            h(Tooltip, { label: t('project.refresh.tooltip'), side: 'bottom', align: 'end', portal: true },
+              h(Button, { size: 'sm', variant: 'ghost', 'aria-label': t('project.refresh'), disabled: refreshing, onClick: refreshRail,
+                icon: h(IconRefreshOutlineRegular, { size: 16, className: refreshing ? 'jt-project-refresh-spin' : undefined, 'aria-hidden': true }),
+              }))),
+          refreshError && h('p', { className: 'jt-project-error', role: 'alert' }, refreshError),
           error && h('p', { className: 'jt-project-error', role: 'alert' }, error),
           card('project.instructions',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('instructions') } }, t(details?.instructions.trim() ? 'project.edit' : 'project.add')),
@@ -2080,18 +2422,18 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                   h('span', { className: 'jt-project-file-size' }, fileSize(file.size))))),
               details?.truncated && h('p', { className: 'jt-project-card-text' }, t('project.context.more')),
               h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openFolder }, t('project.openFolder')),
-              fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError))),
+              fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError)), contextLabel),
           card('project.memory',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
             preview(details?.memory ?? '', 'project.memory.empty')),
+          h(ProjectSkills, { workspaceId, refreshToken, t }),
+          h(ProjectTools, { workspaceId, refreshToken, openConnectors, card, t }),
           projectTasks !== null && card('project.scheduled',
             h(Button, { size: 'sm', variant: 'outline', onClick: () => { setAddingTask(true) } }, t('project.add')),
             h(React.Fragment, null,
               projectTasks.length === 0
                 ? (taskStatus !== 'error' && preview('', taskStatus === 'loading' ? 'loading' : 'project.scheduled.empty'))
-                : h('ul', { className: 'jt-project-tasks' }, projectTasks.map(task => h('li', { key: task.id, className: 'jt-project-task' },
-                  h('div', null, task.title),
-                  h('div', { className: 'jt-project-task-meta' }, task.status === 'paused' ? t('project.task.paused') : t('project.task.next', { when: new Date(task.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) }))))),
+                : h(ProjectScheduledTasks, { tasks: projectTasks, t }),
               projectTasks.length > 0 && h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openScheduled }, t('project.task.manage')),
               taskStatus === 'error' && h('p', { className: 'jt-project-error', role: 'alert' }, t('load.failed'))))),
         h(ProjectTextEditor, {
@@ -2212,7 +2554,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
 
     function OpenSearchPalette({
       initialKind, useScheduleTasks, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHubAvailable,
-      useSettingsTargets, closePalette, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
+      useSettingsTargets, closePalette, openChat, openProject, openArtifact, openPanel, openSettingsTarget, runCommand, t,
     }) {
       const settingsTargets = useSettingsTargets(value => value)
       const sessions = useSessions(value => value)
@@ -2287,9 +2629,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           })),
         ]
         const settings = settingsTargets.map(target => ({
-          kind: 'settings', key: `settings:${target.section}:${target.id}`, title: target.title,
-          detail: target.title === target.sectionTitle ? t('palette.settings') : `${t('palette.settings')} › ${target.sectionTitle}`,
-          keywords: [target.sectionTitle, target.id], open: () => { openSettings(target.section) },
+          kind: 'settings', key: JSON.stringify(['settings', target.sectionId, target.destination]), title: target.title,
+          detail: target.destination.kind === 'page' ? t('palette.settings') : `${t('palette.settings')} › ${target.sectionTitle}`,
+          keywords: target.keywords, open: () => { openSettingsTarget(target) },
         }))
         return { chats, artifacts, projects, scheduled, actions, settings }
       }, [sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, hubAvailable, pluginsAvailable, defaultName, t])
@@ -2392,6 +2734,8 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
       inject: ['slots'],
       apply(ctx) {
         applyAppearance(preferences)
+        // Onboarding picks the sidebar layout for its Assistant / Workspace answer.
+        ctx.provide('janSidebar', { setLayout: setSidebarLayout })
         ctx.effect(() => () => {
           document.documentElement.removeAttribute('data-jt-hide-navigation')
           document.documentElement.removeAttribute('data-jt-reading')
@@ -2407,6 +2751,15 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           scope.effect(() => form.subscribe(sync), 'jan-theme: saved appearance')
           sync()
         })
+        let connectorLocale
+        let active = true
+        ctx.effect(() => () => { active = false }, 'jan-theme: connector locale lifetime')
+        function loadConnectorLocale(locale) {
+          connectorLocale ??= require.async('./client.locale.js').then(({ dictionaries }) => {
+            if (active) ctx.effect(() => locale.register(COMPOSIO_LOCALE, dictionaries), 'jan-theme: connector copy')
+          }).catch(error => { connectorLocale = undefined; throw error })
+          return connectorLocale
+        }
         ctx.inject(['locale'], (scope) => {
           const t = scope.locale.bind('jan-theme')
           // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
@@ -2415,7 +2768,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-reading-style', order: 11.25, locale: 'jan-theme' }, ReadingStyleRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-appearance-reset', order: 11.3, locale: 'jan-theme' }, AppearanceResetRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
-          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
+          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(ConnectorSettings, { key: 'mcp', locale: scope.locale, loadLocale: loadConnectorLocale })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
@@ -2474,8 +2827,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Back to projects",
               'project.missing': "This project is no longer in Jan.",
               'project.newSession': "New chat in {name}",
-              'project.composerHint': "Enter starts a chat in this project. Shift+Enter adds a line.",
-              'project.start': "Start chat",
               'project.recents': "Recent chats",
               'time.now': "now",
               'time.minutes': "{n}min",
@@ -2488,6 +2839,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} subagent running",
               'project.status.subagents.other': "{n} subagents running",
               'project.details': "Project details",
+              'project.refresh': "Refresh",
+              'project.refresh.tooltip': "Reload from disk",
+              'project.tools.title': "Tools",
+              'project.tools.count': "{active} of {total} on",
+              'project.tools.mcp': "MCP servers",
+              'project.tools.connectors': "Connectors",
+              'project.tools.plugins': "Plugins",
+              'project.tools.empty': "No tools are installed.",
+              'project.tools.manage': "Manage",
+              'project.tools.toggle': "Use {name} in this project",
+              'project.tools.connected': "Connected",
+              'project.tools.auth': "Needs auth",
+              'project.tools.connecting': "Connecting",
+              'project.tools.emptyServer': "No tools",
+              'project.tools.unavailable': "Unavailable",
+              'project.tools.available': "Available",
+              'project.tools.offGlobally': "Off globally",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Tell the agent how to work in this project.",
               'project.instructions.description': "Every new session in this project reads these instructions first.",
@@ -2495,6 +2863,11 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Context",
               'project.context.empty': "No files in this folder yet.",
               'project.context.more': "Showing the first 300 items.",
+              'project.locale': "en",
+              'project.context.count.one': "{count} file · {estimate}",
+              'project.context.count.other': "{count} files · {estimate}",
+              'project.tokens': "~{count} tokens",
+              'project.tokens.one': "~{count} token",
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
               'project.copyPath': "Copy path",
@@ -2502,6 +2875,16 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.pathCopied': "Path copied",
               'project.git.branch': "Current branch",
               'project.git.open': "Open {name} on {host}",
+              'project.skills': "Skills",
+              'project.skills.count': "{active} of {total} on · {estimate}",
+              'project.skills.folderCount': "{active} of {total}",
+              'project.skills.off': "Off",
+              'project.skills.offGlobally': "Off in global settings",
+              'project.skills.empty': "No skills are installed.",
+              'project.skills.builtIn': "Built in",
+              'project.skills.folderToggle': "Use skills from {name} in this project",
+              'project.skills.skillToggle': "Use {name} in this project",
+              'project.skills.note': "Changes apply to the next message in this project's chats. Skill files are not changed.",
               'project.memory': "Memory",
               'project.memory.empty': "Notes the agent keeps about this project.",
               'project.memory.description': "Private notes every new session in this project reads after its instructions.",
@@ -2526,7 +2909,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Times use {zone}.",
               'project.task.create': "Create task",
               'project.task.missing': "Give the task a name and instructions.",
-              'project.task.next': "Next {when}",
+              'project.task.dueToday': "Due today",
               'project.task.paused': "Paused",
               'project.task.manage': "Manage scheduled tasks",
               'projects.search': 'Search projects',
@@ -2563,8 +2946,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "返回项目",
               'project.missing': "该项目已不在 Jan 中。",
               'project.newSession': "在{name}中新建对话",
-              'project.composerHint': "按 Enter 在此项目中开始对话，Shift+Enter 换行。",
-              'project.start': "开始对话",
               'project.recents': "最近的对话",
               'time.now': "刚刚",
               'time.minutes': "{n}分钟",
@@ -2577,6 +2958,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} 个子智能体运行中",
               'project.status.subagents.other': "{n} 个子智能体运行中",
               'project.details': "项目详情",
+              'project.refresh': "刷新",
+              'project.refresh.tooltip': "从磁盘重新加载",
+              'project.tools.title': "工具",
+              'project.tools.count': "已启用 {active}/{total} 项",
+              'project.tools.mcp': "MCP 服务器",
+              'project.tools.connectors': "连接器",
+              'project.tools.plugins': "插件",
+              'project.tools.empty': "尚未安装工具。",
+              'project.tools.manage': "管理",
+              'project.tools.toggle': "在此项目中使用 {name}",
+              'project.tools.connected': "已连接",
+              'project.tools.auth': "需要认证",
+              'project.tools.connecting': "连接中",
+              'project.tools.emptyServer': "无工具",
+              'project.tools.unavailable': "不可用",
+              'project.tools.available': "可用",
+              'project.tools.offGlobally': "已在全局关闭",
               'project.instructions': "说明",
               'project.instructions.empty': "告诉智能体在此项目中如何工作。",
               'project.instructions.description': "此项目中的每个新会话都会先读取这些说明。",
@@ -2584,6 +2982,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "上下文",
               'project.context.empty': "此文件夹中还没有文件。",
               'project.context.more': "仅显示前 300 项。",
+              'project.locale': "zh-CN",
+              'project.context.count.one': "{count} 个文件 · {estimate}",
+              'project.context.count.other': "{count} 个文件 · {estimate}",
+              'project.tokens': "约 {count} 个词元",
+              'project.tokens.one': "约 {count} 个词元",
+              'project.skills.count': "已启用 {active}/{total} 项 · {estimate}",
               'project.addFiles': "添加文件",
               'project.openFolder': "打开文件夹",
               'project.copyPath': "复制路径",
@@ -2615,7 +3019,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "时间采用 {zone}。",
               'project.task.create': "创建任务",
               'project.task.missing': "请填写任务名称和说明。",
-              'project.task.next': "下次 {when}",
+              'project.task.dueToday': "今天到期",
               'project.task.paused': "已暂停",
               'project.task.manage': "管理定时任务",
               'projects.search': '搜索项目',
@@ -2655,8 +3059,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "プロジェクトに戻る",
               'project.missing': "このプロジェクトは Jan にありません。",
               'project.newSession': "{name} で新しいチャット",
-              'project.composerHint': "Enter でこのプロジェクトのチャットを開始、Shift+Enter で改行。",
-              'project.start': "チャットを開始",
               'project.recents': "最近のチャット",
               'time.now': "今",
               'time.minutes': "{n}分",
@@ -2669,6 +3071,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "サブエージェント {n} 件が実行中",
               'project.status.subagents.other': "サブエージェント {n} 件が実行中",
               'project.details': "プロジェクトの詳細",
+              'project.refresh': "更新",
+              'project.refresh.tooltip': "ディスクから再読み込み",
+              'project.tools.title': "ツール",
+              'project.tools.count': "{total} 件中 {active} 件オン",
+              'project.tools.mcp': "MCP サーバー",
+              'project.tools.connectors': "コネクタ",
+              'project.tools.plugins': "プラグイン",
+              'project.tools.empty': "ツールがインストールされていません。",
+              'project.tools.manage': "管理",
+              'project.tools.toggle': "このプロジェクトで {name} を使う",
+              'project.tools.connected': "接続済み",
+              'project.tools.auth': "認証が必要",
+              'project.tools.connecting': "接続中",
+              'project.tools.emptyServer': "ツールなし",
+              'project.tools.unavailable': "利用不可",
+              'project.tools.available': "利用可能",
+              'project.tools.offGlobally': "全体設定でオフ",
               'project.instructions': "指示",
               'project.instructions.empty': "このプロジェクトでの作業方法をエージェントに伝えます。",
               'project.instructions.description': "このプロジェクトの新しいセッションは、最初にこの指示を読みます。",
@@ -2676,6 +3095,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "コンテキスト",
               'project.context.empty': "このフォルダーにはまだファイルがありません。",
               'project.context.more': "最初の 300 件を表示しています。",
+              'project.locale': "ja-JP",
+              'project.context.count.one': "{count} ファイル · {estimate}",
+              'project.context.count.other': "{count} ファイル · {estimate}",
+              'project.tokens': "約 {count} トークン",
+              'project.tokens.one': "約 {count} トークン",
+              'project.skills.count': "{total} 件中 {active} 件オン · {estimate}",
               'project.addFiles': "ファイルを追加",
               'project.openFolder': "フォルダーを開く",
               'project.copyPath': "パスをコピー",
@@ -2707,7 +3132,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "時刻は {zone} です。",
               'project.task.create': "タスクを作成",
               'project.task.missing': "タスクの名前と指示を入力してください。",
-              'project.task.next': "次回 {when}",
+              'project.task.dueToday': "本日が期限",
               'project.task.paused': "一時停止中",
               'project.task.manage': "スケジュールタスクを管理",
               'projects.search': 'プロジェクトを検索',
@@ -2747,8 +3172,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Volver a proyectos",
               'project.missing': "Este proyecto ya no está en Jan.",
               'project.newSession': "Nuevo chat en {name}",
-              'project.composerHint': "Enter inicia un chat en este proyecto. Mayús+Enter añade una línea.",
-              'project.start': "Iniciar chat",
               'project.recents': "Chats recientes",
               'time.now': "ahora",
               'time.minutes': "{n}min",
@@ -2761,6 +3184,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} subagente en curso",
               'project.status.subagents.other': "{n} subagentes en curso",
               'project.details': "Detalles del proyecto",
+              'project.refresh': "Actualizar",
+              'project.refresh.tooltip': "Volver a cargar desde el disco",
+              'project.tools.title': "Herramientas",
+              'project.tools.count': "{active} de {total} activadas",
+              'project.tools.mcp': "Servidores MCP",
+              'project.tools.connectors': "Conectores",
+              'project.tools.plugins': "Complementos",
+              'project.tools.empty': "No hay herramientas instaladas.",
+              'project.tools.manage': "Gestionar",
+              'project.tools.toggle': "Usar {name} en este proyecto",
+              'project.tools.connected': "Conectado",
+              'project.tools.auth': "Requiere autenticación",
+              'project.tools.connecting': "Conectando",
+              'project.tools.emptyServer': "Sin herramientas",
+              'project.tools.unavailable': "No disponible",
+              'project.tools.available': "Disponible",
+              'project.tools.offGlobally': "Desactivado globalmente",
               'project.instructions': "Instrucciones",
               'project.instructions.empty': "Indica al agente cómo trabajar en este proyecto.",
               'project.instructions.description': "Cada sesión nueva de este proyecto lee primero estas instrucciones.",
@@ -2768,6 +3208,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Contexto",
               'project.context.empty': "Esta carpeta todavía no tiene archivos.",
               'project.context.more': "Se muestran los primeros 300 elementos.",
+              'project.locale': "es",
+              'project.context.count.one': "{count} archivo · {estimate}",
+              'project.context.count.other': "{count} archivos · {estimate}",
+              'project.tokens': "~{count} tokens",
+              'project.tokens.one': "~{count} token",
+              'project.skills.count': "{active} de {total} activadas · {estimate}",
               'project.addFiles': "Añadir archivos",
               'project.openFolder': "Abrir carpeta",
               'project.copyPath': "Copiar ruta",
@@ -2799,7 +3245,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Las horas usan {zone}.",
               'project.task.create': "Crear tarea",
               'project.task.missing': "Pon un nombre y unas instrucciones a la tarea.",
-              'project.task.next': "Siguiente: {when}",
+              'project.task.dueToday': "Vence hoy",
               'project.task.paused': "En pausa",
               'project.task.manage': "Gestionar tareas programadas",
               'projects.search': 'Buscar proyectos',
@@ -2839,8 +3285,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Retour aux projets",
               'project.missing': "Ce projet n'est plus dans Jan.",
               'project.newSession': "Nouvelle discussion dans {name}",
-              'project.composerHint': "Entrée lance une discussion dans ce projet. Maj+Entrée ajoute une ligne.",
-              'project.start': "Lancer la discussion",
               'project.recents': "Discussions récentes",
               'time.now': "maintenant",
               'time.minutes': "{n}min",
@@ -2853,6 +3297,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} sous-agent en cours",
               'project.status.subagents.other': "{n} sous-agents en cours",
               'project.details': "Détails du projet",
+              'project.refresh': "Actualiser",
+              'project.refresh.tooltip': "Recharger depuis le disque",
+              'project.tools.title': "Outils",
+              'project.tools.count': "{active} sur {total} activés",
+              'project.tools.mcp': "Serveurs MCP",
+              'project.tools.connectors': "Connecteurs",
+              'project.tools.plugins': "Extensions",
+              'project.tools.empty': "Aucun outil n’est installé.",
+              'project.tools.manage': "Gérer",
+              'project.tools.toggle': "Utiliser {name} dans ce projet",
+              'project.tools.connected': "Connecté",
+              'project.tools.auth': "Authentification requise",
+              'project.tools.connecting': "Connexion en cours",
+              'project.tools.emptyServer': "Aucun outil",
+              'project.tools.unavailable': "Indisponible",
+              'project.tools.available': "Disponible",
+              'project.tools.offGlobally': "Désactivé globalement",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Expliquez à l'agent comment travailler dans ce projet.",
               'project.instructions.description': "Chaque nouvelle séance de ce projet lit d’abord ces instructions.",
@@ -2860,6 +3321,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Contexte",
               'project.context.empty': "Ce dossier n'a pas encore de fichiers.",
               'project.context.more': "Les 300 premiers éléments sont affichés.",
+              'project.locale': "fr",
+              'project.context.count.one': "{count} fichier · {estimate}",
+              'project.context.count.other': "{count} fichiers · {estimate}",
+              'project.tokens': "~{count} jetons",
+              'project.tokens.one': "~{count} jeton",
+              'project.skills.count': "{active} sur {total} activées · {estimate}",
               'project.addFiles': "Ajouter des fichiers",
               'project.openFolder': "Ouvrir le dossier",
               'project.copyPath': "Copier le chemin",
@@ -2891,7 +3358,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Les heures suivent {zone}.",
               'project.task.create': "Créer la tâche",
               'project.task.missing': "Donnez un nom et des instructions à la tâche.",
-              'project.task.next': "Prochaine : {when}",
+              'project.task.dueToday': "Prévue aujourd’hui",
               'project.task.paused': "En pause",
               'project.task.manage': "Gérer les tâches planifiées",
               'projects.search': 'Rechercher des projets',
@@ -2931,8 +3398,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Zurück zu Projekten",
               'project.missing': "Dieses Projekt ist nicht mehr in Jan.",
               'project.newSession': "Neuer Chat in {name}",
-              'project.composerHint': "Eingabe startet einen Chat in diesem Projekt. Umschalt+Eingabe fügt eine Zeile ein.",
-              'project.start': "Chat starten",
               'project.recents': "Letzte Chats",
               'time.now': "jetzt",
               'time.minutes': "{n}min",
@@ -2945,6 +3410,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} Subagent läuft",
               'project.status.subagents.other': "{n} Subagenten laufen",
               'project.details': "Projektdetails",
+              'project.refresh': "Aktualisieren",
+              'project.refresh.tooltip': "Vom Datenträger neu laden",
+              'project.tools.title': "Werkzeuge",
+              'project.tools.count': "{active} von {total} aktiv",
+              'project.tools.mcp': "MCP-Server",
+              'project.tools.connectors': "Konnektoren",
+              'project.tools.plugins': "Plugins",
+              'project.tools.empty': "Keine Werkzeuge installiert.",
+              'project.tools.manage': "Verwalten",
+              'project.tools.toggle': "{name} in diesem Projekt verwenden",
+              'project.tools.connected': "Verbunden",
+              'project.tools.auth': "Anmeldung nötig",
+              'project.tools.connecting': "Verbindung wird aufgebaut",
+              'project.tools.emptyServer': "Keine Werkzeuge",
+              'project.tools.unavailable': "Nicht verfügbar",
+              'project.tools.available': "Verfügbar",
+              'project.tools.offGlobally': "Global deaktiviert",
               'project.instructions': "Anweisungen",
               'project.instructions.empty': "Sag dem Agenten, wie er in diesem Projekt arbeiten soll.",
               'project.instructions.description': "Jede neue Sitzung in diesem Projekt liest zuerst diese Anweisungen.",
@@ -2952,6 +3434,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Kontext",
               'project.context.empty': "Dieser Ordner enthält noch keine Dateien.",
               'project.context.more': "Die ersten 300 Einträge werden angezeigt.",
+              'project.locale': "de",
+              'project.context.count.one': "{count} Datei · {estimate}",
+              'project.context.count.other': "{count} Dateien · {estimate}",
+              'project.tokens': "~{count} Tokens",
+              'project.tokens.one': "~{count} Token",
+              'project.skills.count': "{active} von {total} aktiv · {estimate}",
               'project.addFiles': "Dateien hinzufügen",
               'project.openFolder': "Ordner öffnen",
               'project.copyPath': "Pfad kopieren",
@@ -2983,7 +3471,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Uhrzeiten gelten in {zone}.",
               'project.task.create': "Aufgabe erstellen",
               'project.task.missing': "Gib der Aufgabe einen Namen und Anweisungen.",
-              'project.task.next': "Nächste: {when}",
+              'project.task.dueToday': "Heute fällig",
               'project.task.paused': "Pausiert",
               'project.task.manage': "Geplante Aufgaben verwalten",
               'projects.search': 'Projekte suchen',
@@ -3023,8 +3511,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "К проектам",
               'project.missing': "Этого проекта больше нет в Jan.",
               'project.newSession': "Новый чат в {name}",
-              'project.composerHint': "Enter начинает чат в этом проекте, Shift+Enter добавляет строку.",
-              'project.start': "Начать чат",
               'project.recents': "Недавние чаты",
               'time.now': "сейчас",
               'time.minutes': "{n}мин",
@@ -3037,6 +3523,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "Субагентов в работе: {n}",
               'project.status.subagents.other': "Субагентов в работе: {n}",
               'project.details': "Сведения о проекте",
+              'project.refresh': "Обновить",
+              'project.refresh.tooltip': "Загрузить с диска заново",
+              'project.tools.title': "Инструменты",
+              'project.tools.count': "Включено {active} из {total}",
+              'project.tools.mcp': "MCP-серверы",
+              'project.tools.connectors': "Коннекторы",
+              'project.tools.plugins': "Плагины",
+              'project.tools.empty': "Нет установленных инструментов.",
+              'project.tools.manage': "Управление",
+              'project.tools.toggle': "Использовать {name} в этом проекте",
+              'project.tools.connected': "Подключено",
+              'project.tools.auth': "Требуется вход",
+              'project.tools.connecting': "Подключение",
+              'project.tools.emptyServer': "Нет инструментов",
+              'project.tools.unavailable': "Недоступно",
+              'project.tools.available': "Доступно",
+              'project.tools.offGlobally': "Отключено глобально",
               'project.instructions': "Инструкции",
               'project.instructions.empty': "Объясните агенту, как работать в этом проекте.",
               'project.instructions.description': "Каждая новая сессия в этом проекте сначала читает эти инструкции.",
@@ -3044,6 +3547,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Контекст",
               'project.context.empty': "В этой папке пока нет файлов.",
               'project.context.more': "Показаны первые 300 элементов.",
+              'project.locale': "ru",
+              'project.context.count.one': "Файлов: {count} · {estimate}",
+              'project.context.count.other': "Файлов: {count} · {estimate}",
+              'project.tokens': "~{count} токенов",
+              'project.tokens.one': "~{count} токен",
+              'project.skills.count': "Включено {active} из {total} · {estimate}",
               'project.addFiles': "Добавить файлы",
               'project.openFolder': "Открыть папку",
               'project.copyPath': "Копировать путь",
@@ -3075,7 +3584,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Время указано в {zone}.",
               'project.task.create': "Создать задачу",
               'project.task.missing': "Укажите название и инструкции задачи.",
-              'project.task.next': "Следующий запуск: {when}",
+              'project.task.dueToday': "Срок сегодня",
               'project.task.paused': "Приостановлена",
               'project.task.manage': "Управлять задачами",
               'projects.search': 'Поиск проектов',
@@ -3115,8 +3624,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.back': "Voltar aos projetos",
               'project.missing': "Este projeto não está mais no Jan.",
               'project.newSession': "Nova conversa em {name}",
-              'project.composerHint': "Enter inicia uma conversa neste projeto. Shift+Enter adiciona uma linha.",
-              'project.start': "Iniciar conversa",
               'project.recents': "Conversas recentes",
               'time.now': "agora",
               'time.minutes': "{n}min",
@@ -3129,6 +3636,23 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.status.subagents.one': "{n} subagente em execução",
               'project.status.subagents.other': "{n} subagentes em execução",
               'project.details': "Detalhes do projeto",
+              'project.refresh': "Atualizar",
+              'project.refresh.tooltip': "Recarregar do disco",
+              'project.tools.title': "Ferramentas",
+              'project.tools.count': "{active} de {total} ativadas",
+              'project.tools.mcp': "Servidores MCP",
+              'project.tools.connectors': "Conectores",
+              'project.tools.plugins': "Plugins",
+              'project.tools.empty': "Nenhuma ferramenta instalada.",
+              'project.tools.manage': "Gerenciar",
+              'project.tools.toggle': "Usar {name} neste projeto",
+              'project.tools.connected': "Conectado",
+              'project.tools.auth': "Requer autenticação",
+              'project.tools.connecting': "Conectando",
+              'project.tools.emptyServer': "Sem ferramentas",
+              'project.tools.unavailable': "Indisponível",
+              'project.tools.available': "Disponível",
+              'project.tools.offGlobally': "Desativado globalmente",
               'project.instructions': "Instruções",
               'project.instructions.empty': "Diga ao agente como trabalhar neste projeto.",
               'project.instructions.description': "Cada nova sessão neste projeto lê estas instruções primeiro.",
@@ -3136,6 +3660,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.context': "Contexto",
               'project.context.empty': "Esta pasta ainda não tem arquivos.",
               'project.context.more': "Mostrando os primeiros 300 itens.",
+              'project.locale': "pt-BR",
+              'project.context.count.one': "{count} arquivo · {estimate}",
+              'project.context.count.other': "{count} arquivos · {estimate}",
+              'project.tokens': "~{count} tokens",
+              'project.tokens.one': "~{count} token",
+              'project.skills.count': "{active} de {total} ativadas · {estimate}",
               'project.addFiles': "Adicionar arquivos",
               'project.openFolder': "Abrir pasta",
               'project.copyPath': "Copiar caminho",
@@ -3167,7 +3697,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
               'project.task.note': "Horários em {zone}.",
               'project.task.create': "Criar tarefa",
               'project.task.missing': "Dê um nome e instruções à tarefa.",
-              'project.task.next': "Próxima: {when}",
+              'project.task.dueToday': "Prevista para hoje",
               'project.task.paused': "Pausada",
               'project.task.manage': "Gerenciar tarefas agendadas",
               'projects.search': 'Pesquisar projetos',
@@ -3238,6 +3768,25 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
             subscribe: (listener) => scope.slots.subscribe('main', listener),
           })
+          scope.effect(() => {
+            const update = () => observeSidebarPanels(scope.slots.entriesOfSlot('sidebar.panellist'))
+            const stop = scope.slots.subscribe('sidebar.panellist', update)
+            update()
+            if (migrateSidebarPins) {
+              // Existing panels can register throughout boot. Record them without overriding the saved pin list.
+              let disposed = false
+              const finish = () => {
+                if (disposed) return
+                migrateSidebarPins = false
+                try { localStorage.setItem(SEEN_KEY, JSON.stringify([...sidebarSeen])) } catch { /* keep this window's baseline */ }
+              }
+              const loader = scope.get('loader')
+              if (loader === undefined) finish()
+              else void loader.await().then(finish)
+              return () => { disposed = true; stop() }
+            }
+            return stop
+          }, 'jan-theme: discover sidebar panels')
           // Other plugins' sidebar pages; Edit sidebar can pin them as rows too.
           let otherPanels = []
           const otherPanelsSnapshot = {
@@ -3268,7 +3817,7 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           const startCreator = (skill, key) => { startDraft(`/${skill} ${t(key)}`, 'cordis') }
           // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
           scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills', onCreate: () => startCreator('create-skill', 'createSkill.prompt') }))))
-          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp', onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(ConnectorSettings, { key: 'mcp', locale: scope.locale, loadLocale: loadConnectorLocale, onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
           // Each tab shows how many it holds, read from the list both tabs share.
           scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-skills' }, () => h(AgentCount, { pick: data => data.skills.skills.length })))
           scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-connectors' }, () => h(AgentCount, { pick: data => data.servers.length })))
@@ -3356,11 +3905,12 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
             name: 'main', key: PROJECT_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list, scheduleTasks },
-              // The typed text becomes the new Session's draft and is sent from there,
-              // so the Session's own composer owns attachments, commands and send checks.
-              startSession: (workspaceId, text) => {
-                scope.layout.selectPanel(null)
-                scope.uiWorkspace.startSession(workspaceId, { prompt: text, whenDraftExists: 'append' })
+              refreshScheduled: () => scheduleTasks.refresh(),
+              openConnectors: () => { settingsNavigation?.open('jt-mcp') },
+              // The page renders the project's blank chat itself, so its composer is the Session's own.
+              connectDraft: async (workspaceId) => {
+                const sessionId = await scope.uiWorkspace.connectWorkspace(workspaceId)
+                return scope.sessions.retain(sessionId, { source: 'projectHome' })
               },
               openChat: (sessionId) => {
                 scope.layout.selectPanel(null)
@@ -3378,7 +3928,9 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                 await scheduleTasks.refresh()
               },
             }),
+            children: { [PROJECT_CONVERSATION]: { kind: 'single', scope: 'session' } },
           }, ProjectHome))
+          scope.slots.inject(PROJECT_CONVERSATION, () => scope.slots.register({ name: PROJECT_CONVERSATION, locale: 'jan-theme' }, ProjectConversation))
         })
         // Scheduled tasks join the palette and project pages only while the schedule namespace exists.
         ctx.inject(['remote', 'remote.schedule'], (scope) => {
@@ -3391,9 +3943,29 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           scope.effect(() => () => { scheduleTasks.setShared(undefined) }, 'jan-theme: shared schedule catalog')
         })
         let settingsNavigation
+        const noSettingsTargets = []
+        const settingsListeners = new Set()
+        const settingsTargets = {
+          getSnapshot: () => settingsNavigation?.targets.getSnapshot() ?? noSettingsTargets,
+          subscribe: (listener) => {
+            let stop
+            const bind = () => {
+              stop?.()
+              stop = settingsNavigation?.targets.subscribe(listener)
+              listener()
+            }
+            settingsListeners.add(bind)
+            stop = settingsNavigation?.targets.subscribe(listener)
+            return () => { settingsListeners.delete(bind); stop?.() }
+          },
+        }
+        const setSettingsNavigation = (next) => {
+          settingsNavigation = next
+          for (const bind of settingsListeners) bind()
+        }
         ctx.inject(['settingsNavigation'], (scope) => {
-          settingsNavigation = scope.settingsNavigation
-          scope.effect(() => () => { settingsNavigation = undefined }, 'jan-theme: settings search target')
+          setSettingsNavigation(scope.settingsNavigation)
+          scope.effect(() => () => { setSettingsNavigation(undefined) }, 'jan-theme: settings search targets')
         })
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'jt-startup-notices' }, () => h(StartupNotices, {
           openSettings: (section) => {
@@ -3423,36 +3995,6 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
           const t = scope.locale.bind('jan-theme')
           paletteCommand('search.quickOpen', 'all', 'palette.quickOpen', ['quick open', 'go to file', 'search everything'], ['primary'])
           paletteCommand('search.commands', 'commands', 'palette.commandPalette', ['command palette', 'show all commands', 'settings'], ['primary', 'shift'], ['primary', 'shift'])
-          // Settings sections and General rows, read from their live slot registrations.
-          const labelOf = (entry) => typeof entry.options.label === 'function' ? entry.options.label() : entry.options.label
-          let settingsCache
-          const settingsTargets = {
-            getSnapshot: () => {
-              if (settingsCache !== undefined) return settingsCache
-              const sections = scope.slots.entriesOfSlot('settings.section').filter(entry => entry.options.id !== undefined)
-              const general = sections.find(entry => entry.options.id === 'general')
-              const humanize = (id) => id.replace(/[-_.]/g, ' ').replace(/^./, c => c.toUpperCase())
-              settingsCache = [
-                ...sections.map(entry => {
-                  const title = labelOf(entry) ?? humanize(entry.options.id)
-                  return { section: entry.options.id, id: entry.options.id, title, sectionTitle: title }
-                }),
-                ...(general === undefined ? [] : scope.slots.entriesOfSlot('settings.general.item')
-                  .filter(entry => entry.options.id !== undefined)
-                  .map(entry => ({ section: 'general', id: entry.options.id, title: labelOf(entry) ?? humanize(entry.options.id), sectionTitle: labelOf(general) ?? 'General' }))),
-              ]
-              return settingsCache
-            },
-            subscribe: (listener) => {
-              const changed = () => { settingsCache = undefined; listener() }
-              const stops = [
-                scope.slots.subscribe('settings.section', changed),
-                scope.slots.subscribe('settings.general.item', changed),
-                scope.locale.subscribe(changed),
-              ]
-              return () => { for (const stop of stops) stop() }
-            },
-          }
           scope.slots.inject('shell.overlay', () => scope.slots.register({
             name: 'shell.overlay', id: 'jt-search-palette', locale: 'jan-theme',
             inject: () => ({
@@ -3469,8 +4011,8 @@ html[data-jan-theme][data-jt-reading='terminal'] [data-trajectory-scroll] [data-
                 settingsTargets,
               },
               closePalette,
-              openSettings: (section) => {
-                if (settingsNavigation?.open(section) !== true) console.warn(`jan-theme: settings section ${section} is unavailable`)
+              openSettingsTarget: (target) => {
+                if (settingsNavigation?.openTarget(target) !== true) console.warn(`jan-theme: settings section ${target.sectionId} is unavailable`)
               },
               openChat: (sessionId) => {
                 scope.layout.selectPanel(null)

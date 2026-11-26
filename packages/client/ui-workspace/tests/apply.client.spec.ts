@@ -29,7 +29,6 @@ import type { ArchiveToastInjected, ToastDisplayInjected } from '../src/client/c
 import { WorkspacePicker } from '../src/client/WorkspacePicker.tsx'
 import { FLAT_SESSION_ORDER_KEY } from '../src/client/stores.ts'
 import { UNGROUPED_KEY } from '../src/client/tree.ts'
-import { apply as hostApply } from '../src/index.ts'
 import { SECTION_HOOK_CONTEXT, SECTION_INJECT } from './section-scroller.client.ts'
 
 const sid = (id: string) => id as SessionId
@@ -235,10 +234,6 @@ function viewInstance(slots: SlotRegistry) {
 const settled = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve, 0) })
 
 describe('ui-workspace apply', () => {
-  it('keeps the host Loader entry inert', () => {
-    expect(hostApply).not.toThrow()
-  })
-
   it('declares the services it drives', () => {
     expect(inject).toEqual(['contextMenus',
       'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',
@@ -514,10 +509,18 @@ describe('ui-workspace apply', () => {
 
     b.pinSession.mockRejectedValueOnce(new Error('pin wire down'))
     pin.pinSession(sid('one'))
-    await vi.waitFor(() => { expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'pinFailed', seq: 1 }) })
+    await vi.waitFor(() => {
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'pinFailed', seq: 1, failure: {
+        operation: 'workspace.pinSession', errors: [{ message: 'pin wire down' }],
+      } })
+    })
     b.unpinSession.mockRejectedValueOnce(new Error('unpin wire down'))
     pin.unpinSession(sid('one'))
-    await vi.waitFor(() => { expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'unpinFailed', seq: 2 }) })
+    await vi.waitFor(() => {
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'unpinFailed', seq: 2, failure: {
+        operation: 'workspace.unpinSession', errors: [{ message: 'unpin wire down' }],
+      } })
+    })
     expect(view.getSnapshot().sessionOrderByAccount).toEqual({})
   })
 
@@ -637,6 +640,28 @@ describe('ui-workspace apply', () => {
     }
   })
 
+  it('starts every launch with archived rows hidden while keeping the other saved view choices', async () => {
+    // A run that showed archived rows (the notice action or View options) saved the choice.
+    const saved = new Map([['jan.workspace.view.v5', JSON.stringify({
+      groupBy: 'flat', orderBy: 'manual', groupExpansion: {}, sessionOrderByAccount: {}, archivedFilter: 'show',
+    })]])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => { saved.set(key, value) },
+    })
+    try {
+      const b = await bench()
+      declare(b.slots, 'sidebar.workspaces')
+      await b.ctx.plugin({ inject: [...inject], apply }).await()
+      const view = viewInstance(b.slots).getSnapshot()
+      expect(view.archivedFilter).toBe('default')
+      expect([view.groupBy, view.orderBy]).toEqual(['flat', 'manual'])
+      expect(JSON.parse(saved.get('jan.workspace.view.v5')!)).toMatchObject({ groupBy: 'flat', archivedFilter: 'default' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('routes fork and rename through their shares, the rename dialog, and the browser face', async () => {
     const b = await bench()
     declare(b.slots, 'sidebar.workspaces', 'shell.overlay')
@@ -735,7 +760,7 @@ describe('ui-workspace apply', () => {
 
     fork.forkSession(sid('source'))
     await vi.waitFor(() => {
-      expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1 })
+      expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1, failure: { operation: 'session.fork' } })
     })
 
     expect(b.fork).toHaveBeenCalledOnce()
@@ -765,7 +790,7 @@ describe('ui-workspace apply', () => {
       const toast = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
       fork.forkSession(sid('source'))
       await vi.waitFor(() => {
-        expect(toast.hooks.toast.getSnapshot()).toEqual({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1 })
+        expect(toast.hooks.toast.getSnapshot()).toMatchObject({ kind: 'forkRequiresOpen', sessionId: 'source', seq: 1, failure: { operation: 'session.fork' } })
       })
       if (timing === 'after the notice') b.setWorkspaces(workspaceState([], [sid('source')]))
 

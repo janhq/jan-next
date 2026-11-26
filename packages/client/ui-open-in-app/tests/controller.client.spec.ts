@@ -101,11 +101,11 @@ describe('OpenInAppController launching', () => {
     })
 
     const failing = new OpenInAppController(async () => jsonResponse({}, 404))
-    await expect(failing.launch('cursor', '/w/dir')).resolves.toEqual({ kind: 'failed', failure: 'openError' })
+    await expect(failing.launch('cursor', '/w/dir')).resolves.toMatchObject({ kind: 'failed', failure: 'openError', details: { operation: 'openInApp.launch' } })
     expect(failing.operation.getSnapshot()).toEqual({ phase: 'error', path: '/w/dir' })
 
     const offline = new OpenInAppController(async () => { throw new Error('offline') })
-    await expect(offline.launch('cursor', '/w/dir')).resolves.toEqual({ kind: 'failed', failure: 'openError' })
+    await expect(offline.launch('cursor', '/w/dir')).resolves.toMatchObject({ kind: 'failed', failure: 'openError', details: { errors: [expect.objectContaining({ message: 'offline' })] } })
     expect(offline.operation.getSnapshot()).toEqual({ phase: 'error', path: '/w/dir' })
   })
 })

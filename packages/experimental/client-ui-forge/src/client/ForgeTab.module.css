@@ -320,7 +320,7 @@
 .chevron {
   flex: none;
   color: var(--dsw-alias-label-tertiary);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .chevronOpen {
@@ -482,9 +482,10 @@
 }
 
 .checkItem {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  column-gap: 12px;
   width: 100%;
   min-width: 0;
 }
@@ -493,6 +494,41 @@
   flex: none;
   margin-left: auto;
   color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+.checkOutput {
+  grid-column: 1 / -1;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.assetItem {
+  display: grid;
+  min-width: 0;
+}
+
+.assetCount,
+.assetDetail {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.assetCount {
+  flex: none;
+}
+
+.fixActions,
+.detailStatus {
+  display: flex;
+  grid-column: 2 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 8px 4px 0;
+  color: var(--dsw-alias-label-secondary);
   font-size: 12px;
 }
 
@@ -550,7 +586,7 @@
 .mergeCaret {
   flex: none;
   transform: rotate(90deg);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .mergeCaretOpen {

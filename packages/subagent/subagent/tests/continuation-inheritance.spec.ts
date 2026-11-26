@@ -23,8 +23,9 @@ import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { subagentManager } from './manager-internals.ts'
 import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
 import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
+import { defineTool } from '@janhq/jan-tools'
 import ApprovalService from '@janhq/jan-user-approval'
-import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
+import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import SubagentRuntime from '../src/index.ts'
 import { TestSessionQuery } from './test-session-query.ts'
 import { loadStoredSession } from './persistence-helpers.ts'
@@ -284,6 +285,46 @@ describe('continuable policy inheritance', () => {
     expect(loaded.events.filter(event => event.type === 'approval/policy')).toMatchObject([
       { data: { policy: 'never', source: 'delegation' } },
     ])
+  })
+
+  it('restores the sandbox guard on cold resume even after a standing policy switch', { timeout: 20_000 }, async () => {
+    const { ctx, parent } = await setup([
+      textResponse('first'),
+      toolCallResponse('probe', 'probe', {}),
+      textResponse('after resume'),
+    ])
+    setSandboxMode(parent.session, 'read-only')
+    ctx.on('agent/pre-step', async ({ agent }, next) => agent === parent ? { kind: 'reject' } : next())
+    const probe = vi.fn(() => Promise.resolve('tool was reached'))
+    ctx.tools.register(defineTool({
+      name: 'probe',
+      description: 'Check access',
+      parameters: {},
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      execute: probe,
+    }))
+    ctx.on('agent/created', ({ agent }) => {
+      if (agent !== parent) setSandboxMode(agent.session, 'workspace-write')
+    })
+
+    const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent', sandboxMode: 'workspace-write' })
+    await waitNoActivation(ctx, started.childId)
+    setSandboxMode(parent.session, 'danger-full-access')
+    await subagentManager(ctx).deliverPrompt(started.childId, [{ type: 'text', text: 'continue please' }], {
+      delivery: 'queue', source: { kind: 'user' }, signal: new AbortController().signal,
+    })
+    await waitNoActivation(ctx, started.childId)
+
+    const loaded = await loadStoredSession(ctx.sessionPersistence, started.childId)
+    expect(loaded.events.filter(event => event.type === 'subagent/descriptor')).toMatchObject([
+      { data: { sandboxMode: 'read-only' } },
+    ])
+    expect(loaded.events.filter(event => event.type === 'sandbox/mode' && event.data.source === 'delegation')).toMatchObject([
+      { data: { mode: 'read-only' } },
+    ])
+    expect(JSON.stringify(loaded.events.filter(event => event.type === 'tool/result')))
+      .toContain("This subagent's agent profile limits it to read-only access.")
+    expect(probe).not.toHaveBeenCalled()
   })
 
   it('places inherited events after a fork prefix so fresh policy wins stale seed state', { timeout: 20_000 }, async () => {

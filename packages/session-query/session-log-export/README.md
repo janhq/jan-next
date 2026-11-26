@@ -9,6 +9,8 @@ kind: "package-reference"
 
 `jan-session-log-export` lets the Web interface export a session's complete history. The Session Header's more-actions menu offers `Copy Session as Markdown` and `Download session log`; an `/export` slash command also starts the ZIP download. The ZIP contains the session, its sub-sessions, and attachments. The package owns both authenticated Host routes, the Markdown transcript formatter, and the browser controls and feedback. The browser chooses the download destination and owns the clipboard. Setup and usage come first; implementation details follow.
 
+Failures preparing or copying Markdown offer **Copy details** and **Show log**. Diagnostic details describe the failed operation, not the transcript being copied.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

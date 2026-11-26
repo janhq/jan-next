@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Browser, Page } from 'playwright'
+import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { AgentHandle } from '@janhq/jan-agent'
@@ -66,6 +66,13 @@ async function waitForRunningChild(
     if (Date.now() >= deadline) throw new Error('held child did not enter its running model call')
     await new Promise<void>(resolve => setTimeout(resolve, 10))
   }
+}
+
+async function expectWithinViewport(locator: Locator, label: string): Promise<void> {
+  await expect.poll(() => locator.evaluate((element) => {
+    const { top, right, bottom, left, width, height } = element.getBoundingClientRect()
+    return width > 0 && height > 0 && top >= 0 && right <= innerWidth && bottom <= innerHeight && left >= 0
+  }), { message: `${label} should fit inside the viewport` }).toBe(true)
 }
 
 describe('web e2e: sidebar subagent activity', () => {
@@ -145,11 +152,26 @@ describe('web e2e: sidebar subagent activity', () => {
     )
     expect(await ownerRow.locator('[data-state="ongoing"]').count()).toBe(1)
     await ownerRow.click()
-    const runningTrigger = page.getByRole('button', { name: '1 subagent', exact: true })
-    await runningTrigger.waitFor({ timeout: 10_000 })
-    expect(await runningTrigger.locator('[data-state="ongoing"]').count()).toBe(1)
+    await page.getByRole('dialog', { name: 'New chats use Full access', exact: true })
+      .getByRole('button', { name: 'Got it', exact: true }).click()
+    const composer = page.locator('[data-composer-seat]')
+    const roster = composer.getByRole('region', { name: 'Subagents', exact: true })
+    const rosterTrigger = roster.getByRole('button', { name: /^1 subagent.*1 in progress$/ })
+    const rosterSpinner = rosterTrigger.locator('[data-state="ongoing"]')
+    const members = roster.locator('[data-subagent-panel]')
+    const runningMember = members.getByRole('button', { name: /^running sidebar activity child$/i })
+    await rosterSpinner.waitFor({ timeout: 10_000 })
+    await expect.poll(async () => {
+      const rosterBox = await roster.boundingBox()
+      const inputBox = await composer.locator('[data-composer-card]').boundingBox()
+      return rosterBox !== null && inputBox !== null && rosterBox.y + rosterBox.height <= inputBox.y
+    }, { message: 'the subagent roster should sit above the composer input' }).toBe(true)
+    await rosterTrigger.click()
+    await runningMember.locator('[data-state="ongoing"]').waitFor()
+    await rosterTrigger.click()
+    await members.waitFor({ state: 'hidden' })
     // This directly created owner has no tool preset; the fixture collects its own job.
-    scaffold.ctx.effect(() => scaffold.ctx.jobs.attachController('compact header fixture'), 'compact header job controller')
+    scaffold.ctx.effect(() => scaffold.ctx.jobs.attachController('composer dock fixture'), 'composer dock job controller')
     const completion = Promise.withResolvers<{ status: 'completed' }>()
     const ownerId = parentHandle.agent.id
     const jobId = scaffold.ctx.jobs.start({
@@ -161,49 +183,47 @@ describe('web e2e: sidebar subagent activity', () => {
     })
     const viewport = page.viewportSize()!
     try {
-      const jobTrigger = page.getByRole('button', { name: '1 background job', exact: true })
-      await jobTrigger.waitFor()
-      expect(await jobTrigger.evaluate(element => document.getElementById(element.getAttribute('aria-describedby')!)?.textContent)).toBe('Running')
-      const controls = [
-        { trigger: runningTrigger, icon: '[data-icon="dsw-icon-users-outline-regular"]', count: '[data-subagent-count]' },
-        { trigger: jobTrigger, icon: '[data-icon="dsw-icon-layers-outline-regular"]', count: '[data-job-count]' },
-      ]
-      for (const { trigger, icon, count } of controls) {
-        expect(await trigger.locator(count).isVisible()).toBe(true)
-        expect(await trigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
-        expect(await trigger.locator(icon).isVisible()).toBe(false)
-      }
-      await runningTrigger.focus()
+      const jobTrigger = composer.locator('[data-composer-dock]').getByRole('button', { name: '1 running', exact: true })
+      const jobLabel = jobTrigger.getByText('1 running', { exact: true })
+      const jobSpinner = jobTrigger.locator('[data-state="ongoing"]')
+      await jobLabel.waitFor()
+      await jobSpinner.waitFor()
+
+      await rosterTrigger.focus()
       await page.setViewportSize({ width: 390, height: 700 })
-      for (const { trigger, icon, count } of controls) {
-        await expect.poll(() => trigger.locator(count).isVisible()).toBe(false)
-        expect(await trigger.locator(icon).isVisible()).toBe(true)
-        expect(await trigger.locator('[data-state="ongoing"]').isVisible()).toBe(false)
-      }
-      expect(await runningTrigger.evaluate(element => element === document.activeElement)).toBe(true)
-      expect(await jobTrigger.evaluate(element => document.getElementById(element.getAttribute('aria-describedby')!)?.textContent)).toBe('Running')
-      await compareOrRefreshGolden(
-        join(SNAPSHOT_DIR, 'compact-running.expected.md'),
-        await captureStableAria(page, 'header:has([data-subagent-action])', scaffold.workspaceCwd),
-        MODE,
-      )
-      await saveFailureShot(page, 'web-e2e-compact-running-icons')
-      await runningTrigger.click()
-      const members = page.locator('[data-subagent-panel]')
-      await members.waitFor()
-      expect(await members.getByRole('treeitem').locator('[data-state="ongoing"]').isVisible()).toBe(true)
-      await page.keyboard.press('Escape')
+      await expectWithinViewport(rosterTrigger, 'Subagent roster button')
+      await expectWithinViewport(jobTrigger, 'Running jobs pill')
+      expect(await rosterTrigger.evaluate(element => element === document.activeElement)).toBe(true)
+      await rosterSpinner.waitFor()
+      await jobLabel.waitFor()
+      await jobSpinner.waitFor()
+
+      await rosterTrigger.click()
+      await runningMember.locator('[data-state="ongoing"]').waitFor()
+      await expectWithinViewport(members, 'Subagent member list')
+      const keepRunningJobs = { runningJobs: 'keep' } as const
+      const rosterAria = await captureStableAria(page, '[data-composer-seat] [data-subagent-action]', scaffold.workspaceCwd, keepRunningJobs)
+      const jobsPillAria = await captureStableAria(page, '[data-composer-dock] button[aria-label="1 running"]', scaffold.workspaceCwd, keepRunningJobs)
+      await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'compact-running.expected.md'), `${rosterAria}\n${jobsPillAria}`, MODE)
+      await saveFailureShot(page, 'web-e2e-compact-running-controls')
+      await rosterTrigger.click()
+      await members.waitFor({ state: 'hidden' })
+
       await jobTrigger.click()
       const jobs = page.getByRole('list', { name: 'Background jobs', exact: true })
-      await jobs.waitFor()
-      expect(await jobs.locator('[data-state="ongoing"]').isVisible()).toBe(true)
+      const runningJob = jobs.getByRole('listitem').filter({ hasText: 'Concurrent background work' })
+      await runningJob.locator('[data-state="ongoing"]').waitFor()
+      await expectWithinViewport(page.locator('[data-menu-material]').filter({ has: jobs }), 'Background jobs menu')
       await page.keyboard.press('Escape')
+      await jobs.waitFor({ state: 'hidden' })
+
       await page.setViewportSize(viewport)
-      for (const { trigger, icon, count } of controls) {
-        await expect.poll(() => trigger.locator(count).isVisible()).toBe(true)
-        expect(await trigger.locator('[data-state="ongoing"]').isVisible()).toBe(true)
-        expect(await trigger.locator(icon).isVisible()).toBe(false)
-      }
+      await ownerRow.waitFor()
+      await expectWithinViewport(rosterTrigger, 'Restored subagent roster button')
+      await expectWithinViewport(jobTrigger, 'Restored running jobs pill')
+      await rosterSpinner.waitFor()
+      await jobLabel.waitFor()
+      await jobSpinner.waitFor()
     } finally {
       completion.resolve({ status: 'completed' })
       await scaffold.ctx.jobs.wait(jobId, 5_000, ownerId)

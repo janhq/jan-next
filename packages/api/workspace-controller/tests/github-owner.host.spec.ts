@@ -1,11 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
-import { githubOwnerOf } from '../src/github-owner.ts'
+import { gitMetadataOf } from '../src/github-owner.ts'
 
 function scratch(): string {
-  const root = mkdtempSync(join(tmpdir(), 'jan-github-owner-'))
+  // The repository identity is a real path; macOS reaches the temp directory through the /var -> /private/var link.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'jan-github-owner-')))
   onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
   return root
 }
@@ -26,7 +27,7 @@ it.each([
   ['https://gitlab.com/janhq/jan.git', undefined],
   ['https://github.com.evil.example/janhq/jan.git', undefined],
 ])('reads the origin owner from %s', async (url, owner) => {
-  expect(await githubOwnerOf(repository(scratch(), 'repo', origin(url)))).toBe(owner)
+  expect((await gitMetadataOf(repository(scratch(), 'repo', origin(url))))?.githubOwner).toBe(owner)
 })
 
 it('finds the repository above a project folder and through a linked worktree', async () => {
@@ -34,7 +35,7 @@ it('finds the repository above a project folder and through a linked worktree', 
   const main = repository(root, 'main', origin('git@github.com:janhq/jan.git'))
   const nested = join(main, 'apps', 'web')
   mkdirSync(nested, { recursive: true })
-  expect(await githubOwnerOf(nested)).toBe('janhq')
+  expect(await gitMetadataOf(nested)).toEqual({ githubOwner: 'janhq', repository: join(main, '.git'), checkoutRoot: main })
 
   const linkedGitDir = join(main, '.git', 'worktrees', 'feature')
   mkdirSync(linkedGitDir, { recursive: true })
@@ -42,18 +43,41 @@ it('finds the repository above a project folder and through a linked worktree', 
   const worktree = join(root, 'feature')
   mkdirSync(worktree)
   writeFileSync(join(worktree, '.git'), `gitdir: ${linkedGitDir}\n`)
-  expect(await githubOwnerOf(worktree)).toBe('janhq')
+  const head = join(linkedGitDir, 'HEAD')
+  writeFileSync(head, 'ref: refs/heads/topic/feature\n')
+  expect(await gitMetadataOf(worktree)).toEqual({
+    githubOwner: 'janhq', repository: join(main, '.git'), checkoutRoot: worktree, branch: 'topic/feature',
+  })
+  writeFileSync(head, '0123456789abcdef0123456789abcdef01234567\n')
+  expect(await gitMetadataOf(worktree)).toEqual({
+    githubOwner: 'janhq', repository: join(main, '.git'), checkoutRoot: worktree, branch: '0123456',
+  })
 })
 
 it('has no owner outside Git or without an origin remote', async () => {
   const root = scratch()
   const plain = join(root, 'plain')
   mkdirSync(plain)
-  expect(await githubOwnerOf(plain)).toBeUndefined()
-  expect(await githubOwnerOf(repository(root, 'local', '[core]\n\tbare = false\n'))).toBeUndefined()
+  expect(await gitMetadataOf(plain)).toBeUndefined()
+  const local = repository(root, 'local', '[core]\n\tbare = false\n')
+  expect(await gitMetadataOf(local)).toEqual({ repository: join(local, '.git'), checkoutRoot: local })
+})
+
+it('discovers a repository initialized after the first Workspace projection', async () => {
+  const root = scratch()
+  const project = join(root, 'project')
+  mkdirSync(project)
+  expect(await gitMetadataOf(project)).toBeUndefined()
+
+  repository(root, 'project', origin('https://github.com/janhq/repo.git'))
+  writeFileSync(join(project, '.git', 'HEAD'), 'ref: refs/heads/main\n')
+  expect(await gitMetadataOf(project)).toMatchObject({
+    githubOwner: 'janhq', repository: join(project, '.git'), branch: 'main',
+  })
 })
 
 it('ignores an oversized Git config even when the origin appears first', async () => {
   const content = origin('https://github.com/janhq/repo.git') + '#'.repeat(1024 * 1024)
-  expect(await githubOwnerOf(repository(scratch(), 'oversized', content))).toBeUndefined()
+  const path = repository(scratch(), 'oversized', content)
+  expect(await gitMetadataOf(path)).toEqual({ repository: join(path, '.git'), checkoutRoot: path })
 })

@@ -24,7 +24,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 16px) scale(0.98);
-  transition: opacity 160ms ease-in, transform 160ms cubic-bezier(0.4, 0, 1, 1);
+  transition: opacity var(--ds-transition-duration-fast) var(--ds-ease-in), transform var(--ds-transition-duration-fast) var(--ds-ease-in);
   will-change: opacity, transform;
 }
 
@@ -32,7 +32,7 @@
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0) scale(1);
-  transition: opacity 140ms ease-out, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity var(--ds-transition-duration) var(--ds-ease-out), transform var(--ds-transition-duration) var(--ds-ease-emphasized);
 }
 
 .controlAnchor { display: flex; }
@@ -46,9 +46,4 @@
     pointer-events: auto;
     transform: translate(-50%, 0) scale(1);
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .panel,
-  .visible { transition-duration: 0.01ms; }
 }

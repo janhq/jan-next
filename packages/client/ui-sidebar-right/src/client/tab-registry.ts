@@ -28,6 +28,8 @@ import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import type { ComponentType } from 'react'
 import type { Context } from '@janhq/cordis'
 import type { IconProps } from '@janhq/jan-client-ui-primitives'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 import { notifySubscribers } from '@janhq/jan-client-store'
 // The POSIX build: the browser bundle must not reach for node's `path`, and
 // addresses are `/`-separated regardless of the host platform.
@@ -80,6 +82,14 @@ export interface SidebarRightGuideEntry {
   readonly description?: () => string
   /** Optional glyph, drawn before the title; without one the guide draws its cube placeholder. */
   readonly icon?: ComponentType<IconProps>
+  /**
+   * Whether one chat offers this entry, for a type that only applies to some chats (a Git checkout, say).
+   * The guide and the chat tab strip's `+` menu list the entry only while the answer is true, and a
+   * blank chat without a Session never lists it. Omit to offer the entry in every chat.
+   * @param sessionId - the chat the guide or menu belongs to.
+   * @returns the live answer for that chat.
+   */
+  readonly offeredIn?: (sessionId: SessionId) => ObservableSnapshot<boolean>
 }
 
 /** A guide entry as the registry lists it: with the kind of the type that contributed it, which is what picking it opens. */

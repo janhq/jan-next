@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { FontFamilies, ThemePreference, ThemeSnapshot } from '@janhq/jan-client-ui-theme/client'
+import type { CodeTheme, FontFamilies, ThemePreference, ThemeSnapshot } from '@janhq/jan-client-ui-theme/client'
 import { fontFamilyVariable } from '@janhq/jan-client-ui-theme/src/theme-settings.ts'
 import { DARK_ATTRIBUTE, THEME_SOURCE_ATTRIBUTE, ThemePresenter } from '@janhq/jan-client-ui-layout/src/client/theme-presenter.ts'
 
@@ -14,10 +14,13 @@ function snapshot(
   fontSize = 14,
   preference: ThemePreference = colorScheme,
   fontFamilies: FontFamilies = { text: '', code: '', terminal: '' },
+  codeTheme: CodeTheme = 'github',
 ): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference, fontSizes: { text: fontSize, code: 11, terminal: 13 }, fontFamilies, active, themes: [active], revision: 1 }
+  return {
+    preference, codeTheme, fontSizes: { text: fontSize, code: 11, terminal: 13 }, fontFamilies, active, themes: [active], revision: 1,
+  }
 }
 
 function clearThemePresentation(): void {
@@ -78,6 +81,16 @@ describe('ThemePresenter', () => {
     expect(document.body.style.getPropertyValue('--dsw-alias-bg')).toBe('#fff')
     // The old theme's extra variable is gone, not merged.
     expect(document.body.style.getPropertyValue('--dsw-alias-fg')).toBe('')
+  })
+
+  it('publishes the syntax theme attribute, follows changes, and retracts it on dispose', () => {
+    const presenter = new ThemePresenter()
+    presenter.apply(snapshot('light'))
+    expect(document.body.getAttribute('data-ds-code-theme')).toBe('github')
+    presenter.apply(snapshot('light', {}, 14, 'light', { text: '', code: '', terminal: '' }, 'solarized'))
+    expect(document.body.getAttribute('data-ds-code-theme')).toBe('solarized')
+    presenter.dispose()
+    expect(document.body.hasAttribute('data-ds-code-theme')).toBe(false)
   })
 
   it('publishes the content font size and follows changes', () => {

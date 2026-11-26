@@ -3,6 +3,7 @@
  * The desktop answer is read once per page; a failed read renders no control.
  */
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import { captureFailure, type FailureDetails } from '@janhq/jan-client-ui-primitives'
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
 import type { SessionOpenWorkspacePathRequest, SessionWorkspacePathApplication } from '@janhq/jan-api-session-controller/types'
 import type { OpenInAppOutcome, OpenInAppPathFailure } from './outcome.ts'
@@ -53,16 +54,16 @@ export class OpenInAppPathController {
    */
   async openPath(path: string, action: OpenInAppPathAction, application?: string): Promise<OpenInAppOutcome> {
     const request: SessionOpenWorkspacePathRequest = action === 'reveal' ? { path, action } : { path, ...(application === undefined ? {} : { application }) }
-    let ok = false
+    let details: FailureDetails
     try {
-      ok = (await this.remote.session.openWorkspacePath(request)).ok
-    } catch {
-      // Swallows carrier rejections: a Host that cannot be reached failed the
-      // gesture like a Host that refused it, and the control announces that.
+      const result = await this.remote.session.openWorkspacePath(request)
+      if (result.ok) return { kind: action === 'reveal' ? 'revealed' : 'opened' }
+      details = captureFailure(`session.${action}WorkspacePath`, result.error)
+    } catch (error) {
+      details = captureFailure(`session.${action}WorkspacePath`, error)
     }
-    if (ok) return { kind: action === 'reveal' ? 'revealed' : 'opened' }
     const failure: OpenInAppPathFailure = action === 'open' ? 'openError' : 'revealError'
-    return { kind: 'failed', failure }
+    return { kind: 'failed', failure, details }
   }
 
   /**

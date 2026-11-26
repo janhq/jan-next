@@ -156,19 +156,50 @@ describe('on-screen translation suggestions', () => {
     expect(restarted.client.suggestions.getSnapshot()[0]?.pkg).toBe('dsh-cad')
   })
 
-  it('does not suggest a never-dismissed package after the client restarts', async () => {
+  it('suppresses only the opted-out plugin after the client restarts', async () => {
     const first = await harness()
     mountPanel('dsh-cad', `<p>${HINT}</p>`)
+    mountPanel('dsh-ppt', `<p>${EXPORT}</p>`)
+    await first.client.refresh()
+    await settle()
+    expect(first.client.suggestions.getSnapshot().map(item => item.pkg)).toEqual(['dsh-cad', 'dsh-ppt'])
+    first.client.dismiss('dsh-cad', 'never')
+    expect(first.client.suggestions.getSnapshot().map(item => item.pkg)).toEqual(['dsh-ppt'])
+    first.client.dispose()
+
+    const restarted = await harness()
+    await restarted.client.refresh()
+    await settle()
+    expect(restarted.client.suggestions.getSnapshot().map(item => item.pkg)).toEqual(['dsh-ppt'])
+    const subject = { pkg: 'dsh-cad', meta: [] }
+    expect(restarted.client.assess(subject)).toBeNull()
+    expect(restarted.client.assess(subject, { manual: true })).toMatchObject({ pkg: 'dsh-cad', locale: 'en' })
+  })
+
+  it('resets the persistent opt-out after a manually requested translation', async () => {
+    const first = await harness()
+    const panel = mountPanel('dsh-cad', `<p>${EXPORT}</p>`)
     await first.client.refresh()
     await settle()
     first.client.dismiss('dsh-cad', 'never')
-    expect(first.client.suggestions.getSnapshot()).toEqual([])
     first.client.dispose()
 
     const restarted = await harness()
     await restarted.client.refresh()
     await settle()
     expect(restarted.client.suggestions.getSnapshot()).toEqual([])
+
+    const pending = restarted.client.translate('dsh-cad')
+    await settle()
+    await expect(pending).resolves.toMatchObject({ state: 'done' })
+    expect(panel.textContent).toBe('Export')
+    await restarted.client.clear('dsh-cad')
+    restarted.client.dispose()
+
+    const reset = await harness()
+    await reset.client.refresh()
+    await settle()
+    expect(reset.client.suggestions.getSnapshot().map(item => item.pkg)).toEqual(['dsh-cad'])
   })
 
   it('records consent and waits for the on-screen translation when accepting a suggestion', async () => {

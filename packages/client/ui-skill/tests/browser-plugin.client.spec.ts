@@ -400,6 +400,17 @@ describe('catalog cache', () => {
     await source.candidates(proj('s2'), req(''))
     expect(payloads).toHaveLength(4)
   })
+
+  it('skills/change clears every cached session', async () => {
+    const { list, payloads } = countingList()
+    const { source, remote } = await bench(list)
+    await source.candidates(proj('s1'), req(''))
+    expect(payloads).toHaveLength(1)
+    // A skill switched off in scoped settings must leave the slash list at once.
+    remote.emit('skills/change', [])
+    await source.candidates(proj('s1'), req(''))
+    expect(payloads).toHaveLength(2)
+  })
 })
 
 describe('lexicon', () => {

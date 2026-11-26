@@ -50,8 +50,9 @@ interface ShellExecRequest {
    * map, so an entry here can never displace one. Set by in-process plugins
    * (the hooks bridges set `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT`, …); the
    * model-facing bash tool does not expose it as a parameter.
+   * An explicit `undefined` removes an ordinary inherited variable.
    */
-  env?: Record<string, string> | undefined
+  env?: Record<string, string | undefined> | undefined
   /**
    * Harness-owned `JAN_*` variables for this execution (typed to managed
    * keys). Executors discard ambient `JAN_*` entries before merging this
@@ -92,7 +93,7 @@ interface ShellExecSpec {
    * OPTIONAL on the spec for the same reason as `stdin`: absent means no
    * ordinary extra environment.
    */
-  env?: Record<string, string> | undefined
+  env?: Record<string, string | undefined> | undefined
   /** Managed `JAN_*` snapshot (typed to managed keys); merges after {@link env}. */
   janEnv?: JanEnvironment | undefined
   /** Resolved sandbox policy; ignored by executors that do not confine. */
@@ -291,6 +292,22 @@ Registry (`ctx.shellEnv`) for trusted, per-execution `JAN_*` variables. The name
  * @returns the disposer that unregisters the contribution.
  */
 register(contributor: BashEnvContributor): () => void
+
+/**
+ * Register trusted subprocess environment overrides for matching shell calls.
+ * `JAN_*` keys are ignored: the managed snapshot from {@link collect} owns that namespace.
+ * @param resolve - returns ordinary environment entries, or `undefined` values that remove inherited
+ *   ones, for a call; returns undefined to leave it unchanged.
+ * @returns the disposer, also invoked automatically with the registering plugin.
+ */
+registerOverrides(resolve: (execution: ToolExecution) => Readonly<Record<string, string | undefined>> | undefined): () => void
+
+/**
+ * Collect ordinary environment overrides without changing the managed `JAN_*` snapshot.
+ * @param execution - the current tool execution.
+ * @returns a caller-owned overlay without `JAN_*` keys, or undefined if no resolver supplied one.
+ */
+collectOverrides(execution: ToolExecution): Record<string, string | undefined> | undefined
 
 /**
  * Build the trusted `JAN_*` snapshot for one shell tool execution.

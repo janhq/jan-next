@@ -1,66 +1,33 @@
 - dialog "Settings":
   - text: Settings
+  - combobox "Search settings"
   - navigation:
     - button "General"
-    - button "Models"
+    - button "AI Models"
     - button "Agent loop"
     - button "Built-in plugins"
     - button "Agent presets"
+    - button "Agents"
   - button "Open configuration file"
   - button "Close"
-  - heading "Models" [level=2]
-  - paragraph: Enter your API keys to use models from the following providers.
-  - list:
-    - listitem:
-      - text: openrouter
-      - button "Edit openrouter": Edit
-      - button "Delete openrouter": Delete
-      - alert: "llm-pi-ai: provider \"openrouter\" model \"111\" needs an api; the installed catalog does not describe it, so set the route's api to the wire protocol its endpoint speaks"
-    - listitem:
-      - text: zai
-      - button "Edit zai": Edit
-      - button "Delete zai": Delete
-    - listitem:
-      - text: acme-gateway Custom
-      - button "Edit acme-gateway": Edit
-      - button "Delete acme-gateway": Delete
-      - alert: "llm-pi-ai: provider \"acme-gateway\" model \"custom-model\" needs an api; the installed catalog does not describe it, so set the route's api to the wire protocol its endpoint speaks"
-  - button "Add model provider"
-  - region "Local model":
-    - heading "Local model" [level=3]
-    - paragraph: Runs on this computer with llama.cpp. Works offline; nothing leaves your machine.
-    - text: Something went wrong
-    - alert:
-      - paragraph: "No local model worker is configured; set workerPath on the llama-cpp plugin (the desktop app and `pnpm run dev:web` set it from JAN_LLAMA_WORKER)"
-    - button "Try again"
-    - button "Remove all"
-    - region "Add a model":
-      - heading "Add a model" [level=4]
-      - textbox "Search the recommended models, or paste a Hugging Face repository":
-        - /placeholder: Search, or paste e.g. unsloth/Qwen3-8B-GGUF
-      - list:
-        - listitem:
-          - text: Jan v3.5 4B Recommended 2.7 GB · janhq/Jan-v3.5-4B-gguf
-          - button "Download"
-        - listitem:
-          - text: Qwen3 4B Instruct 2507 2.5 GB · unsloth/Qwen3-4B-Instruct-2507-GGUF
-          - button "Download"
-        - listitem:
-          - text: Llama 3.2 3B Instruct 2.0 GB · bartowski/Llama-3.2-3B-Instruct-GGUF
-          - button "Download"
-        - listitem:
-          - text: Qwen3 8B 5.0 GB · unsloth/Qwen3-8B-GGUF
-          - button "Download"
-        - listitem:
-          - text: Qwen3 0.6B 429 MB · ggml-org/Qwen3-0.6B-GGUF
-          - button "Download"
-        - listitem:
-          - text: Qwen3 VL 2B Instruct Vision 1.9 GB · unsloth/Qwen3-VL-2B-Instruct-GGUF
-          - button "Download"
-    - region "Import a .gguf file":
-      - heading "Import a .gguf file" [level=4]
-      - textbox "Full path of a .gguf file on this computer":
-        - /placeholder: /home/you/models/model.gguf
-      - 'textbox "Vision projector (optional): full path of the model''s mmproj .gguf file"':
-        - /placeholder: Vision projector (optional), e.g. /home/you/models/mmproj.gguf
-      - button "Import" [disabled]
+  - region "AI Models":
+    - heading "Choose how to use models" [level=2]
+    - button "Local models"
+    - button "OpenAI-compatible API"
+    - paragraph: Enter your API keys to use models from the following providers.
+    - list:
+      - listitem:
+        - text: openrouter
+        - button "Edit openrouter": Edit
+        - button "Delete openrouter": Delete
+        - alert: "llm-pi-ai: provider \"openrouter\" model \"111\" needs an api; the installed catalog does not describe it, so set the route's api to the wire protocol its endpoint speaks"
+      - listitem:
+        - text: zai
+        - button "Edit zai": Edit
+        - button "Delete zai": Delete
+      - listitem:
+        - text: acme-gateway Custom
+        - button "Edit acme-gateway": Edit
+        - button "Delete acme-gateway": Delete
+        - alert: "llm-pi-ai: provider \"acme-gateway\" model \"custom-model\" needs an api; the installed catalog does not describe it, so set the route's api to the wire protocol its endpoint speaks"
+    - button "Add model provider"

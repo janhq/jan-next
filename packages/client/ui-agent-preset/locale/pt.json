@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Interface padrão do agente",
-    "description": "Selecione Padrões do agente para sessões atuais e novas e edite os plug-ins usados pelos padrões."
+    "title": "Seletor de modos",
+    "description": "Escolha o modo para as sessões atuais e novas e edite os plug-ins usados por cada modo."
   }
 }

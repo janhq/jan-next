@@ -8,8 +8,8 @@ import { writeFileAtomic } from '@janhq/jan-atomic-write'
 /** Value pnpm leaves for a build script that still needs a decision. */
 const UNDECIDED_BUILD = 'set this to true or false'
 
-/** Where a non-interactive run names the build scripts it skipped. */
-const IGNORED_BUILDS = /\bIgnored build scripts: (.+)/
+/** Pnpm's ignored-build error or the warning sentence preceding its approval hint. */
+const IGNORED_BUILDS = /\bIgnored build scripts: ([^\r\n]+?)(?:\.[ \t]*\r?\n[ \t]*Run "pnpm approve-builds|\r?$)/m
 
 /** The `allowBuilds` key pnpm suggests when it refuses to prepare a git-hosted package; a subdirectory key can contain spaces. */
 const GIT_DEP_PREPARE = /ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED[\s\S]*?^allowBuilds:\r?\n[ \t]+(.+?): true$/m
@@ -48,6 +48,17 @@ async function readPolicy(dir: string) {
     isScalar(key) && typeof key.value === 'string' && !/[*?]/.test(key.value)
       && isScalar(value) && value.value === UNDECIDED_BUILD ? [key.value] : []) : []
   return { document, pending, keys }
+}
+
+/**
+ * Read the `allowBuilds` keys already awaiting a decision, without recording or changing anything.
+ * The keys pnpm reports as ignored are every pending one in the tree, so a caller that approves a
+ * run's report compares against this snapshot to approve only the keys that run itself introduced.
+ * @param dir Current profile directory.
+ * @returns Exact `allowBuilds` keys still set to the undecided placeholder; wildcard rules are excluded.
+ */
+export async function readPendingBuilds(dir: string): Promise<string[]> {
+  return (await readPolicy(dir)).pending
 }
 
 /**

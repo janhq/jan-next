@@ -63,7 +63,7 @@ function dotState(entry: Entry, summary: SessionSummary | undefined): 'ongoing' 
   return summary?.projectionValues?.subagentActivity?.current.kind === 'failed' ? 'error' : 'idle'
 }
 
-/** One subagent: status, title and usage on a line; its trail and own subagents underneath when open. */
+/** One subagent: status, title, profile and usage on a line; its activity and children underneath. */
 function RosterRow({ entry, parentSessionId, context }: { entry: Entry; parentSessionId: SessionId; context: RowContext }) {
   const { catalogs, summaries, expanded, toggle, now, openChild, openChildAside, t } = context
   const detailId = useId()
@@ -72,7 +72,10 @@ function RosterRow({ entry, parentSessionId, context }: { entry: Entry; parentSe
   const name = entryName(entry)
   const title = entry.label || summary?.title || name
   const values = summary?.projectionValues
-  const model = external ? undefined : values?.modelSelection?.lastUsed?.model
+  const model = external ? undefined : values?.modelSelection?.lastUsed
+  const sandboxMode = entry.mode === 'continuable' ? entry.sandboxMode : undefined
+  const permission = sandboxMode === 'read-only' || sandboxMode === 'workspace-write'
+    ? t(`permission.${sandboxMode}`) : undefined
   const total = tokenTotal(values?.tokenUsage)
   const elapsed = activityDuration(summary, entry.activity, now)
   const migration = summary?.formatStatus === 'migration-required' || catalogs[entry.id]?.state === 'migration-required'
@@ -83,6 +86,8 @@ function RosterRow({ entry, parentSessionId, context }: { entry: Entry; parentSe
       <StateDot state={dotState(entry, summary)} size={12} />
       <span className={css.status}>{statusLabel(entry, summary, t)}</span>
       <span className={css.title}>{title}</span>
+      {entry.agent !== undefined && <span className={css.profile} title={t('profile.title', { id: entry.agent })}>@{entry.agent}</span>}
+      {permission !== undefined && <span className={css.permission} title={permission}>{permission}</span>}
       {!external && <IconChevronRightOutlineRegular size={12} className={css.chevron} aria-hidden />}
     </>
   )
@@ -95,6 +100,11 @@ function RosterRow({ entry, parentSessionId, context }: { entry: Entry; parentSe
             onClick={() => { toggle(entry.id) }}>
             {line}
           </button>
+        )}
+        {model != null && (
+          <span className={css.model} title={`${model.provider}/${model.model}`}>
+            {model.model.slice(model.model.lastIndexOf('/') + 1) || model.model}
+          </span>
         )}
         {(total !== undefined || elapsed !== undefined) && (
           <span className={css.metrics}>
@@ -117,7 +127,7 @@ function RosterRow({ entry, parentSessionId, context }: { entry: Entry; parentSe
         <div id={detailId} className={css.detail}>
           <div className={css.meta}>
             {title !== name && <span>{name}</span>}
-            {model !== undefined && <span>{model}</span>}
+            {model != null && <span>{model.model}</span>}
             {migration && <span>{t('catalog.migrationRequired')}</span>}
             <button type="button" className={css.openChat} onClick={() => { openChild(address) }}>
               {t('open.chat')}

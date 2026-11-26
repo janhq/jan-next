@@ -27,7 +27,7 @@ import { createUserMessage, type ContextFormed } from "@deepseek-ai/dsh-llm";
 import { AI_STREAM_PATH, ASSET_PREFIX, CANVAS_READ_PATH, CARD_ERROR_PATH, EXEC_PATH, FS_PATH, WASM_PATH, WEB_SEARCH_PATH } from "./contract-assets.ts";
 import { CANVAS_DIR, canvasChildPath, canvasIdOf, canvasPath, isCanvasId } from "./contract.ts";
 import { CardFailures, CARD_FAILURE_CONTEXT, CARD_FAILURE_CONTEXT_ORDER, WAKE_SUMMARY, WAKE_TEXT } from "./card-failure.ts";
-import { inlinePrompt, PROMPT_SECTION_NAME, PROMPT_SECTION_ORDER, type Capabilities } from "./prompt.ts";
+import { briefPrompt, inlinePrompt, PROMPT_SECTION_NAME, PROMPT_SECTION_ORDER, type Capabilities, type InlinePromptMode } from "./prompt.ts";
 import { skillEntry, skillPath, skillResourceBase, SKILL_DESCRIPTION, SKILL_NAME } from "./skill.ts";
 
 /**
@@ -42,7 +42,7 @@ import { skillEntry, skillPath, skillResourceBase, SKILL_DESCRIPTION, SKILL_NAME
  */
 declare module "@deepseek-ai/dsh-system-prompt" {
   interface AssembleContext {
-    agent?: { readonly id: string };
+    agent?: { readonly id: string; readonly session?: object };
   }
 }
 
@@ -93,6 +93,14 @@ export const Config = z.object({
     .boolean()
     .default(true)
     .description("Let generated cards run shell commands through `$dsh/exec`, under this session's own sandbox mode. Cards use it to search (`rg`, `fd`), run `lint`/`check`, and read `git`. The sandbox still applies; what does not is the per-command approval prompt, so turn this off for a session where that matters."),
+  inlinePrompt: z
+    .union([z.const("full"), z.const("brief"), z.const("off")])
+    .default("full")
+    .description("How much card guidance every request carries. `full` sends the complete guide. `brief` sends the trigger and the block syntax, and leaves the rules to the `generative-ui` skill. `off` sends nothing; the skill stays in the skill catalog."),
+  inlinePromptByMode: z
+    .dict(z.union([z.const("full"), z.const("brief"), z.const("off")]))
+    .default({})
+    .description("Overrides `inlinePrompt` for chats in the named agent modes, keyed by mode id."),
 });
 
 // Old schemastery ignores this metadata; new hosts project it into SettingsForms
@@ -107,7 +115,11 @@ Object.assign(Config.dict!.allowExec!.meta, { volatile: true });
 // SET: the direct dev pin is now `~3.18.4` so the export sits on ONE `Schema` identity, while
 // an older transitive graph may still nest 3.18.2). The runtime already reads it as tri-state
 // (`=== true`), so nothing changes at run time.
-export type Config = { allowExec: boolean | { get(): boolean | undefined } };
+export type Config = {
+  allowExec: boolean | { get(): boolean | undefined };
+  inlinePrompt?: InlinePromptMode;
+  inlinePromptByMode?: Record<string, InlinePromptMode>;
+};
 
 type LegacySettings = {
   installSection?: (owner: Context, ns: string, schema: typeof Config, defaults: Config, options: { setSource: (source: () => Config) => void; onChange: () => void }) => unknown;
@@ -593,7 +605,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     // nothing — visible to a reader as a card losing its host mid-conversation.
     if (configured?.allowExec === allowExec) return;
     void configured?.fiber.dispose();
-    configured = { allowExec, fiber: ctx.plugin({ name: "dsh-generative-ui:configured", apply: (scoped: Context) => applyWith(scoped, allowExec) }) };
+    configured = { allowExec, fiber: ctx.plugin({ name: "dsh-generative-ui:configured", apply: (scoped: Context) => applyWith(scoped, allowExec, config.inlinePrompt ?? "full", config.inlinePromptByMode ?? {}) }) };
   };
   // 无 settings 服务时下面的 inject 不执行，必须先用 entry 配置挂载；rebuild 内的值比较避免重复挂载。
   rebuild();
@@ -612,7 +624,15 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 }
 
 /** Everything whose shape depends on `allowExec`; rebuilt when the setting changes. */
-function applyWith(ctx: Context, allowExec: boolean): void {
+function applyWith(ctx: Context, allowExec: boolean, inlineMode: InlinePromptMode, inlineModeByPreset: Record<string, InlinePromptMode>): void {
+  const PROMPTS: Record<InlinePromptMode, (capabilities: Capabilities) => string> = { full: inlinePrompt, brief: briefPrompt, off: () => "" };
+  // The session's current mode, not the one it was created in: a chat can switch mode before its
+  // first message. A host without the mode registry has no modes to key on.
+  const inlineModeFor = (session: object | undefined): InlinePromptMode => {
+    const presets = (ctx as unknown as { get: (name: string) => { presetForSession: (session: object) => string | null } | undefined }).get("agentPresets");
+    const preset = session === undefined ? null : (presets?.presetForSession(session) ?? null);
+    return (preset === null ? undefined : inlineModeByPreset[preset]) ?? inlineMode;
+  };
   /**
    * The guidance is built from what this host actually mounted, not from what it might have.
    *
@@ -632,7 +652,7 @@ function applyWith(ctx: Context, allowExec: boolean): void {
   const guidance = () => {
     for (const handle of stopGuidance) stop(handle);
     stopGuidance = [
-      ctx.effect(() => ctx.systemPrompt.section({ name: PROMPT_SECTION_NAME, order: PROMPT_SECTION_ORDER, text: inlinePrompt(capabilities) }), "dsh-generative-ui: inline prompt"),
+      ctx.effect(() => ctx.systemPrompt.section({ name: PROMPT_SECTION_NAME, order: PROMPT_SECTION_ORDER, text: (assembly) => PROMPTS[inlineModeFor(assembly.agent?.session)](capabilities) }), "dsh-generative-ui: inline prompt"),
       ctx.inject(["skills"], (scoped) =>
         scoped.effect(
           () =>

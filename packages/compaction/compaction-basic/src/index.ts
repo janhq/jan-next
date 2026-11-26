@@ -330,6 +330,32 @@ export class BasicCompactionEngine extends CompactionEngine {
   }
 
   /**
+   * The pressure at which automatic compaction runs for the chat's routed request,
+   * resolved exactly as {@link compactIfNeeded} resolves it.
+   * @param agent - agent whose latest routed request envelope selects the policy.
+   * @param signal - cancels the model-capacity lookup.
+   * @returns threshold tokens, or undefined when automatic compaction is off, nothing was routed yet,
+   *   or the route advertises no usable capacity.
+   */
+  override async autoCompactThreshold(agent: Agent, signal: AbortSignal): Promise<number | undefined> {
+    if (!this.config.auto) return undefined
+    const header = agent.session.requestHeader()
+    if (header === undefined || routedTarget(agent.session) === undefined) return undefined
+    const info = await this.ctx.llm.resolveModelInfo(header.config.provider, header.config.model, signal)
+    if (info.context === undefined) return undefined
+    try {
+      return resolveCompactSpec(
+        resolveTargetPolicy(this.config, header.config),
+        info.context.contextWindow,
+        reservedCompletionTokens(header, info.defaultMaxTokens),
+      ).thresholdTokens
+    } catch (error: unknown) {
+      if (error instanceof TargetPressureConfigError) return undefined
+      throw error
+    }
+  }
+
+  /**
    * Compact for replayed step-boundary pressure or one provider-confirmed context
    * overflow. Both triggers price the latest durable routed request envelope;
    * overflow bypasses the normal threshold and retained-tail policy so it can
@@ -512,6 +538,7 @@ export class BasicCompactionEngine extends CompactionEngine {
   private regionDependencies(): Parameters<typeof compactSurfaceRegion>[0] {
     return {
       meter: this.ctx.tokenMeter,
+      resolveModelInfo: (provider, model, signal) => this.ctx.llm.resolveModelInfo(provider, model, signal),
       summarize: (input, owner, abort) => this.summarize(input, owner, abort),
       recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
         session: agent.session,

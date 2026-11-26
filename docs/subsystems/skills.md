@@ -209,6 +209,8 @@ interface SkillLookupOptions {
 interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
+  /** Skip filters. Listings also include shadowed candidates so settings can show every skill folder. */
+  readonly unfiltered?: boolean | undefined
 }
 ```
 
@@ -293,12 +295,21 @@ registerProvider(create: (control: SkillProviderControl) => SkillProvider): () =
 register(skill: SkillRegistration): () => void
 
 /**
+ * Register a visibility filter applied to every filtered lookup, in every
+ * scope, until the returned disposer runs. Registration and disposal
+ * invalidate cached catalogs.
+ * @param filter - borrowed filter with a registry-unique name.
+ * @returns the Cordis effect disposer that removes this filter.
+ */
+registerFilter(filter: SkillFilter): () => void
+
+/**
  * List invocation-neutral skill summaries for a workspace. Consumers apply
  * model or user invocation policy at their operational boundary. Lookup
  * options and provider candidates are readonly same-process values borrowed
  * throughout discovery.
  * @param options - view options; `scope` selects the viewing agent's layers, `cwd` selects project roots, and `signal` cancels discovery.
- * @returns all sorted winning summaries.
+ * @returns sorted winning summaries, or all candidates for an unfiltered listing.
  */
 async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>
 

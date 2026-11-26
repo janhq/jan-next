@@ -27,6 +27,11 @@ export const zh = {
   'fontFamily.terminal.description': '用于侧栏终端。多个字体用逗号分隔，留空使用默认字体',
   'fontFamily.placeholder': '默认',
   'fontSize.more': '更多字体设置',
+  'codeTheme.title': '代码主题',
+  'codeTheme.description': '用于代码块与差异的语法高亮配色',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': '经典',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<string, string>
 
 /** The settings.theme namespace key union. */
@@ -59,6 +64,11 @@ export const en = {
   'fontFamily.terminal.description': 'Used for the sidebar terminal. Separate fonts with commas; leave empty for the default',
   'fontFamily.placeholder': 'Default',
   'fontSize.more': 'More font settings',
+  'codeTheme.title': 'Code theme',
+  'codeTheme.description': 'Syntax highlighting colors for code blocks and diffs',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Classic',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<ThemeKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -88,6 +98,11 @@ export const ja = {
   'fontFamily.terminal.description': 'サイドバーのターミナルに使用します。フォントはカンマで区切ります。空欄の場合はデフォルトを使用',
   'fontFamily.placeholder': 'デフォルト',
   'fontSize.more': 'その他のフォント設定',
+  'codeTheme.title': 'コードテーマ',
+  'codeTheme.description': 'コードブロックと差分のシンタックスハイライトの配色',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'クラシック',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -117,6 +132,11 @@ export const es = {
   'fontFamily.terminal.description': 'Se utiliza para el terminal de la barra lateral. Separe las fuentes con comas; dejar vacío por defecto',
   'fontFamily.placeholder': 'Predeterminado',
   'fontSize.more': 'Más configuraciones de fuente',
+  'codeTheme.title': 'Tema de código',
+  'codeTheme.description': 'Colores de resaltado de sintaxis para bloques de código y diferencias',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Clásico',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -146,6 +166,11 @@ export const fr = {
   'fontFamily.terminal.description': 'Utilisé pour le terminal de la barre latérale. Séparez les polices par des virgules ; laisser vide pour la valeur par défaut',
   'fontFamily.placeholder': 'Par défaut',
   'fontSize.more': 'Plus de paramètres de police',
+  'codeTheme.title': 'Thème du code',
+  'codeTheme.description': 'Couleurs de coloration syntaxique des blocs de code et des diffs',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Classique',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -175,6 +200,11 @@ export const de = {
   'fontFamily.terminal.description': 'Wird für das Sidebar-Terminal verwendet. Trennen Sie Schriftarten durch Kommas. Für die Standardeinstellung leer lassen',
   'fontFamily.placeholder': 'Standard',
   'fontSize.more': 'Weitere Schriftarteinstellungen',
+  'codeTheme.title': 'Code-Design',
+  'codeTheme.description': 'Farben der Syntaxhervorhebung für Codeblöcke und Diffs',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Klassisch',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -204,6 +234,11 @@ export const ru = {
   'fontFamily.terminal.description': 'Используется для терминала боковой панели. Разделяйте шрифты запятыми; оставьте пустым по умолчанию',
   'fontFamily.placeholder': 'По умолчанию',
   'fontSize.more': 'Дополнительные настройки шрифта',
+  'codeTheme.title': 'Тема кода',
+  'codeTheme.description': 'Цвета подсветки синтаксиса в блоках кода и диффах',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Классическая',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -233,4 +268,9 @@ export const pt = {
   'fontFamily.terminal.description': 'Usado para o terminal da barra lateral. Separe as fontes com vírgulas; deixe em branco para o padrão',
   'fontFamily.placeholder': 'Padrão',
   'fontSize.more': 'Mais configurações de fonte',
+  'codeTheme.title': 'Tema de código',
+  'codeTheme.description': 'Cores do realce de sintaxe em blocos de código e diffs',
+  'codeTheme.github': 'GitHub',
+  'codeTheme.classic': 'Clássico',
+  'codeTheme.solarized': 'Solarized',
 } satisfies Record<keyof typeof en, string>
